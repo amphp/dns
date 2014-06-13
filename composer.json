@@ -1,0 +1,24 @@
+{
+    "name": "daverandom/addr",
+    "homepage": "https://github.com/DaveRandom/Addr",
+    "description": "Asynchronous DNS resolver using Alert",
+    "keywords": ["dns", "resolve", "client", "async"],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Chris Wright",
+            "email": "addr@daverandom.com",
+            "role": "Creator / Lead Developer"
+        }
+    ],
+    "require": {
+        "php": ">=5.4.0",
+        "rdlowrey/alert": "~0.8.1",
+        "daverandom/libdns": "~0.2.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "Addr": "lib/Addr/"
+        }
+    }
+}
