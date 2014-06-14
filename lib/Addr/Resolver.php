@@ -6,109 +6,72 @@ use Alert\Reactor;
 
 class Resolver
 {
-    const INET4_ADDR = 1;
-    const INET6_ADDR = 2;
-    const PREFER_INET4 = 4;
-
-    private $domainNameMatchExpr = '/^(?:[a-z][a-z0-9\-]{0,61}[a-z0-9])(?:\.[a-z][a-z0-9\-]{0,61}[a-z0-9])*/i';
-
     /**
      * @var Reactor
      */
     private $reactor;
 
     /**
+     * @var NameValidator
+     */
+    private $nameValidator;
+
+    /**
+     * @var Client
+     */
+    private $client;
+
+    /**
      * @var Cache
      */
     private $cache;
 
-    private $hostsFilePath;
-
-    private $hostsFileLastModTime = 0;
-
-    private $hostsFileData = [];
-
     /**
-     * @param Reactor $reactor
-     * @param Cache $cache
+     * @var HostsFile
      */
-    public function __construct(Reactor $reactor, Cache $cache = null)
-    {
-        $this->reactor = $reactor;
-
-        $path = stripos(PHP_OS, 'win') === 0 ? 'C:\Windows\system32\drivers\etc\hosts' : '/etc/hosts';
-        if (is_file($path) && is_readable($path)) {
-            $this->hostsFilePath = $path;
-        }
-    }
+    private $hostsFile;
 
     /**
-     * Parse a hosts file into an array
-     */
-    private function reloadHostsFileData()
-    {
-        $this->hostsFileData = [];
-
-        foreach (file($this->hostsFilePath) as $line) {
-            $line = trim($line);
-            if ($line[0] === '#') {
-                continue;
-            }
-
-            $parts = preg_split('/\s+/', $line);
-            if (!filter_var($parts[0], FILTER_VALIDATE_IP)) {
-                continue;
-            }
-
-            for ($i = 1, $l = count($parts); $i < $l; $i++) {
-                if (preg_match($this->domainNameMatchExpr, $parts[$i])) {
-                    $this->hostsFileData[$parts[$i]] = $parts[0];
-                }
-            }
-        }
-    }
-
-    /**
-     * Lookup a name in the hosts file
+     * Constructor
      *
-     * @param string $name
-     * @return string|null
+     * @param Reactor $reactor
+     * @param NameValidator $nameValidator
+     * @param Client $client
+     * @param Cache $cache
+     * @param HostsFile $hostsFile
      */
-    private function resolveFromHostsFile($name)
-    {
-        if ($this->hostsFilePath) {
-            clearstatcache(true, $this->hostsFilePath);
-            $mtime = filemtime($this->hostsFilePath);
-
-            if ($mtime > $this->hostsFileLastModTime) {
-                $this->reloadHostsFileData();
-            }
-        }
-
-        return isset($this->hostsFileData[$name]) ? $this->hostsFileData[$name] : null;
+    public function __construct(
+        Reactor $reactor,
+        NameValidator $nameValidator,
+        Client $client = null,
+        Cache $cache = null,
+        HostsFile $hostsFile = null
+    ) {
+        $this->reactor = $reactor;
+        $this->nameValidator = $nameValidator;
+        $this->client = $client;
+        $this->cache = $cache;
+        $this->hostsFile = $hostsFile;
     }
 
     /**
-     * Try and resolve a name through the hosts file or the cache
+     * Check if a supplied name is an IP address and resolve immediately
      *
      * @param string $name
      * @param callable $callback
-     * @param int $mode
      * @return bool
      */
-    private function resolveNameLocally($name, callable $callback, $mode = 7)
+    private function resolveAsIPAddress($name, $callback)
     {
-        if (null !== $result = $this->resolveFromHostsFile($name)) {
-            $this->reactor->immediately(function() use($callback, $result) {
-                call_user_func($callback, $result);
+        if (filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+            $this->reactor->immediately(function() use($callback, $name) {
+                call_user_func($callback, $name, AddressModes::INET4_ADDR);
             });
 
             return true;
-        }
-
-        if ($this->cache && null !== $result = $this->cache->fetch($name)) {
-            $this->reactor->immediately(function() use($callback, $result) {
-                call_user_func($callback, $result);
+        } else if (filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+            $this->reactor->immediately(function() use($callback, $name) {
+                call_user_func($callback, $name, AddressModes::INET6_ADDR);
             });
 
             return true;
@@ -118,14 +81,117 @@ class Resolver
     }
 
     /**
+     * Resolve a name in the hosts file
+     *
      * @param string $name
+     * @param int $mode
      * @param callable $callback
+     * @return bool
      */
-    public function resolve($name, callable $callback)
+    private function resolveInHostsFile($name, $mode, $callback)
     {
-        if ($this->resolveNameLocally($name, $callback)) {
+        /* localhost should resolve regardless of whether we have a hosts file
+           also the Windows hosts file no longer contains this record */
+        if ($name === 'localhost') {
+            if ($mode & AddressModes::PREFER_INET6) {
+                $this->reactor->immediately(function() use($callback) {
+                    call_user_func($callback, '::1', AddressModes::INET6_ADDR);
+                });
+            } else {
+                $this->reactor->immediately(function() use($callback) {
+                    call_user_func($callback, '127.0.0.1', AddressModes::INET4_ADDR);
+                });
+            }
+
+            return true;
+        }
+
+        if (!$this->hostsFile || null === $result = $this->hostsFile->resolve($name, $mode)) {
+            return false;
+        }
+
+        list($addr, $type) = $result;
+        $this->reactor->immediately(function() use($callback, $addr, $type) {
+            call_user_func($callback, $addr, $type);
+        });
+
+        return true;
+    }
+
+    /**
+     * Resolve a name in the cache
+     *
+     * @param string $name
+     * @param int $mode
+     * @param callable $callback
+     * @return bool
+     */
+    private function resolveInCache($name, $mode, $callback)
+    {
+        if ($this->cache && null !== $result = $this->cache->resolve($name, $mode)) {
+            list($addr, $type) = $result;
+            $this->reactor->immediately(function() use($callback, $addr, $type) {
+                call_user_func($callback, $addr, $type);
+            });
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Resolve a name from a server
+     *
+     * @param string $name
+     * @param int $mode
+     * @param callable $callback
+     * @return bool
+     */
+    private function resolveFromServer($name, $mode, $callback)
+    {
+        if (!$this->client) {
+            $this->reactor->immediately(function() use($callback) {
+                call_user_func($callback, null, ResolutionErrors::ERR_NO_RECORD);
+            });
+
             return;
         }
 
+        $this->client->resolve($name, $mode, function($addr, $type, $ttl) use($name, $callback) {
+            if ($addr !== null && $this->cache) {
+                $this->cache->store($name, $addr, $type, $ttl);
+            }
+
+            call_user_func($callback, $addr, $type);
+        });
+    }
+
+    /**
+     * Resolve a name
+     *
+     * @param string $name
+     * @param callable $callback
+     * @param int $mode
+     */
+    public function resolve($name, callable $callback, $mode = 3)
+    {
+        if ($this->resolveAsIPAddress($name, $callback)) {
+            return;
+        }
+
+        if (!$this->nameValidator->validate($name)) {
+            $this->reactor->immediately(function() use($callback) {
+                call_user_func($callback, null, ResolutionErrors::ERR_INVALID_NAME);
+            });
+
+            return;
+        }
+
+        if ($this->resolveInHostsFile($name, $mode, $callback) || $this->resolveInCache($name, $mode, $callback)) {
+            return;
+        }
+
+        $this->resolveFromServer($name, $mode, $callback);
     }
 }
