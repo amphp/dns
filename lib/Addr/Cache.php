@@ -2,72 +2,34 @@
 
 namespace Addr;
 
-class Cache
+/**
+ * Interface for record caches
+ *
+ * @package Addr
+ */
+interface Cache
 {
-    /**
-     * Mapped names stored in the cache
-     *
-     * @var array
-     */
-    private $data = [
-        AddressModes::INET4_ADDR => [],
-        AddressModes::INET6_ADDR => [],
-    ];
-
     /**
      * Look up a name in the cache
      *
-     * @param string $name
-     * @param int $mode
-     * @return string|null
+     * @param string $name Name to query
+     * @param int $mode Bit mask of AddressModes
+     * @return array|null Array with address at index 0 and type at index 1, or null if the record does not exist
      */
-    public function resolve($name, $mode)
-    {
-        $have4 = isset($this->data[AddressModes::INET4_ADDR][$name]);
-        $have6 = isset($this->data[AddressModes::INET6_ADDR][$name]);
-
-        if ($have6 && (!$have4 || $mode & AddressModes::PREFER_INET6)) {
-            $type = AddressModes::INET6_ADDR;
-        } else if ($have4) {
-            $type = AddressModes::INET4_ADDR;
-        } else {
-            return null;
-        }
-
-        if ($this->data[$type][$name][1] < time()) {
-            unset($this->data[$type][$name]);
-            return null;
-        }
-
-        return [$this->data[$type][$name][0], $type];
-    }
+    public function resolve($name, $mode);
 
     /**
      * Store an entry in the cache
      *
-     * @param string $name
-     * @param string $addr
-     * @param int $type
-     * @param int $ttl
+     * @param string $name Name to query
+     * @param string $addr IP address that $name maps to
+     * @param int $type AddressModes::INET4_ADDR or AddressModes::INET6_ADDR
+     * @param int $ttl Time the record should live, in seconds
      */
-    public function store($name, $addr, $type, $ttl)
-    {
-        $this->data[$type][$name] = [$addr, time() + $ttl];
-    }
+    public function store($name, $addr, $type, $ttl);
 
     /**
-     * Remove expired records from the cache
+     * Remove all expired records from the cache
      */
-    public function collectGarbage()
-    {
-        $now = time();
-
-        foreach ([AddressModes::INET4_ADDR, AddressModes::INET6_ADDR] as $type) {
-            while (list($name, $data) = each($this->data[$type])) {
-                if ($data[1] < $now) {
-                    unset($this->data[$type][$name]);
-                }
-            }
-        }
-    }
+    public function collectGarbage();
 }

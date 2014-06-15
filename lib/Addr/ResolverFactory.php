@@ -42,7 +42,7 @@ class ResolverFactory
             $serverAddr, $serverPort, $requestTimeout
         );
 
-        $cache = new Cache;
+        $cache = new MemoryCache;
         $hostsFile = new HostsFile($nameValidator, $hostsFilePath);
 
         return new Resolver($reactor, $nameValidator, $client, $cache, $hostsFile);
