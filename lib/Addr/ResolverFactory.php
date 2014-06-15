@@ -22,9 +22,9 @@ class ResolverFactory
      */
     public function createResolver(
         Reactor $reactor,
-        $serverAddr = '8.8.8.8',
-        $serverPort = 53,
-        $requestTimeout = 2000,
+        $serverAddr = null,
+        $serverPort = null,
+        $requestTimeout = null,
         $hostsFilePath = null
     ) {
         $nameValidator = new NameValidator;

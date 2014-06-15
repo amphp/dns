@@ -61,13 +61,17 @@ class Client
         Reactor $reactor,
         RequestBuilder $requestBuilder,
         ResponseInterpreter $responseInterpreter,
-        $serverAddress = '8.8.8.8',
-        $serverPort = 53,
-        $requestTimeout = 2000
+        $serverAddress = null,
+        $serverPort = null,
+        $requestTimeout = null
     ) {
         $this->reactor = $reactor;
         $this->requestBuilder = $requestBuilder;
         $this->responseInterpreter = $responseInterpreter;
+
+        $serverAddress = $serverAddress === null ? (string)$serverAddress : '8.8.8.8';
+        $serverPort = $serverPort === null ? (int)$serverPort : 53;
+        $requestTimeout = $requestTimeout === null ? (int)$requestTimeout : 2000;
 
         $address = sprintf('udp://%s:%d', $serverAddress, $serverPort);
         $this->socket = stream_socket_client($address, $errNo, $errStr);
