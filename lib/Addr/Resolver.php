@@ -32,6 +32,11 @@ class Resolver
     private $hostsFile;
 
     /**
+     * @var callable
+     */
+    private $cacheStoreCallback;
+
+    /**
      * Constructor
      *
      * @param Reactor $reactor
@@ -52,6 +57,10 @@ class Resolver
         $this->client = $client;
         $this->cache = $cache;
         $this->hostsFile = $hostsFile;
+
+        if ($cache) {
+            $this->cacheStoreCallback = [$cache, 'store'];
+        }
     }
 
     /**
@@ -158,13 +167,7 @@ class Resolver
             return;
         }
 
-        $this->client->resolve($name, $mode, function($addr, $type, $ttl) use($name, $callback) {
-            if ($addr !== null && $this->cache) {
-                $this->cache->store($name, $addr, $type, $ttl);
-            }
-
-            call_user_func($callback, $addr, $type);
-        });
+        $this->client->resolve($name, $mode, $callback, $this->cacheStoreCallback);
     }
 
     /**
