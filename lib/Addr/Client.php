@@ -144,7 +144,7 @@ class Client
 
         list($id, $addr, $ttl) = $response;
         if ($addr !== null) {
-            $this->completeOutstandingRequest($id, $addr, $this->outstandingRequests[$id][2], $ttl);
+            $this->completeOutstandingRequest($id, $addr, $this->outstandingRequests[$id]['last_type'], $ttl);
         } else {
             $this->processOutstandingRequest($id);
         }
@@ -160,8 +160,8 @@ class Client
      */
     private function completeOutstandingRequest($id, $addr, $type, $ttl = null)
     {
-        $this->reactor->cancel($this->outstandingRequests[$id][3]);
-        call_user_func($this->outstandingRequests[$id][4], $addr, $type, $ttl);
+        $this->reactor->cancel($this->outstandingRequests[$id]['timeout_id']);
+        call_user_func($this->outstandingRequests[$id]['callback'], $addr, $type, $ttl);
         unset($this->outstandingRequests[$id]);
 
         if (!$this->outstandingRequests) {
@@ -177,18 +177,18 @@ class Client
      */
     private function processOutstandingRequest($id)
     {
-        if (!$this->outstandingRequests[$id][1]) {
+        if (!$this->outstandingRequests[$id]['requests']) {
             $this->completeOutstandingRequest($id, null, ResolutionErrors::ERR_NO_RECORD);
             return;
         }
 
-        $type = array_shift($this->outstandingRequests[$id][1]);
-        $this->outstandingRequests[$id][2] = $type;
+        $type = array_shift($this->outstandingRequests[$id]['requests']);
+        $this->outstandingRequests[$id]['last_type'] = $type;
 
-        $packet = $this->requestBuilder->buildRequest($id, $this->outstandingRequests[$id][0], $type);
+        $packet = $this->requestBuilder->buildRequest($id, $this->outstandingRequests[$id]['name'], $type);
         fwrite($this->socket, $packet);
 
-        $this->outstandingRequests[$id][3] = $this->reactor->once(function() use($id) {
+        $this->outstandingRequests[$id]['timeout_id'] = $this->reactor->once(function() use($id) {
             $this->completeOutstandingRequest($id, null, ResolutionErrors::ERR_SERVER_TIMEOUT);
         }, $this->requestTimeout);
 
@@ -211,7 +211,14 @@ class Client
         $requests = $this->getRequestList($mode);
         $id = $this->getNextFreeRequestId();
 
-        $this->outstandingRequests[$id] = [$name, $requests, null, null, $callback];
+        $this->outstandingRequests[$id] = [
+            'name'       => $name,
+            'requests'   => $requests,
+            'last_type'  => null,
+            'timeout_id' => null,
+            'callback'   => $callback
+        ];
+
         $this->processOutstandingRequest($id);
     }
 }
