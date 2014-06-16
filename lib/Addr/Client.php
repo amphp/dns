@@ -39,12 +39,27 @@ class Client
     /**
      * @var array
      */
-    private $outstandingLookups = [];
+    private $pendingLookups = [];
+
+    /**
+     * @var array
+     */
+    private $pendingRequestsByNameAndType = [];
+
+    /**
+     * @var array
+     */
+    private $pendingRequestsById = [];
 
     /**
      * @var int
      */
     private $requestIdCounter = 0;
+
+    /**
+     * @var int
+     */
+    private $lookupIdCounter = 0;
 
     /**
      * Constructor
@@ -69,9 +84,9 @@ class Client
         $this->requestBuilder = $requestBuilder;
         $this->responseInterpreter = $responseInterpreter;
 
-        $serverAddress = $serverAddress === null ? (string)$serverAddress : '8.8.8.8';
-        $serverPort = $serverPort === null ? (int)$serverPort : 53;
-        $requestTimeout = $requestTimeout === null ? (int)$requestTimeout : 2000;
+        $serverAddress = $serverAddress !== null ? (string)$serverAddress : '8.8.8.8';
+        $serverPort = $serverPort !== null ? (int)$serverPort : 53;
+        $requestTimeout = $requestTimeout !== null ? (int)$requestTimeout : 2000;
 
         $address = sprintf('udp://%s:%d', $serverAddress, $serverPort);
         $this->socket = stream_socket_client($address, $errNo, $errStr);
@@ -96,7 +111,25 @@ class Client
             if ($this->requestIdCounter >= 65536) {
                 $this->requestIdCounter = 0;
             }
-        } while(isset($this->outstandingLookups[$result]));
+        } while(isset($this->pendingRequestsById[$result]));
+
+        return $result;
+    }
+
+    /**
+     * Get the next available lookup ID
+     *
+     * @return int
+     */
+    private function getNextFreeLookupId()
+    {
+        do {
+            $result = $this->lookupIdCounter++;
+
+            if ($this->lookupIdCounter >= PHP_INT_MAX) {
+                $this->lookupIdCounter = 0;
+            }
+        } while(isset($this->pendingLookups[$result]));
 
         return $result;
     }
@@ -131,6 +164,34 @@ class Client
     }
 
     /**
+     * Send a request to the server
+     *
+     * @param array $request
+     */
+    private function sendRequest($request)
+    {
+        $packet = $this->requestBuilder->buildRequest($request['id'], $request['name'], $request['type']);
+        fwrite($this->socket, $packet);
+
+        $request['timeout_id'] = $this->reactor->once(function() use($request) {
+            unset($this->pendingRequestsByNameAndType[$request['name']][$request['type']]);
+
+            foreach ($request['lookups'] as $id => $lookup) {
+                $this->completePendingLookup($id, null, ResolutionErrors::ERR_SERVER_TIMEOUT);
+            }
+        }, $this->requestTimeout);
+
+        if ($this->readWatcherId === null) {
+            $this->readWatcherId = $this->reactor->onReadable($this->socket, function() {
+                $this->onSocketReadable();
+            });
+        }
+
+        $this->pendingRequestsById[$request['id']] = $request;
+        $this->pendingRequestsByNameAndType[$request['name']][$request['type']] = &$this->pendingRequestsById[$request['id']];
+    }
+
+    /**
      * Handle data waiting to be read from the socket
      */
     private function onSocketReadable()
@@ -143,10 +204,29 @@ class Client
         }
 
         list($id, $addr, $ttl) = $response;
+        $request = $this->pendingRequestsById[$id];
+        $type = $request['type'];
+        $name = $request['name'];
+
+        $this->reactor->cancel($request['timeout_id']);
+        unset($this->pendingRequestsById[$id], $this->pendingRequestsByNameAndType[$name][$type]);
+        if (!$this->pendingRequestsById) {
+            $this->reactor->cancel($this->readWatcherId);
+            $this->readWatcherId = null;
+        }
+
         if ($addr !== null) {
-            $this->completeOutstandingRequest($id, $addr, $this->outstandingLookups[$id]['last_type'], $ttl);
+            foreach ($request['lookups'] as $id => $lookup) {
+                $this->completePendingLookup($id, $addr, $type);
+            }
+
+            if ($request['cache_store']) {
+                call_user_func($request['cache_store'], $name, $addr, $type, $ttl);
+            }
         } else {
-            $this->processOutstandingLookup($id);
+            foreach ($request['lookups'] as $id => $lookup) {
+                $this->processPendingLookup($id);
+            }
         }
     }
 
@@ -156,18 +236,11 @@ class Client
      * @param int $id
      * @param string $addr
      * @param int $type
-     * @param int $ttl
      */
-    private function completeOutstandingRequest($id, $addr, $type, $ttl = null)
+    private function completePendingLookup($id, $addr, $type)
     {
-        $this->reactor->cancel($this->outstandingLookups[$id]['timeout_id']);
-        call_user_func($this->outstandingLookups[$id]['callback'], $addr, $type, $ttl);
-        unset($this->outstandingLookups[$id]);
-
-        if (!$this->outstandingLookups) {
-            $this->reactor->cancel($this->readWatcherId);
-            $this->readWatcherId = null;
-        }
+        call_user_func($this->pendingLookups[$id]['callback'], $addr, $type);
+        unset($this->pendingLookups[$id]);
     }
 
     /**
@@ -175,27 +248,32 @@ class Client
      *
      * @param int $id
      */
-    private function processOutstandingLookup($id)
+    private function processPendingLookup($id)
     {
-        if (!$this->outstandingLookups[$id]['requests']) {
-            $this->completeOutstandingRequest($id, null, ResolutionErrors::ERR_NO_RECORD);
+        $lookup = &$this->pendingLookups[$id];
+
+        if (!$lookup['requests']) {
+            $this->completePendingLookup($id, null, ResolutionErrors::ERR_NO_RECORD);
             return;
         }
 
-        $type = array_shift($this->outstandingLookups[$id]['requests']);
-        $this->outstandingLookups[$id]['last_type'] = $type;
+        $name = $lookup['name'];
+        $type = array_shift($lookup['requests']);
+        $lookup['last_type'] = $type;
 
-        $packet = $this->requestBuilder->buildRequest($id, $this->outstandingLookups[$id]['name'], $type);
-        fwrite($this->socket, $packet);
+        $this->pendingRequestsByNameAndType[$name][$type]['lookups'][$id] = $lookup;
 
-        $this->outstandingLookups[$id]['timeout_id'] = $this->reactor->once(function() use($id) {
-            $this->completeOutstandingRequest($id, null, ResolutionErrors::ERR_SERVER_TIMEOUT);
-        }, $this->requestTimeout);
+        if (count($this->pendingRequestsByNameAndType[$name][$type]) === 1) {
+            $request = [
+                'id'          => $this->getNextFreeRequestId(),
+                'name'        => $name,
+                'type'        => $type,
+                'lookups'     => [$id => $lookup],
+                'timeout_id'  => null,
+                'cache_store' => $lookup['cache_store'],
+            ];
 
-        if ($this->readWatcherId === null) {
-            $this->readWatcherId = $this->reactor->onReadable($this->socket, function() {
-                $this->onSocketReadable();
-            });
+            $this->sendRequest($request);
         }
     }
 
@@ -205,20 +283,20 @@ class Client
      * @param string $name
      * @param int $mode
      * @param callable $callback
+     * @param callable $cacheStore
      */
-    public function resolve($name, $mode, callable $callback)
+    public function resolve($name, $mode, callable $callback, callable $cacheStore = null)
     {
-        $requests = $this->getRequestList($mode);
-        $id = $this->getNextFreeRequestId();
+        $id = $this->getNextFreeLookupId();
 
-        $this->outstandingLookups[$id] = [
-            'name'       => $name,
-            'requests'   => $requests,
-            'last_type'  => null,
-            'timeout_id' => null,
-            'callback'   => $callback
+        $this->pendingLookups[$id] = [
+            'name'        => $name,
+            'requests'    => $this->getRequestList($mode),
+            'last_type'   => null,
+            'callback'    => $callback,
+            'cache_store' => $cacheStore,
         ];
 
-        $this->processOutstandingLookup($id);
+        $this->processPendingLookup($id);
     }
 }
