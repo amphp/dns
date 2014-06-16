@@ -216,12 +216,12 @@ class Client
         }
 
         if ($addr !== null) {
-            foreach ($request['lookups'] as $id => $lookup) {
-                $this->completePendingLookup($id, $addr, $type);
-            }
-
             if ($request['cache_store']) {
                 call_user_func($request['cache_store'], $name, $addr, $type, $ttl);
+            }
+
+            foreach ($request['lookups'] as $id => $lookup) {
+                $this->completePendingLookup($id, $addr, $type);
             }
         } else {
             foreach ($request['lookups'] as $id => $lookup) {
