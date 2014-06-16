@@ -39,7 +39,7 @@ class Client
     /**
      * @var array
      */
-    private $outstandingRequests = [];
+    private $outstandingLookups = [];
 
     /**
      * @var int
@@ -96,7 +96,7 @@ class Client
             if ($this->requestIdCounter >= 65536) {
                 $this->requestIdCounter = 0;
             }
-        } while(isset($this->outstandingRequests[$result]));
+        } while(isset($this->outstandingLookups[$result]));
 
         return $result;
     }
@@ -144,9 +144,9 @@ class Client
 
         list($id, $addr, $ttl) = $response;
         if ($addr !== null) {
-            $this->completeOutstandingRequest($id, $addr, $this->outstandingRequests[$id]['last_type'], $ttl);
+            $this->completeOutstandingRequest($id, $addr, $this->outstandingLookups[$id]['last_type'], $ttl);
         } else {
-            $this->processOutstandingRequest($id);
+            $this->processOutstandingLookup($id);
         }
     }
 
@@ -160,11 +160,11 @@ class Client
      */
     private function completeOutstandingRequest($id, $addr, $type, $ttl = null)
     {
-        $this->reactor->cancel($this->outstandingRequests[$id]['timeout_id']);
-        call_user_func($this->outstandingRequests[$id]['callback'], $addr, $type, $ttl);
-        unset($this->outstandingRequests[$id]);
+        $this->reactor->cancel($this->outstandingLookups[$id]['timeout_id']);
+        call_user_func($this->outstandingLookups[$id]['callback'], $addr, $type, $ttl);
+        unset($this->outstandingLookups[$id]);
 
-        if (!$this->outstandingRequests) {
+        if (!$this->outstandingLookups) {
             $this->reactor->cancel($this->readWatcherId);
             $this->readWatcherId = null;
         }
@@ -175,20 +175,20 @@ class Client
      *
      * @param int $id
      */
-    private function processOutstandingRequest($id)
+    private function processOutstandingLookup($id)
     {
-        if (!$this->outstandingRequests[$id]['requests']) {
+        if (!$this->outstandingLookups[$id]['requests']) {
             $this->completeOutstandingRequest($id, null, ResolutionErrors::ERR_NO_RECORD);
             return;
         }
 
-        $type = array_shift($this->outstandingRequests[$id]['requests']);
-        $this->outstandingRequests[$id]['last_type'] = $type;
+        $type = array_shift($this->outstandingLookups[$id]['requests']);
+        $this->outstandingLookups[$id]['last_type'] = $type;
 
-        $packet = $this->requestBuilder->buildRequest($id, $this->outstandingRequests[$id]['name'], $type);
+        $packet = $this->requestBuilder->buildRequest($id, $this->outstandingLookups[$id]['name'], $type);
         fwrite($this->socket, $packet);
 
-        $this->outstandingRequests[$id]['timeout_id'] = $this->reactor->once(function() use($id) {
+        $this->outstandingLookups[$id]['timeout_id'] = $this->reactor->once(function() use($id) {
             $this->completeOutstandingRequest($id, null, ResolutionErrors::ERR_SERVER_TIMEOUT);
         }, $this->requestTimeout);
 
@@ -211,7 +211,7 @@ class Client
         $requests = $this->getRequestList($mode);
         $id = $this->getNextFreeRequestId();
 
-        $this->outstandingRequests[$id] = [
+        $this->outstandingLookups[$id] = [
             'name'       => $name,
             'requests'   => $requests,
             'last_type'  => null,
@@ -219,6 +219,6 @@ class Client
             'callback'   => $callback
         ];
 
-        $this->processOutstandingRequest($id);
+        $this->processOutstandingLookup($id);
     }
 }
