@@ -64,6 +64,26 @@ class Resolver
     }
 
     /**
+     * Verify the supplied domain name is in a valid format
+     *
+     * @param $name
+     * @param $callback
+     * @return bool
+     */
+    private function validateName($name, $callback)
+    {
+        if (!$this->nameValidator->validate($name)) {
+            $this->reactor->immediately(function() use($callback) {
+                call_user_func($callback, null, ResolutionErrors::ERR_INVALID_NAME);
+            });
+
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
      * Check if a supplied name is an IP address and resolve immediately
      *
      * @param string $name
@@ -183,11 +203,8 @@ class Resolver
             return;
         }
 
-        if (!$this->nameValidator->validate($name)) {
-            $this->reactor->immediately(function() use($callback) {
-                call_user_func($callback, null, ResolutionErrors::ERR_INVALID_NAME);
-            });
-
+        $name = strtolower($name);
+        if (!$this->validateName($name, $callback)) {
             return;
         }
 
