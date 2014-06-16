@@ -22,6 +22,11 @@ class Client
     private $responseInterpreter;
 
     /**
+     * @var Cache
+     */
+    private $cache;
+
+    /**
      * @var resource
      */
     private $socket;
@@ -67,6 +72,7 @@ class Client
      * @param Reactor $reactor
      * @param RequestBuilder $requestBuilder
      * @param ResponseInterpreter $responseInterpreter
+     * @param Cache $cache
      * @param string $serverAddress
      * @param int $serverPort
      * @param int $requestTimeout
@@ -76,6 +82,7 @@ class Client
         Reactor $reactor,
         RequestBuilder $requestBuilder,
         ResponseInterpreter $responseInterpreter,
+        Cache $cache = null,
         $serverAddress = null,
         $serverPort = null,
         $requestTimeout = null
@@ -83,6 +90,7 @@ class Client
         $this->reactor = $reactor;
         $this->requestBuilder = $requestBuilder;
         $this->responseInterpreter = $responseInterpreter;
+        $this->cache = $cache;
 
         $serverAddress = $serverAddress !== null ? (string)$serverAddress : '8.8.8.8';
         $serverPort = $serverPort !== null ? (int)$serverPort : 53;
@@ -216,8 +224,8 @@ class Client
         }
 
         if ($addr !== null) {
-            if ($request['cache_store']) {
-                call_user_func($request['cache_store'], $name, $addr, $type, $ttl);
+            if ($this->cache) {
+                $this->cache->store($name, $addr, $type, $ttl);
             }
 
             foreach ($request['lookups'] as $id => $lookup) {
@@ -259,8 +267,13 @@ class Client
 
         $name = $lookup['name'];
         $type = array_shift($lookup['requests']);
-        $lookup['last_type'] = $type;
 
+        if ($this->cache && $addr = $this->cache->resolve($name, $type)) {
+            $this->completePendingLookup($id, $addr, $type);
+            return;
+        }
+
+        $lookup['last_type'] = $type;
         $this->pendingRequestsByNameAndType[$name][$type]['lookups'][$id] = $lookup;
 
         if (count($this->pendingRequestsByNameAndType[$name][$type]) === 1) {
@@ -270,7 +283,6 @@ class Client
                 'type'        => $type,
                 'lookups'     => [$id => $lookup],
                 'timeout_id'  => null,
-                'cache_store' => $lookup['cache_store'],
             ];
 
             $this->sendRequest($request);
@@ -283,9 +295,8 @@ class Client
      * @param string $name
      * @param int $mode
      * @param callable $callback
-     * @param callable $cacheStore
      */
-    public function resolve($name, $mode, callable $callback, callable $cacheStore = null)
+    public function resolve($name, $mode, callable $callback)
     {
         $id = $this->getNextFreeLookupId();
 
@@ -294,7 +305,6 @@ class Client
             'requests'    => $this->getRequestList($mode),
             'last_type'   => null,
             'callback'    => $callback,
-            'cache_store' => $cacheStore,
         ];
 
         $this->processPendingLookup($id);

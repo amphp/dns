@@ -13,10 +13,10 @@ interface Cache
      * Look up a name in the cache
      *
      * @param string $name Name to query
-     * @param int $mode Bit mask of AddressModes
-     * @return array|null Array with address at index 0 and type at index 1, or null if the record does not exist
+     * @param int $type AddressModes::INET4_ADDR or AddressModes::INET6_ADDR
+     * @return string|null Mapped IP address or null or no record exists
      */
-    public function resolve($name, $mode);
+    public function resolve($name, $type);
 
     /**
      * Store an entry in the cache

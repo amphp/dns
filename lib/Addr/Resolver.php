@@ -22,19 +22,9 @@ class Resolver
     private $client;
 
     /**
-     * @var Cache
-     */
-    private $cache;
-
-    /**
      * @var HostsFile
      */
     private $hostsFile;
-
-    /**
-     * @var callable
-     */
-    private $cacheStoreCallback;
 
     /**
      * Constructor
@@ -42,25 +32,18 @@ class Resolver
      * @param Reactor $reactor
      * @param NameValidator $nameValidator
      * @param Client $client
-     * @param Cache $cache
      * @param HostsFile $hostsFile
      */
     public function __construct(
         Reactor $reactor,
         NameValidator $nameValidator,
         Client $client = null,
-        Cache $cache = null,
         HostsFile $hostsFile = null
     ) {
         $this->reactor = $reactor;
         $this->nameValidator = $nameValidator;
         $this->client = $client;
-        $this->cache = $cache;
         $this->hostsFile = $hostsFile;
-
-        if ($cache) {
-            $this->cacheStoreCallback = [$cache, 'store'];
-        }
     }
 
     /**
@@ -148,28 +131,6 @@ class Resolver
     }
 
     /**
-     * Resolve a name in the cache
-     *
-     * @param string $name
-     * @param int $mode
-     * @param callable $callback
-     * @return bool
-     */
-    private function resolveInCache($name, $mode, $callback)
-    {
-        if ($this->cache && null !== $result = $this->cache->resolve($name, $mode)) {
-            list($addr, $type) = $result;
-            $this->reactor->immediately(function() use($callback, $addr, $type) {
-                call_user_func($callback, $addr, $type);
-            });
-
-            return true;
-        }
-
-        return false;
-    }
-
-    /**
      * Resolve a name from a server
      *
      * @param string $name
@@ -187,7 +148,7 @@ class Resolver
             return;
         }
 
-        $this->client->resolve($name, $mode, $callback, $this->cacheStoreCallback);
+        $this->client->resolve($name, $mode, $callback);
     }
 
     /**
@@ -208,7 +169,7 @@ class Resolver
             return;
         }
 
-        if ($this->resolveInHostsFile($name, $mode, $callback) || $this->resolveInCache($name, $mode, $callback)) {
+        if ($this->resolveInHostsFile($name, $mode, $callback)) {
             return;
         }
 

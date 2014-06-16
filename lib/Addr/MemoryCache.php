@@ -15,31 +15,23 @@ class MemoryCache implements Cache
     ];
 
     /**
-     * Look up a name in the cache
+     * Look up an entry in the cache
      *
      * @param string $name
-     * @param int $mode
+     * @param int $type
      * @return string|null
      */
-    public function resolve($name, $mode)
+    public function resolve($name, $type)
     {
-        $have4 = isset($this->data[AddressModes::INET4_ADDR][$name]);
-        $have6 = isset($this->data[AddressModes::INET6_ADDR][$name]);
+        if (isset($this->data[$type][$name])) {
+            if ($this->data[$type][$name][1] >= time()) {
+                return $this->data[$type][$name][0];
+            }
 
-        if ($have6 && (!$have4 || $mode & AddressModes::PREFER_INET6)) {
-            $type = AddressModes::INET6_ADDR;
-        } else if ($have4) {
-            $type = AddressModes::INET4_ADDR;
-        } else {
-            return null;
-        }
-
-        if ($this->data[$type][$name][1] < time()) {
             unset($this->data[$type][$name]);
-            return null;
         }
 
-        return [$this->data[$type][$name][0], $type];
+        return null;
     }
 
     /**

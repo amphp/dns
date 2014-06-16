@@ -69,7 +69,7 @@ class HostsFile
 
         foreach (file($this->path) as $line) {
             $line = trim($line);
-            if ($line[0] === '#') {
+            if ($line !== '' && $line[0] === '#') {
                 continue;
             }
 

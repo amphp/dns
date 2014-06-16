@@ -30,6 +30,7 @@ class ResolverFactory
         $hostsFilePath = null
     ) {
         $nameValidator = new NameValidator;
+        $cache = $cache ?: new MemoryCache;
 
         $client = new Client(
             $reactor,
@@ -41,12 +42,11 @@ class ResolverFactory
             new ResponseInterpreter(
                 (new DecoderFactory)->create()
             ),
-            $serverAddr, $serverPort, $requestTimeout
+            $cache, $serverAddr, $serverPort, $requestTimeout
         );
 
-        $cache = $cache ?: new MemoryCache;
         $hostsFile = new HostsFile($nameValidator, $hostsFilePath);
 
-        return new Resolver($reactor, $nameValidator, $client, $cache, $hostsFile);
+        return new Resolver($reactor, $nameValidator, $client, $hostsFile);
     }
 }
