@@ -198,24 +198,40 @@ class Client
     {
         $packet = fread($this->socket, 512);
 
-        $response = $this->responseInterpreter->interpret($packet);
-        if ($response === null) {
+        // Decode the response and clean up the pending requests list
+        $decoded = $this->responseInterpreter->decode($packet);
+        if ($decoded === null) {
             return;
         }
 
-        list($id, $addr, $ttl) = $response;
+        list($id, $response) = $decoded;
         $request = $this->pendingRequestsById[$id];
-        $type = $request['type'];
         $name = $request['name'];
 
         $this->reactor->cancel($request['timeout_id']);
-        unset($this->pendingRequestsById[$id], $this->pendingRequestsByNameAndType[$name][$type]);
+        unset($this->pendingRequestsById[$id], $this->pendingRequestsByNameAndType[$name][$request['type']]);
         if (!$this->pendingRequestsById) {
             $this->reactor->cancel($this->readWatcherId);
             $this->readWatcherId = null;
         }
 
-        if ($addr !== null) {
+        // Interpret the response and make sure we have at least one resource record
+        $interpreted = $this->responseInterpreter->interpret($response, $request['type']);
+        if ($interpreted === null) {
+            foreach ($request['lookups'] as $id => $lookup) {
+                $this->processPendingLookup($id);
+            }
+
+            return;
+        }
+
+        // Distribute the result to the appropriate lookup routine
+        list($type, $addr, $ttl) = $interpreted;
+        if ($type === AddressModes::CNAME) {
+            foreach ($request['lookups'] as $id => $lookup) {
+                $this->redirectPendingLookup($id, $addr);
+            }
+        } else if ($addr !== null) {
             if ($request['cache_store']) {
                 call_user_func($request['cache_store'], $name, $addr, $type, $ttl);
             }
@@ -275,6 +291,21 @@ class Client
 
             $this->sendRequest($request);
         }
+    }
+
+    /**
+     * Redirect a lookup to search for another name
+     *
+     * @param int $id
+     * @param string $name
+     */
+    private function redirectPendingLookup($id, $name)
+    {
+        array_unshift($this->pendingLookups[$id]['requests'], $this->pendingLookups[$id]['last_type']);
+        $this->pendingLookups[$id]['last_type'] = null;
+        $this->pendingLookups[$id]['name'] = $name;
+
+        $this->processPendingLookup($id);
     }
 
     /**

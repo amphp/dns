@@ -3,7 +3,9 @@
 namespace Addr;
 
 use LibDNS\Decoder\Decoder,
-    LibDNS\Messages\MessageTypes;
+    LibDNS\Messages\Message,
+    LibDNS\Messages\MessageTypes,
+    LibDNS\Records\ResourceTypes;
 
 class ResponseInterpreter
 {
@@ -23,12 +25,12 @@ class ResponseInterpreter
     }
 
     /**
-     * Extract the message ID and response data from a DNS response packet
+     * Attempt to decode a data packet to a DNS response message
      *
      * @param string $packet
-     * @return array|null
+     * @return Message|null
      */
-    public function interpret($packet)
+    public function decode($packet)
     {
         try {
             $message = $this->decoder->decode($packet);
@@ -40,13 +42,45 @@ class ResponseInterpreter
             return null;
         }
 
+        return [$message->getID(), $message];
+    }
+
+    /**
+     * Extract the message ID and response data from a DNS response packet
+     *
+     * @param Message $message
+     * @param int $expectedType
+     * @return array|null
+     */
+    public function interpret($message, $expectedType)
+    {
+        static $typeMap = [
+            AddressModes::INET4_ADDR => ResourceTypes::A,
+            AddressModes::INET6_ADDR => ResourceTypes::AAAA,
+        ];
+
         $answers = $message->getAnswerRecords();
         if (!count($answers)) {
-            return [$message->getID(), null];
+            return null;
         }
 
         /** @var \LibDNS\Records\Resource $record */
-        $record = $answers->getRecordByIndex(0);
-        return [$message->getID(), (string)$record->getData(), $record->getTTL()];
+        $cname = null;
+        foreach ($answers as $record) {
+            switch ($record->getType()) {
+                case $typeMap[$expectedType]:
+                    return [$expectedType, (string)$record->getData(), $record->getTTL()];
+
+                case ResourceTypes::CNAME:
+                    $cname = (string)$record->getData();
+                    break;
+            }
+        }
+
+        if ($cname) {
+            return [AddressModes::CNAME, $cname, null];
+        }
+
+        return null;
     }
 }
