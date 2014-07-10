@@ -264,7 +264,11 @@ class Client
      */
     private function completePendingLookup($id, $addr, $type)
     {
-        call_user_func($this->pendingLookups[$id]['callback'], $addr, $type);
+        if(isset($this->pendingLookups[$id]['callback']))
+        {
+            call_user_func($this->pendingLookups[$id]['callback'], $addr, $type);
+        }
+
         unset($this->pendingLookups[$id]);
     }
 
