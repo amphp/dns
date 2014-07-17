@@ -179,14 +179,16 @@ class Client
     private function sendRequest($request)
     {
         $packet = $this->requestBuilder->buildRequest($request['id'], $request['name'], $request['type']);
-        fwrite($this->socket, $packet);
+
+        $bytesWritten = fwrite($this->socket, $packet);
+        if ($bytesWritten < strlen($packet)) {
+            $this->completeRequest($request, null, ResolutionErrors::ERR_REQUEST_SEND_FAILED);
+            return;
+        }
 
         $request['timeout_id'] = $this->reactor->once(function() use($request) {
             unset($this->pendingRequestsByNameAndType[$request['name']][$request['type']]);
-
-            foreach ($request['lookups'] as $id => $lookup) {
-                $this->completePendingLookup($id, null, ResolutionErrors::ERR_SERVER_TIMEOUT);
-            }
+            $this->completeRequest($request, null, ResolutionErrors::ERR_SERVER_TIMEOUT);
         }, $this->requestTimeout);
 
         if ($this->readWatcherId === null) {
@@ -245,9 +247,7 @@ class Client
                 $this->cache->store($name, $addr, $type, $ttl);
             }
 
-            foreach ($request['lookups'] as $id => $lookup) {
-                $this->completePendingLookup($id, $addr, $type);
-            }
+            $this->completeRequest($request, $addr, $type);
         } else {
             foreach ($request['lookups'] as $id => $lookup) {
                 $this->processPendingLookup($id);
@@ -269,6 +269,20 @@ class Client
         }
 
         unset($this->pendingLookups[$id]);
+    }
+
+    /**
+     * Complete all lookups in a request
+     *
+     * @param array $request
+     * @param string|null $addr
+     * @param int $type
+     */
+    private function completeRequest($request, $addr, $type)
+    {
+        foreach ($request['lookups'] as $id => $lookup) {
+            $this->completePendingLookup($id, $addr, $type);
+        }
     }
 
     /**
