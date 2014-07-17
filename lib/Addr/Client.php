@@ -341,4 +341,14 @@ class Client
 
         $this->processPendingLookup($id);
     }
+
+    /**
+     * Set the request timeout
+     *
+     * @param int $timeout
+     */
+    public function setRequestTimeout($timeout)
+    {
+        $this->requestTimeout = (int)$timeout;
+    }
 }
