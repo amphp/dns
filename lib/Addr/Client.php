@@ -322,15 +322,15 @@ class Client
      */
     private function dispatchRequest($id, $name, $type)
     {
-        $lookup['last_type'] = $type;
-        $this->pendingRequestsByNameAndType[$name][$type]['lookups'][$id] = $lookup;
+        $this->pendingLookups[$id]['last_type'] = $type;
+        $this->pendingRequestsByNameAndType[$name][$type]['lookups'][$id] = $this->pendingLookups[$id];
 
         if (count($this->pendingRequestsByNameAndType[$name][$type]) === 1) {
             $request = [
                 'id'          => $this->getNextFreeRequestId(),
                 'name'        => $name,
                 'type'        => $type,
-                'lookups'     => [$id => $lookup],
+                'lookups'     => [$id => $this->pendingLookups[$id]],
                 'timeout_id'  => null,
             ];
 
