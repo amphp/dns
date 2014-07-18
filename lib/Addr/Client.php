@@ -286,27 +286,42 @@ class Client
     }
 
     /**
-     * Send a request to the server
+     * Lookup name in cache and send request to server on failure
      *
      * @param int $id
      */
     private function processPendingLookup($id)
     {
-        $lookup = &$this->pendingLookups[$id];
-
-        if (!$lookup['requests']) {
+        if (!$this->pendingLookups[$id]['requests']) {
             $this->completePendingLookup($id, null, ResolutionErrors::ERR_NO_RECORD);
             return;
         }
 
-        $name = $lookup['name'];
-        $type = array_shift($lookup['requests']);
+        $name = $this->pendingLookups[$id]['name'];
+        $type = array_shift($this->pendingLookups[$id]['requests']);
 
-        if ($this->cache && $addr = $this->cache->resolve($name, $type)) {
-            $this->completePendingLookup($id, $addr, $type);
-            return;
+        if ($this->cache) {
+            $this->cache->resolve($name, $type, function($addr) use ($id, $name, $type) {
+                if ($addr !== null) {
+                    $this->completePendingLookup($id, $addr, $type);
+                } else {
+                    $this->dispatchRequest($id, $name, $type);
+                }
+            });
+        } else {
+            $this->dispatchRequest($id, $name, $type);
         }
+    }
 
+    /**
+     * Send a request to the server
+     *
+     * @param int $id
+     * @param string $name
+     * @param int $type
+     */
+    private function dispatchRequest($id, $name, $type)
+    {
         $lookup['last_type'] = $type;
         $this->pendingRequestsByNameAndType[$name][$type]['lookups'][$id] = $lookup;
 

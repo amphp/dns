@@ -14,9 +14,9 @@ interface Cache
      *
      * @param string $name Name to query
      * @param int $type AddressModes::INET4_ADDR or AddressModes::INET6_ADDR
-     * @return string|null Mapped IP address or null or no record exists
+     * @param callable $callback Function to receive the result
      */
-    public function resolve($name, $type);
+    public function resolve($name, $type, callable $callback);
 
     /**
      * Store an entry in the cache
