@@ -22,7 +22,7 @@ class Client
     private $responseInterpreter;
 
     /**
-     * @var Cache
+     * @var \AddrCache\Cache
      */
     private $cache;
 
@@ -72,7 +72,7 @@ class Client
      * @param Reactor $reactor
      * @param RequestBuilder $requestBuilder
      * @param ResponseInterpreter $responseInterpreter
-     * @param Cache $cache
+     * @param \AddrCache\Cache $cache
      * @param string $serverAddress
      * @param int $serverPort
      * @param int $requestTimeout
@@ -82,7 +82,7 @@ class Client
         Reactor $reactor,
         RequestBuilder $requestBuilder,
         ResponseInterpreter $responseInterpreter,
-        Cache $cache = null,
+        \AddrCache\Cache $cache = null,
         $serverAddress = null,
         $serverPort = null,
         $requestTimeout = null
@@ -243,10 +243,7 @@ class Client
                 $this->redirectPendingLookup($id, $addr);
             }
         } else if ($addr !== null) {
-            if ($this->cache) {
-                $this->cache->store($name, $addr, $type, $ttl);
-            }
-
+            $this->store($name, $addr, $type, $ttl);
             $this->completeRequest($request, $addr, $type);
         } else {
             foreach ($request['lookups'] as $id => $lookup) {
@@ -255,6 +252,28 @@ class Client
         }
     }
 
+    /**
+     * Generates the cache key used to store the result for hostname
+     * and type.
+     * @param $name
+     * @param $type
+     * @return string
+     */
+    function generateCacheKey($name, $type) {
+        return 'Name:'.$name.',Type:'.$type;
+    }
+    
+    /**
+     * @param $name
+     * @param $addr
+     * @param $type
+     * @param $ttl
+     */
+    public function store($name, $addr, $type, $ttl) {
+        $key = $this->generateCacheKey($name, $type);
+        $this->cache->store($key, $addr, $ttl);
+    }
+    
     /**
      * Call a response callback with the result
      *
@@ -300,19 +319,17 @@ class Client
         $name = $this->pendingLookups[$id]['name'];
         $type = array_shift($this->pendingLookups[$id]['requests']);
 
-        if ($this->cache) {
-            $this->cache->resolve($name, $type, function($addr) use ($id, $name, $type) {
-                if ($addr !== null) {
-                    $this->completePendingLookup($id, $addr, $type);
-                } else {
-                    $this->dispatchRequest($id, $name, $type);
-                }
-            });
+        $key = $this->generateCacheKey($name, $type);
+        list($cacheHit, $addr) = $this->cache->get($key);
+
+        if ($cacheHit === true) {
+            $this->completePendingLookup($id, $addr, $type);
         } else {
             $this->dispatchRequest($id, $name, $type);
         }
     }
-
+    
+    
     /**
      * Send a request to the server
      *

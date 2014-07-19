@@ -1,0 +1,14 @@
+language: php
+
+git:
+  submodules: false
+
+php:
+  - 5.5
+  - 5.4
+
+before_script:
+  - composer install
+  
+script: php ./vendor/bin/phpunit --configuration test/phpunit.xml --coverage-text
+

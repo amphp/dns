@@ -17,7 +17,7 @@ class ResolverFactory
      * @param string $serverAddr
      * @param int $serverPort
      * @param int $requestTimeout
-     * @param Cache $cache
+     * @param \AddrCache\Cache $cache
      * @param string $hostsFilePath
      * @return Resolver
      */
@@ -26,11 +26,11 @@ class ResolverFactory
         $serverAddr = null,
         $serverPort = null,
         $requestTimeout = null,
-        Cache $cache = null,
+        \AddrCache\Cache $cache = null,
         $hostsFilePath = null
     ) {
         $nameValidator = new NameValidator;
-        $cache = $cache ?: new MemoryCache;
+        $cache = $cache ?: new \AddrCache\MemoryCache;
 
         $client = new Client(
             $reactor,
