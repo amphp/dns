@@ -23,15 +23,12 @@ class MemoryCache implements Cache
      */
     public function resolve($name, $type, callable $callback)
     {
-        if (isset($this->data[$type][$name])) {
-            if ($this->data[$type][$name][1] >= time()) {
-                $callback($this->data[$type][$name][0]);
-            }
-
+        if (!isset($this->data[$type][$name]) || $this->data[$type][$name][1] < time()) {
             unset($this->data[$type][$name]);
+            $callback(null);
+        } else {
+            $callback($this->data[$type][$name][0]);
         }
-
-        $callback($this->data[$type][$name][0]);
     }
 
     /**
