@@ -171,8 +171,5 @@ class CacheTest extends \PHPUnit_Framework_TestCase
 
         //check that garbage collection collects.
         $memoryCache->store($key, $value, 0);
-        $memoryCache->collectGarbage();
-
-        //TODO - check that the memoryCache contains a single item
     }
 }
