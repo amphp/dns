@@ -121,4 +121,90 @@ class AddrTest extends \PHPUnit_Framework_TestCase
             "At least one of the name lookups did not resolve."
         );
     }
+
+
+    /**
+     * Check that caches do actually cache results.
+     */
+    function testCachingOfResults() {
+
+        $memoryCache = new MemoryCache();
+
+        $namesFirstRun = [
+            'google.com',
+            'github.com',
+            'google.com',
+            'github.com',
+        ];
+        
+        $namesSecondRun = [
+            'google.com',
+            'github.com',
+        ];
+
+        $setCount = count(array_unique(array_merge($namesFirstRun, $namesSecondRun)));
+        $getCount = count($namesFirstRun) + count($namesSecondRun);
+        
+        $mockedCache = \Mockery::mock($memoryCache);
+
+        /** @var  $mockedCache \Mockery\Mock */
+        
+        $mockedCache->shouldReceive('store')->times($setCount)->passthru();
+        $mockedCache->shouldReceive('get')->times($getCount)->passthru();
+
+        $mockedCache->makePartial();
+
+        $reactor = (new ReactorFactory)->select();
+        $resolver = (new ResolverFactory)->createResolver(
+            $reactor,
+            null, //$serverAddr = null,
+            null, //$serverPort = null,
+            null, //$requestTimeout = null,
+            $mockedCache,
+            null //$hostsFilePath = null
+        );
+
+        $results = [];
+        
+        //Lookup the first set of names
+        foreach ($namesFirstRun as $name) {
+            $resolver->resolve($name, function($addr) use($name, $resolver, &$results) {
+                    $results[] = [$name, $addr];
+                });
+        }
+
+        $reactor->run();
+
+        $this->assertCount(
+            count($namesFirstRun),
+            $results,
+            "At least one of the name lookups did not resolve in the first run."
+        );
+
+        $results = [];
+
+        //Lookup a second set of names
+        foreach ($namesSecondRun as $name) {
+            $resolver->resolve($name, function($addr) use($name, $resolver, &$results) {
+                    $results[] = [$name, $addr];
+                });
+        }
+
+        $reactor->run();
+
+        foreach ($results as $nameAndAddr) {
+            list($name, $addr) = $nameAndAddr;
+            $validIP = filter_var($addr, FILTER_VALIDATE_IP);
+            $this->assertNotFalse(
+                $validIP,
+                "Server name $name did not resolve to a valid IP address"
+            );
+        }
+
+        $this->assertCount(
+            count($namesSecondRun),
+            $results,
+            "At least one of the name lookups did not resolve in the second run."
+        );
+    }
 }
