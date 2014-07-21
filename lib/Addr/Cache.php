@@ -1,35 +1,34 @@
 <?php
 
+
 namespace Addr;
 
-/**
- * Interface for record caches
- *
- * @package Addr
- */
-interface Cache
-{
+interface Cache {
+    
     /**
-     * Look up a name in the cache
-     *
-     * @param string $name Name to query
-     * @param int $type AddressModes::INET4_ADDR or AddressModes::INET6_ADDR
-     * @param callable $callback Function to receive the result
+     * Attempt to retrieve a value from the cache
+     * 
+     * Returns an array [$cacheHit, $value]
+     * [true, $valueFromCache] - if it existed in the cache
+     * [false, null] - if it didn't already exist in the cache
+     * 
+     * @param $key
+     * @return array
      */
-    public function resolve($name, $type, callable $callback);
+    public function get($key);
 
     /**
-     * Store an entry in the cache
+     * Stores a value in the cache. Overwrites the previous value if there was one.
      *
-     * @param string $name Name to query
-     * @param string $addr IP address that $name maps to
-     * @param int $type AddressModes::INET4_ADDR or AddressModes::INET6_ADDR
-     * @param int $ttl Time the record should live, in seconds
+     * @param $key
+     * @param $value
+     * @param null $ttl
      */
-    public function store($name, $addr, $type, $ttl);
-
+    public function store($key, $value, $ttl = null);
+    
     /**
-     * Remove all expired records from the cache
+     * Deletes an entry from the cache.
+     * @param $key
      */
-    public function collectGarbage();
+    public function delete($key);
 }

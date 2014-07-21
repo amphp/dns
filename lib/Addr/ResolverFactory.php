@@ -30,7 +30,7 @@ class ResolverFactory
         $hostsFilePath = null
     ) {
         $nameValidator = new NameValidator;
-        $cache = $cache ?: new MemoryCache;
+        $cache = $cache ?: new Cache\MemoryCache;
 
         $client = new Client(
             $reactor,
