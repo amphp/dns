@@ -2,6 +2,14 @@
 
 namespace AddrTest;
 
+
+use Addr\Cache;
+use Addr\Cache\APCCache;
+use Addr\Cache\MemoryCache;
+use Addr\Cache\RedisCache;
+use Predis\Client as RedisClient;
+use Predis\Connection\ConnectionException as RedisConnectionException;
+
 class CacheTest extends \PHPUnit_Framework_TestCase {
 
     static private $redisEnabled = true;
@@ -13,11 +21,11 @@ class CacheTest extends \PHPUnit_Framework_TestCase {
     
     public static function setUpBeforeClass() {
         try {
-            $predisClient = new \Predis\Client(self::$redisParameters, []);
+            $predisClient = new RedisClient(self::$redisParameters, []);
             $predisClient->ping();
             //It's connected
         }
-        catch (\Predis\Connection\ConnectionException $ce) {
+        catch (RedisConnectionException $rce) {
             self::$redisEnabled = false;
         }
     }
@@ -29,7 +37,7 @@ class CacheTest extends \PHPUnit_Framework_TestCase {
      */
     function testCacheWorks() {
 
-        $mock = \Mockery::mock('AddrCache\Cache');
+        $mock = \Mockery::mock('Addr\Cache');
         
         $cacheValues = [];
         
@@ -70,7 +78,7 @@ class CacheTest extends \PHPUnit_Framework_TestCase {
         }
 
         $prefix = time().uniqid('CacheTest');
-        $apcCache = new \AddrCache\APCCache($prefix);
+        $apcCache = new APCCache($prefix);
         $this->runCacheTest($apcCache);
     }
 
@@ -88,26 +96,26 @@ class CacheTest extends \PHPUnit_Framework_TestCase {
         try {
             $predisClient = new \Predis\Client(self::$redisParameters, []);
         }
-        catch (\Predis\Connection\ConnectionException $ce) {
+        catch (RedisConnectionException $rce) {
             $this->markTestIncomplete("Could not connect to Redis server, cannot test redis cache.");
             return;
         }
 
-        $redisCache = new \AddrCache\RedisCache($predisClient, $prefix);
+        $redisCache = new RedisCache($predisClient, $prefix);
         $this->runCacheTest($redisCache);
     }
 
     
     function testMemoryCache() {
-        $memoryCache = new \AddrCache\MemoryCache;
+        $memoryCache = new MemoryCache;
         $this->runCacheTest($memoryCache);
     }
     
     /**
      * Runs the actual test against an instance of a cache.
-     * @param \AddrCache\Cache $cache
+     * @param \Addr\Cache $cache
      */
-    function runCacheTest(\AddrCache\Cache $cache) {
+    function runCacheTest(Cache $cache) {
         $key = 'TestKey';
         $value = '12345';
         $secondValue = '54321';
@@ -141,7 +149,7 @@ class CacheTest extends \PHPUnit_Framework_TestCase {
         $key = "TestKey";
         $value = '12345';
         
-        $memoryCache = new \AddrCache\MemoryCache;
+        $memoryCache = new MemoryCache;
         
         //A TTL of zero should be expired instantly
         $memoryCache->store($key, $value, 0);

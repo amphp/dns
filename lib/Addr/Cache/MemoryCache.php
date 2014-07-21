@@ -1,10 +1,11 @@
 <?php
 
 
-namespace AddrCache;
+namespace Addr\Cache;
 
+use Addr\Cache;
 
-class MemoryCache implements \AddrCache\Cache {
+class MemoryCache implements Cache {
     
     const MAX_TTL = 31536000;//1 year
     
@@ -20,7 +21,8 @@ class MemoryCache implements \AddrCache\Cache {
      * @param $key
      * @return array
      */
-    public function get($key) {
+    public function get($key)
+    {
         if (array_key_exists($key, $this->valueAndTTLArray) == false) {
             return [false, null];
         }
@@ -41,7 +43,8 @@ class MemoryCache implements \AddrCache\Cache {
      * @param $value
      * @param null $ttl
      */
-    public function store($key, $value, $ttl = null) {
+    public function store($key, $value, $ttl = null)
+    {
         if ($ttl === null) {
             $ttl = self::MAX_TTL;
         }
@@ -53,7 +56,8 @@ class MemoryCache implements \AddrCache\Cache {
      * Deletes an entry from the cache.
      * @param $key
      */
-    public function delete($key) {
+    public function delete($key)
+    {
         unset($this->valueAndTTLArray[$key]);
     }
 

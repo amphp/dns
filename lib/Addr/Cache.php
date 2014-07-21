@@ -1,7 +1,7 @@
 <?php
 
 
-namespace AddrCache;
+namespace Addr;
 
 interface Cache {
     

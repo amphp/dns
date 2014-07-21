@@ -1,11 +1,13 @@
 <?php
 
 
-namespace AddrCache;
+namespace Addr\Cache;
 
+use Addr\Cache;
 use Predis\Client as RedisClient;
 
-class RedisCache implements \AddrCache\Cache {
+
+class RedisCache implements Cache {
 
     /**
      * @var RedisClient
@@ -32,7 +34,8 @@ END;
      * set via the redis client, in which case you may wish to pass an empty string
      * as $prefixKey
      */
-    function __construct(RedisClient $redisClient, $prefixKey = 'AddrCache\Cache\RedisCache') {
+    function __construct(RedisClient $redisClient, $prefixKey = 'AddrCache\Cache\RedisCache')
+    {
         $this->redisClient = $redisClient;
         $this->prefix = $prefixKey;
     }
@@ -44,7 +47,8 @@ END;
      * @param $value
      * @param null $ttl
      */
-    public function store($key, $value, $ttl = null) {
+    public function store($key, $value, $ttl = null)
+    {
         $key = $this->prefix.$key;
         $ttl = intval($ttl);
         if ($ttl > 0) {
@@ -66,7 +70,8 @@ END;
      * @param $key
      * @return array
      */
-    public function get($key) {
+    public function get($key)
+    {
         $key = $this->prefix.$key;
         list($wasHit, $value) = $this->redisClient->eval(self::getLuaScript, 1, $key);
         if ($wasHit) {
@@ -80,7 +85,8 @@ END;
     /**
      * @param $key
      */
-    public function delete($key) {
+    public function delete($key)
+    {
         $key = $this->prefix.$key;
         $this->redisClient->del([$key]);
     }

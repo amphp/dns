@@ -3,7 +3,7 @@
         "This file locks the dependencies of your project to a known state",
         "Read more about it at http://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file"
     ],
-    "hash": "6ac53a76066ea6f5b5a4b6621ca23adb",
+    "hash": "7abdbee16c1b23c04cf43ef2bcde99fe",
     "packages": [
         {
             "name": "daverandom/libdns",

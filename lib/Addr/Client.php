@@ -22,7 +22,7 @@ class Client
     private $responseInterpreter;
 
     /**
-     * @var \AddrCache\Cache
+     * @var \Addr\Cache
      */
     private $cache;
 
@@ -72,7 +72,7 @@ class Client
      * @param Reactor $reactor
      * @param RequestBuilder $requestBuilder
      * @param ResponseInterpreter $responseInterpreter
-     * @param \AddrCache\Cache $cache
+     * @param Cache $cache
      * @param string $serverAddress
      * @param int $serverPort
      * @param int $requestTimeout
@@ -82,7 +82,7 @@ class Client
         Reactor $reactor,
         RequestBuilder $requestBuilder,
         ResponseInterpreter $responseInterpreter,
-        \AddrCache\Cache $cache = null,
+        Cache $cache = null,
         $serverAddress = null,
         $serverPort = null,
         $requestTimeout = null

@@ -1,14 +1,16 @@
 <?php
 
-namespace AddrCache;
+namespace Addr\Cache;
 
+use Addr\Cache;
 
-class APCCache implements \AddrCache\Cache {
+class APCCache implements Cache {
 
     /**
      * @param string $prefix A prefix to prepend to all keys.
      */
-    function __construct($prefix = 'AddrCache\Cache\APCCache') {
+    function __construct($prefix = 'AddrCache\Cache\APCCache')
+    {
         $this->prefix = $prefix;
     }
 
@@ -22,7 +24,8 @@ class APCCache implements \AddrCache\Cache {
      * @param $key
      * @return array
      */
-    public function get($key) {
+    public function get($key)
+    {
         $key = $this->prefix.$key;
         $value = apc_fetch($key, $success);
         
@@ -39,7 +42,8 @@ class APCCache implements \AddrCache\Cache {
      * @param $value
      * @param null $ttl
      */
-    public function store($key, $value, $ttl = null) {
+    public function store($key, $value, $ttl = null)
+    {
         $key = $this->prefix.$key;
         apc_store($key, $value, $ttl);
     }
@@ -48,7 +52,8 @@ class APCCache implements \AddrCache\Cache {
      * Deletes an entry from the cache.
      * @param $key
      */
-    public function delete($key) {
+    public function delete($key)
+    {
         $key = $this->prefix.$key;
         apc_delete($key);
     }
