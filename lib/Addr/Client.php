@@ -225,7 +225,6 @@ class Client
             $this->readWatcherId = null;
         }
 
-
         // Interpret the response and make sure we have at least one resource record
         $interpreted = $this->responseInterpreter->interpret($response, $request['type']);
         if ($interpreted === null) {
@@ -253,27 +252,31 @@ class Client
     }
 
     /**
-     * Generates the cache key used to store the result for hostname
-     * and type.
-     * @param $name
-     * @param $type
+     * Generates the cache key used to store the result for hostname and type.
+     *
+     * @param string $name
+     * @param int $type
      * @return string
      */
-    function generateCacheKey($name, $type) {
+    private function generateCacheKey($name, $type)
+    {
         return 'Name:'.$name.',Type:'.$type;
     }
-    
+
     /**
-     * @param $name
-     * @param $addr
-     * @param $type
-     * @param $ttl
+     * Store an address mapping in the cache
+     *
+     * @param string $name
+     * @param string $addr
+     * @param int $type
+     * @param int $ttl
      */
-    public function store($name, $addr, $type, $ttl) {
+    public function store($name, $addr, $type, $ttl)
+    {
         $key = $this->generateCacheKey($name, $type);
         $this->cache->store($key, $addr, $ttl);
     }
-    
+
     /**
      * Call a response callback with the result
      *
@@ -328,8 +331,7 @@ class Client
             $this->dispatchRequest($id, $name, $type);
         }
     }
-    
-    
+
     /**
      * Send a request to the server
      *

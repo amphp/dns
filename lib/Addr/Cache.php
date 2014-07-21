@@ -1,10 +1,9 @@
 <?php
 
-
 namespace Addr;
 
-interface Cache {
-    
+interface Cache
+{
     /**
      * Attempt to retrieve a value from the cache
      * 
@@ -12,23 +11,24 @@ interface Cache {
      * [true, $valueFromCache] - if it existed in the cache
      * [false, null] - if it didn't already exist in the cache
      * 
-     * @param $key
+     * @param $name
      * @return array
      */
-    public function get($key);
+    public function get($name);
 
     /**
      * Stores a value in the cache. Overwrites the previous value if there was one.
      *
-     * @param $key
+     * @param $name
      * @param $value
      * @param null $ttl
      */
-    public function store($key, $value, $ttl = null);
-    
+    public function store($name, $value, $ttl = null);
+
     /**
      * Deletes an entry from the cache.
-     * @param $key
+     *
+     * @param $name
      */
-    public function delete($key);
+    public function delete($name);
 }

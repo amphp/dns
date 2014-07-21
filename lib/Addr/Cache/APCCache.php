@@ -4,12 +4,12 @@ namespace Addr\Cache;
 
 use Addr\Cache;
 
-class APCCache implements Cache {
-
+class APCCache implements Cache
+{
     /**
      * @param string $prefix A prefix to prepend to all keys.
      */
-    function __construct($prefix = 'AddrCache\Cache\APCCache')
+    public function __construct($prefix = 'AddrCache\Cache\APCCache')
     {
         $this->prefix = $prefix;
     }
@@ -21,40 +21,41 @@ class APCCache implements Cache {
      * [true, $valueFromCache] - if it existed in the cache
      * [false, null] - if it didn't already exist in the cache
      *
-     * @param $key
+     * @param $name
      * @return array
      */
-    public function get($key)
+    public function get($name)
     {
-        $key = $this->prefix.$key;
-        $value = apc_fetch($key, $success);
-        
+        $name = $this->prefix . $name;
+        $value = apc_fetch($name, $success);
+
         if ($success) {
             return [true, $value];
         }
+
         return [false, null];
     }
 
     /**
      * Stores a value in the cache. Overwrites the previous value if there was one.
      *
-     * @param $key
+     * @param $name
      * @param $value
      * @param null $ttl
      */
-    public function store($key, $value, $ttl = null)
+    public function store($name, $value, $ttl = null)
     {
-        $key = $this->prefix.$key;
-        apc_store($key, $value, $ttl);
+        $name = $this->prefix . $name;
+        apc_store($name, $value, $ttl);
     }
 
     /**
      * Deletes an entry from the cache.
-     * @param $key
+     * @param $name
      */
-    public function delete($key)
+    public function delete($name)
     {
-        $key = $this->prefix.$key;
-        apc_delete($key);
+        $name = $this->prefix . $name;
+        apc_delete($name);
     }
 }

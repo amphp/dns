@@ -2,24 +2,24 @@
 
 namespace AddrTest;
 
+use Addr\Cache,
+    Addr\Cache\APCCache,
+    Addr\Cache\MemoryCache,
+    Addr\Cache\RedisCache,
+    Predis\Client as RedisClient,
+    Predis\Connection\ConnectionException as RedisConnectionException;
 
-use Addr\Cache;
-use Addr\Cache\APCCache;
-use Addr\Cache\MemoryCache;
-use Addr\Cache\RedisCache;
-use Predis\Client as RedisClient;
-use Predis\Connection\ConnectionException as RedisConnectionException;
+class CacheTest extends \PHPUnit_Framework_TestCase
+{
+    private static $redisEnabled = true;
 
-class CacheTest extends \PHPUnit_Framework_TestCase {
-
-    static private $redisEnabled = true;
-
-    static private $redisParameters = array(
+    private static $redisParameters = [
         'connection_timeout' => 2,
         'read_write_timeout' => 2,
-    );
-    
-    public static function setUpBeforeClass() {
+    ];
+
+    public static function setUpBeforeClass()
+    {
         try {
             $predisClient = new RedisClient(self::$redisParameters, []);
             $predisClient->ping();
@@ -29,25 +29,24 @@ class CacheTest extends \PHPUnit_Framework_TestCase {
             self::$redisEnabled = false;
         }
     }
-    
-    
+
     /**
      * Create a mocked cache from the interface, and test that it works
      * according to it's spec.
      */
-    function testCacheWorks() {
-
+    public function testCacheWorks()
+    {
         $mock = \Mockery::mock('Addr\Cache');
-        
+
         $cacheValues = [];
-        
+
         $cacheGetFunction = function($key) use (&$cacheValues) {
             if (array_key_exists($key, $cacheValues)) {
                 return [true, $cacheValues[$key]];
             }
             return [false, null];
         };
-            
+
         $cacheStoreFunction = function($key, $value, $ttl = null) use (&$cacheValues) {
             $cacheValues[$key] = $value;
         };
@@ -63,13 +62,13 @@ class CacheTest extends \PHPUnit_Framework_TestCase {
         $this->runCacheTest($mock);
     }
 
-
     /**
      * Test that the APC cache works as expected. Skipped if APC is not available.
      * 
      * @requires extension APC
      */
-    function testAPCCache() {
+    public function testAPCCache()
+    {
         $result = @apc_cache_info();
 
         if ($result === false) {
@@ -85,8 +84,8 @@ class CacheTest extends \PHPUnit_Framework_TestCase {
     /**
      * Test the redis cache works as expected.
      */
-    function testRedisCache() {
-        
+    public function testRedisCache()
+    {
         if (self::$redisEnabled == false) {
             $this->markTestSkipped("Could not connect to Redis, skipping test.");
             return;
@@ -105,17 +104,18 @@ class CacheTest extends \PHPUnit_Framework_TestCase {
         $this->runCacheTest($redisCache);
     }
 
-    
-    function testMemoryCache() {
+    public function testMemoryCache()
+    {
         $memoryCache = new MemoryCache;
         $this->runCacheTest($memoryCache);
     }
-    
+
     /**
      * Runs the actual test against an instance of a cache.
      * @param \Addr\Cache $cache
      */
-    function runCacheTest(Cache $cache) {
+    public function runCacheTest(Cache $cache)
+    {
         $key = 'TestKey';
         $value = '12345';
         $secondValue = '54321';
@@ -142,15 +142,14 @@ class CacheTest extends \PHPUnit_Framework_TestCase {
         $this->assertTrue($alreadyExisted);
         $this->assertEquals($secondValue, $retrievedValue);
     }   
-    
-    
-    function testMemoryCacheGarbageCollection() {
 
+    public function testMemoryCacheGarbageCollection()
+    {
         $key = "TestKey";
         $value = '12345';
-        
+
         $memoryCache = new MemoryCache;
-        
+
         //A TTL of zero should be expired instantly
         $memoryCache->store($key, $value, 0);
         list($cacheHit, $cachedValue) = $memoryCache->get($key);
@@ -177,8 +176,3 @@ class CacheTest extends \PHPUnit_Framework_TestCase {
         //TODO - check that the memoryCache contains a single item
     }
 }
-
-
-
-
- 

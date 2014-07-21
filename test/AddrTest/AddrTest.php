@@ -3,27 +3,25 @@
 namespace AddrTest;
 
 use Addr\ResolverFactory,
-    Alert\ReactorFactory;
+    Addr\Cache,
+    Addr\Cache\APCCache,
+    Addr\Cache\MemoryCache,
+    Addr\Cache\RedisCache,
+    Alert\ReactorFactory,
+    Predis\Client as RedisClient,
+    Predis\Connection\ConnectionException as RedisConnectionException;
 
-use Addr\Cache;
-use Addr\Cache\APCCache;
-use Addr\Cache\MemoryCache;
-use Addr\Cache\RedisCache;
-use Predis\Client as RedisClient;
-use Predis\Connection\ConnectionException as RedisConnectionException;
+class AddrTest extends \PHPUnit_Framework_TestCase
+{
+    private static $redisEnabled = true;
 
-
-class AddrTest extends \PHPUnit_Framework_TestCase {
-
-
-    static private $redisEnabled = true;
-
-    static private $redisParameters = array(
+    private static $redisParameters = [
         'connection_timeout' => 2,
         'read_write_timeout' => 2,
-    );
+    ];
 
-    public static function setUpBeforeClass() {
+    public static function setUpBeforeClass()
+    {
         try {
             $predisClient = new RedisClient(self::$redisParameters, []);
             $predisClient->ping();
@@ -34,26 +32,29 @@ class AddrTest extends \PHPUnit_Framework_TestCase {
         }
     }
 
-    function testWithNullCache() {
+    public function testWithNullCache()
+    {
         $this->basicRun(null);
     }
 
-    function testWithMemoryCache() {
+    public function testWithMemoryCache()
+    {
         $memoryCache = new MemoryCache();
         $this->basicRun($memoryCache);
     }
-    
+
     /**
      * @requires extension APC
      */
-    function testWithApcCache() {
+    public function testWithApcCache()
+    {
         $prefix = time().uniqid('CacheTest');
         $apcCache = new APCCache($prefix);
         $this->basicRun($apcCache);
     }
 
-
-    function testWithRedisCache() {
+    public function testWithRedisCache()
+    {
         if (self::$redisEnabled != true) {
             $this->markTestSkipped("Could not connect to Redis, skipping test.");
             return;
@@ -72,11 +73,11 @@ class AddrTest extends \PHPUnit_Framework_TestCase {
         $this->basicRun($redisCache);
     }
 
-
     /**
      * @group internet
      */
-    function basicRun(\Addr\Cache $cache = null) {
+    public function basicRun(Cache $cache = null)
+    {
         $names = [
             'google.com',
             'github.com',
@@ -95,7 +96,7 @@ class AddrTest extends \PHPUnit_Framework_TestCase {
             $cache,
             null //$hostsFilePath = null
         );
-        
+
         $results = [];
 
         foreach ($names as $name) {
@@ -119,11 +120,5 @@ class AddrTest extends \PHPUnit_Framework_TestCase {
             $results,
             "At least one of the name lookups did not resolve."
         );
-        
     }
 }
-
-
-
-
- 

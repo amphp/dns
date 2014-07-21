@@ -1,14 +1,13 @@
 <?php
 
-
 namespace AddrTest;
 
 use Addr\ResponseInterpreter;
 
-
-class ResponseInterpreterTest extends \PHPUnit_Framework_TestCase{
-    
-    function testCatchesExceptionAndReturnsNull() {
+class ResponseInterpreterTest extends \PHPUnit_Framework_TestCase
+{
+    public function testCatchesExceptionAndReturnsNull()
+    {
         $decoder = \Mockery::mock('LibDNS\Decoder\Decoder');
         $decoder->shouldReceive('decode')->withAnyArgs()->andThrow("Exception", "Testing bad packet");
         $responseInterpreter = new ResponseInterpreter($decoder);
@@ -16,10 +15,11 @@ class ResponseInterpreterTest extends \PHPUnit_Framework_TestCase{
         $this->assertNull($result);
     }
 
-    function testInvalidMessage() {
+    public function testInvalidMessage()
+    {
         $message = \Mockery::mock('LibDNS\Messages\Message');
         $message->shouldReceive('getType')->once()->andReturn(\LibDNS\Messages\MessageTypes::QUERY);
-        
+
         $decoder = \Mockery::mock('LibDNS\Decoder\Decoder');
         $decoder->shouldReceive('decode')->once()->andReturn($message);
 
@@ -28,11 +28,12 @@ class ResponseInterpreterTest extends \PHPUnit_Framework_TestCase{
         $this->assertNull($result);
     }
 
-    function testInvalidResponseCode() {
+    public function testInvalidResponseCode()
+    {
         $message = \Mockery::mock('LibDNS\Messages\Message');
         $message->shouldReceive('getType')->once()->andReturn(\LibDNS\Messages\MessageTypes::RESPONSE);
         $message->shouldReceive('getResponseCode')->once()->andReturn(42);
-        
+
         $decoder = \Mockery::mock('LibDNS\Decoder\Decoder');
         $decoder->shouldReceive('decode')->once()->andReturn($message);
 
@@ -41,5 +42,3 @@ class ResponseInterpreterTest extends \PHPUnit_Framework_TestCase{
         $this->assertNull($result);
     }
 }
-
- 

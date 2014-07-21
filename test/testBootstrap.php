@@ -9,9 +9,8 @@ $autoloader = require __DIR__.'/../vendor/autoload.php';
 $autoloader->add('AddrTest', [realpath(__DIR__)."/"]);
 
 
-
-function createProvider($implementations = array(), $shareClasses = array()) {
-    
+function createProvider($implementations = [], $shareClasses = [])
+{
     $provider = new Provider();
 
     $standardImplementations = [
@@ -19,18 +18,18 @@ function createProvider($implementations = array(), $shareClasses = array()) {
     
     $standardShares = [
     ];
-    
-    $redisParameters = array(
+
+    $redisParameters = [
         'connection_timeout' => 2,
         'read_write_timeout' => 2,
-    );
-    
+    ];
+
     $provider->define(
         'Predis\Client',
-        array(
+        [
             ':parameters' => $redisParameters,
             ':options' => [],
-        )
+        ]
     );
 
     $provider->share('Predis\Client');
@@ -42,7 +41,6 @@ function createProvider($implementations = array(), $shareClasses = array()) {
     return $provider;
 
 }
-
 
 function setImplementations(Provider $provider, $standardImplementations, $implementations) {
     foreach ($standardImplementations as $interface => $implementation) {
