@@ -81,7 +81,8 @@ class HostsFileTest extends \PHPUnit_Framework_TestCase {
                 list($resolvedAddr, $resolvedMode) = $result;
                     $this->assertEquals(
                         $expectedAddrMode,
-                        $resolvedMode
+                        $resolvedMode,
+                        "Incorrect address type received was expecting $expectedAddrMode but received $resolvedMode."
                     );
                 
                 $this->assertEquals(
