@@ -242,39 +242,13 @@ class Client
                 $this->redirectPendingLookup($id, $addr);
             }
         } else if ($addr !== null) {
-            $this->store($name, $addr, $type, $ttl);
+            $this->cache->store($name, $type, $addr, $ttl);
             $this->completeRequest($request, $addr, $type);
         } else {
             foreach ($request['lookups'] as $id => $lookup) {
                 $this->processPendingLookup($id);
             }
         }
-    }
-
-    /**
-     * Generates the cache key used to store the result for hostname and type.
-     *
-     * @param string $name
-     * @param int $type
-     * @return string
-     */
-    private function generateCacheKey($name, $type)
-    {
-        return 'Name:'.$name.',Type:'.$type;
-    }
-
-    /**
-     * Store an address mapping in the cache
-     *
-     * @param string $name
-     * @param string $addr
-     * @param int $type
-     * @param int $ttl
-     */
-    public function store($name, $addr, $type, $ttl)
-    {
-        $key = $this->generateCacheKey($name, $type);
-        $this->cache->store($key, $addr, $ttl);
     }
 
     /**
@@ -322,14 +296,13 @@ class Client
         $name = $this->pendingLookups[$id]['name'];
         $type = array_shift($this->pendingLookups[$id]['requests']);
 
-        $key = $this->generateCacheKey($name, $type);
-        list($cacheHit, $addr) = $this->cache->get($key);
-
-        if ($cacheHit === true) {
-            $this->completePendingLookup($id, $addr, $type);
-        } else {
-            $this->dispatchRequest($id, $name, $type);
-        }
+        $this->cache->get($name, $type, function($cacheHit, $addr) use($id, $name, $type) {
+            if ($cacheHit) {
+                $this->completePendingLookup($id, $addr, $type);
+            } else {
+                $this->dispatchRequest($id, $name, $type);
+            }
+        });
     }
 
     /**

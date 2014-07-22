@@ -2,10 +2,9 @@
 
 namespace Addr\Cache;
 
-use Addr\Cache,
-    Predis\Client as RedisClient;
+use Predis\Client as RedisClient;
 
-class RedisCache implements Cache
+class RedisCache extends KeyValueCache
 {
     /**
      * @var RedisClient
@@ -21,7 +20,7 @@ class RedisCache implements Cache
     private $fetchLuaScript = <<< SCRIPT
 if redis.call("exists", KEYS[1]) == 1
 then
-    return {1, redis.call("get",KEYS[1])}
+    return {1, redis.call("get", KEYS[1])}
 else
     return {0, 0}
 end
@@ -31,62 +30,62 @@ SCRIPT;
      * Constructor
      *
      * @param RedisClient $redisClient
-     * @param string $prefixKey A prefix to prepend to all keys. This can also be 
+     * @param string $keyPrefix A prefix to prepend to all keys. This can also be
      * set via the redis client, in which case you may wish to pass an empty string
      * as $prefixKey
      */
-    public function __construct(RedisClient $redisClient, $prefixKey = 'Addr\Cache\RedisCache')
+    public function __construct(RedisClient $redisClient, $keyPrefix = __CLASS__)
     {
         $this->redisClient = $redisClient;
-        $this->prefix = $prefixKey;
+        parent::__construct($keyPrefix);
+    }
+
+    /**
+     * Attempt to retrieve a value from the cache
+     *
+     * @param string $name
+     * @param int $type
+     * @param callable $callback
+     */
+    public function get($name, $type, callable $callback)
+    {
+        list($wasHit, $value) = $this->redisClient->eval($this->fetchLuaScript, 1, $this->generateKey($name, $type));
+
+        if ($wasHit) {
+            $callback(true, $value);
+            return;
+        }
+
+        $callback(false, null);
     }
 
     /**
      * Stores a value in the cache. Overwrites the previous value if there was one.
      *
      * @param string $name
-     * @param string $value
+     * @param int $type
+     * @param string $addr
      * @param int $ttl
      */
-    public function store($name, $value, $ttl = null)
+    public function store($name, $type, $addr, $ttl = null)
     {
-        $name = $this->prefix . $name;
-        $ttl = intval($ttl);
+        $key = $this->generateKey($name, $type);
+
         if ($ttl > 0) {
-            $this->redisClient->set($name, $value, 'EX', $ttl);
-        }
-        else {
-            $this->redisClient->set($name, $value);
+            $this->redisClient->set($key, $addr, 'EX', (int)$ttl);
+        } else {
+            $this->redisClient->set($key, $addr);
         }
     }
 
     /**
-     * Attempt to retrieve a value from the cache
+     * Deletes an entry from the cache.
      *
-     * Returns an array [$cacheHit, $value]
-     * [true, $valueFromCache] - if it existed in the cache
-     * [false, null] - if it didn't already exist in the cache
-     *
-     * @param $name
-     * @return array
+     * @param string $name
+     * @param int $type
      */
-    public function get($name)
+    public function delete($name, $type)
     {
-        $name = $this->prefix . $name;
-        list($wasHit, $value) = $this->redisClient->eval($this->fetchLuaScript, 1, $name);
-        if ($wasHit) {
-            return [true, $value];
-        }
-
-        return [false, null];
-    }
-
-    /**
-     * @param $name
-     */
-    public function delete($name)
-    {
-        $name = $this->prefix . $name;
-        $this->redisClient->del([$name]);
+        $this->redisClient->del([$this->generateKey($name, $type)]);
     }
 }

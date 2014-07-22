@@ -24,8 +24,7 @@ class CacheTest extends \PHPUnit_Framework_TestCase
             $predisClient = new RedisClient(self::$redisParameters, []);
             $predisClient->ping();
             //It's connected
-        }
-        catch (RedisConnectionException $rce) {
+        } catch (RedisConnectionException $rce) {
             self::$redisEnabled = false;
         }
     }
@@ -40,19 +39,22 @@ class CacheTest extends \PHPUnit_Framework_TestCase
 
         $cacheValues = [];
 
-        $cacheGetFunction = function($key) use (&$cacheValues) {
+        $cacheGetFunction = function($name, $type, callable $callback) use (&$cacheValues) {
+            $key = $name . '_' . $type;
+
             if (array_key_exists($key, $cacheValues)) {
-                return [true, $cacheValues[$key]];
+                $callback(true, $cacheValues[$key]);
+            } else {
+                $callback(false, null);
             }
-            return [false, null];
         };
 
-        $cacheStoreFunction = function($key, $value, $ttl = null) use (&$cacheValues) {
-            $cacheValues[$key] = $value;
+        $cacheStoreFunction = function($name, $type, $value, $ttl = null) use (&$cacheValues) {
+            $cacheValues[$name . '_' . $type] = $value;
         };
 
-        $cacheDeleteFunction = function($key) use (&$cacheValues) {
-            unset($cacheValues[$key]);
+        $cacheDeleteFunction = function($name, $type) use (&$cacheValues) {
+            unset($cacheValues[$name . '_' . $type]);
         };
 
         $mock->shouldReceive('get')->withAnyArgs()->andReturnUsing($cacheGetFunction);
@@ -94,8 +96,7 @@ class CacheTest extends \PHPUnit_Framework_TestCase
         $prefix = time().'_'.uniqid('CacheTest');
         try {
             $predisClient = new \Predis\Client(self::$redisParameters, []);
-        }
-        catch (RedisConnectionException $rce) {
+        } catch (RedisConnectionException $rce) {
             $this->markTestIncomplete("Could not connect to Redis server, cannot test redis cache.");
             return;
         }
@@ -116,60 +117,69 @@ class CacheTest extends \PHPUnit_Framework_TestCase
      */
     public function runCacheTest(Cache $cache)
     {
-        $key = 'TestKey';
-        $value = '12345';
-        $secondValue = '54321';
+        $name = 'example.com';
+        $type = 1;
+        $ttl = 3600;
+        $value1 = '12345';
+        $value2 = '54321';
 
-        list($alreadyExisted, $retrievedValue) = $cache->get($key);
-        $this->assertFalse($alreadyExisted);
-        $this->assertNull($retrievedValue);
+        $cache->get($name, $type, function($alreadyExisted, $retrievedValue) {
+            $this->assertFalse($alreadyExisted);
+            $this->assertNull($retrievedValue);
+        });
 
-        $cache->store($key, $value);
+        $cache->store($name, $type, $value1, $ttl);
 
-        list($alreadyExisted, $retrievedValue) = $cache->get($key);
-        $this->assertTrue($alreadyExisted);
-        $this->assertEquals($value, $retrievedValue);
+        $cache->get($name, $type, function($alreadyExisted, $retrievedValue) use($value1) {
+            $this->assertTrue($alreadyExisted);
+            $this->assertEquals($value1, $retrievedValue);
+        });
 
-        $cache->delete($key);
+        $cache->delete($name, $type);
 
-        list($alreadyExisted, $retrievedValue) = $cache->get($key);
-        $this->assertFalse($alreadyExisted);
-        $this->assertNull($retrievedValue);
+        $cache->get($name, $type, function($alreadyExisted, $retrievedValue) {
+            $this->assertFalse($alreadyExisted);
+            $this->assertNull($retrievedValue);
+        });
 
-        $cache->store($key, $secondValue);
+        $cache->store($name, $type, $value2, $ttl);
 
-        list($alreadyExisted, $retrievedValue) = $cache->get($key);
-        $this->assertTrue($alreadyExisted);
-        $this->assertEquals($secondValue, $retrievedValue);
-    }   
+        $cache->get($name, $type, function($alreadyExisted, $retrievedValue) use($value2) {
+            $this->assertTrue($alreadyExisted);
+            $this->assertEquals($value2, $retrievedValue);
+        });
+    }
 
     public function testMemoryCacheGarbageCollection()
     {
-        $key = "TestKey";
+        $name = 'example.com';
+        $type = 1;
+        $ttl = 3600;
         $value = '12345';
 
         $memoryCache = new MemoryCache;
 
         //A TTL of zero should be expired instantly
-        $memoryCache->store($key, $value, 0);
-        list($cacheHit, $cachedValue) = $memoryCache->get($key);
-        $this->assertFalse($cacheHit);
+        $memoryCache->store($name, $type, $value, 0);
+        $memoryCache->get($name, $type, function($cacheHit) {
+            $this->assertFalse($cacheHit);
+        });
 
-
-        //A negative TTL oshould be expired instantly
-        $memoryCache->store($key, $value, -5);
-        list($cacheHit, $cachedValue) = $memoryCache->get($key);
-        $this->assertFalse($cacheHit);
-
+        //A negative TTL should be expired instantly
+        $memoryCache->store($name, $type, $value, -5);
+        $memoryCache->get($name, $type, function($cacheHit) {
+            $this->assertFalse($cacheHit);
+        });
 
         //A positive TTL should be cached
-        $memoryCache->store($key, $value, 5);
-        list($cacheHit, $cachedValue) = $memoryCache->get($key);
-        $this->assertTrue($cacheHit);
-        $this->assertEquals($value, $cachedValue);
-
+        $memoryCache->store($name, $type, $value, 5);
+        $memoryCache->get($name, $type, function($alreadyExisted, $retrievedValue) use($value) {
+            $this->assertTrue($alreadyExisted);
+            $this->assertEquals($value, $retrievedValue);
+        });
 
         //check that garbage collection collects.
-        $memoryCache->store($key, $value, 0);
+        //todo
+        $memoryCache->store($name, $type, $value, 0);
     }
 }

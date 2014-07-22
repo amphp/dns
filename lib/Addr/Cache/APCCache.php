@@ -2,60 +2,58 @@
 
 namespace Addr\Cache;
 
-use Addr\Cache;
-
-class APCCache implements Cache
+class APCCache extends KeyValueCache
 {
     /**
-     * @param string $prefix A prefix to prepend to all keys.
+     * Constructor
+     *
+     * @param string $keyPrefix A prefix to prepend to all keys.
      */
-    public function __construct($prefix = 'AddrCache\Cache\APCCache')
+    public function __construct($keyPrefix = __CLASS__)
     {
-        $this->prefix = $prefix;
+        parent::__construct($keyPrefix);
     }
 
     /**
      * Attempt to retrieve a value from the cache
      *
-     * Returns an array [$cacheHit, $value]
-     * [true, $valueFromCache] - if it existed in the cache
-     * [false, null] - if it didn't already exist in the cache
-     *
-     * @param $name
-     * @return array
+     * @param string $name
+     * @param int $type
+     * @param callable $callback
      */
-    public function get($name)
+    public function get($name, $type, callable $callback)
     {
-        $name = $this->prefix . $name;
-        $value = apc_fetch($name, $success);
+        $value = apc_fetch($this->generateKey($name, $type), $success);
 
         if ($success) {
-            return [true, $value];
+            $callback(true, $value);
+            return;
         }
 
-        return [false, null];
+        $callback(false, null);
     }
 
     /**
      * Stores a value in the cache. Overwrites the previous value if there was one.
      *
-     * @param $name
-     * @param $value
-     * @param null $ttl
+     * @param string $name
+     * @param int $type
+     * @param string $addr
+     * @param int $ttl
      */
-    public function store($name, $value, $ttl = null)
+    public function store($name, $type, $addr, $ttl = null)
     {
-        $name = $this->prefix . $name;
-        apc_store($name, $value, $ttl);
+        apc_store($this->generateKey($name, $type), $addr, $ttl);
     }
 
     /**
      * Deletes an entry from the cache.
-     * @param $name
+     *
+     * @param string $name
+     * @param int $type
      */
-    public function delete($name)
+    public function delete($name, $type)
     {
-        $name = $this->prefix . $name;
-        apc_delete($name);
+        apc_delete($this->generateKey($name, $type));
     }
 }

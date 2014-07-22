@@ -6,58 +6,95 @@ use Addr\Cache;
 
 class MemoryCache implements Cache
 {
-    const MAX_TTL = 31536000;//1 year
+    /**
+     * Default time-to-live - 1 day
+     */
+    const DEFAULT_TTL = 86400;
 
-    private $valueAndTTLArray = [];
+    /**
+     * Internal data store for cache values
+     *
+     * @var array
+     */
+    private $recordsByTypeAndName = [];
 
     /**
      * Attempt to retrieve a value from the cache
      *
-     * Returns an array [$cacheHit, $value]
-     * [true, $valueFromCache] - if it existed in the cache
-     * [false, null] - if it didn't already exist in the cache
-     *
      * @param string $name
-     * @return array
+     * @param int $type
+     * @param callable $callback
      */
-    public function get($name)
+    public function get($name, $type, callable $callback)
     {
-        if (array_key_exists($name, $this->valueAndTTLArray) == false) {
-            return [false, null];
+        if (isset($this->recordsByTypeAndName[$type][$name])) {
+            list($value, $expireTime) = $this->recordsByTypeAndName[$type][$name];
+
+            if ($expireTime > time()) {
+                $callback(true, $value);
+                return;
+            }
         }
 
-        list($value, $expireTime) = $this->valueAndTTLArray[$name];
-
-        if ($expireTime <= time()) {
-            return [false, null]; //It's already expired, so don't return cached value;    
-        }
-
-        return [true, $value];
+        $callback(false, null);
     }
 
     /**
      * Stores a value in the cache. Overwrites the previous value if there was one.
      *
      * @param string $name
-     * @param string $value
+     * @param int $type
+     * @param string $addr
      * @param int $ttl
      */
-    public function store($name, $value, $ttl = null)
+    public function store($name, $type, $addr, $ttl = null)
     {
         if ($ttl === null) {
-            $ttl = self::MAX_TTL;
+            $ttl = self::DEFAULT_TTL;
         }
 
-        $this->valueAndTTLArray[$name] = [$value, time() + $ttl];
+        $this->recordsByTypeAndName[$type][$name] = [$addr, time() + $ttl];
     }
 
     /**
      * Deletes an entry from the cache.
      *
      * @param string $name
+     * @param int $type
      */
-    public function delete($name)
+    public function delete($name, $type = null)
     {
-        unset($this->valueAndTTLArray[$name]);
+        if ($type !== null) {
+            unset($this->recordsByTypeAndName[$type][$name]);
+        } else {
+            /* this approach is to avoid COW of the whole record store
+               do not "optimise" it! */
+            foreach (array_keys($this->recordsByTypeAndName) as $type) {
+                unset($this->recordsByTypeAndName[$type][$name]);
+            }
+        }
+    }
+
+    /**
+     * Delete all expired records from the cache
+     */
+    public function collectGarbage()
+    {
+        /* this approach is to avoid COW of the whole record store
+           do not "optimise" it! */
+        $now = time();
+        $toDelete = [];
+
+        foreach ($this->recordsByTypeAndName as $type => $records) {
+            foreach ($records as $name => $record) {
+                if ($record[1] <= $now) {
+                    $toDelete[] = [$type, $name];
+                }
+            }
+        }
+
+        foreach ($toDelete as $record) {
+            unset($this->recordsByTypeAndName[$record[0]][$record[1]]);
+        }
     }
 }
