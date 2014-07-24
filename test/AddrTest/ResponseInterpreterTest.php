@@ -197,7 +197,10 @@ class ResponseInterpreterTest extends \PHPUnit_Framework_TestCase
         $this->assertSame(174, $ttl);
         
         $interpreted = $responseInterpreter->interpret($response, AddressModes::INET6_ADDR);
-        $this->assertNull($interpreted);
+        list($type, $addr, $ttl) = $interpreted;
+        $this->assertEquals("newswww.bbc.net.uk", $addr);
+        $this->assertEquals(AddressModes::CNAME, $type);
+        $this->assertNull($ttl);
     }
     
     
