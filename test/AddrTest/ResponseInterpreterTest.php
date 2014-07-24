@@ -118,6 +118,26 @@ class ResponseInterpreterTest extends \PHPUnit_Framework_TestCase
         0x58 
     ];
 
+    static private $bbcNews = [
+        //This should be equivalent to 
+        //    ;; ANSWER SECTION:
+        //    news.bbc.co.uk.		655	IN	CNAME	newswww.bbc.net.uk.
+        //    newswww.bbc.net.uk.	174	IN	A	212.58.246.82
+        //    newswww.bbc.net.uk.	174	IN	A	212.58.246.83
+        0xe1, 0x16, 0x81, 0x80, 0x00, 0x01, 0x00, 0x03,
+        0x00, 0x00, 0x00, 0x00, 0x04, 0x6e, 0x65, 0x77,
+        0x73, 0x03, 0x62, 0x62, 0x63, 0x02, 0x63, 0x6f,
+        0x02, 0x75, 0x6b, 0x00, 0x00, 0x01, 0x00, 0x01,
+        0xc0, 0x0c, 0x00, 0x05, 0x00, 0x01, 0x00, 0x00,
+        0x02, 0x8f, 0x00, 0x12, 0x07, 0x6e, 0x65, 0x77,
+        0x73, 0x77, 0x77, 0x77, 0x03, 0x62, 0x62, 0x63,
+        0x03, 0x6e, 0x65, 0x74, 0xc0, 0x18, 0xc0, 0x2c,
+        0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0xae,
+        0x00, 0x04, 0xd4, 0x3a, 0xf6, 0x52, 0xc0, 0x2c,
+        0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0xae,
+        0x00, 0x04, 0xd4, 0x3a, 0xf6, 0x53 
+    ];
+
 
     public function testCatchesExceptionAndReturnsNull()
     {
@@ -154,39 +174,13 @@ class ResponseInterpreterTest extends \PHPUnit_Framework_TestCase
         $result = $responseInterpreter->decode("SomePacket");
         $this->assertNull($result);
     }
-
-// Test string below was generated with
-//
-//    function getSaneString($result) {
-//        $resultInHex = unpack('H*', $result);
-//        $resultInHex = $resultInHex[1];
-//
-//        $charsAsHex = str_split($resultInHex, 2);
-//
-//        $output = '';
-//
-//        foreach ($charsAsHex as $charAsHex) {
-//            $decimal = hexdec($charAsHex);
-//            if ($decimal >= 32 && $decimal <= 126) {
-//                $output .= chr($decimal);
-//            }
-//            else {
-//                $output .= '\x'.$charAsHex;
-//            }
-//        }
-//
-//        return $output;
-//    }
-    
     
     /**
      * @group CNAME
      */
-    public function testCNAME()
+    public function testNewsBBC()
     {
-
-        $testPacket = "\x00\x00\x81\x80\x00\x01\x00\x03\x00\x00\x00\x00\x04news\x03bbc\x02co\x02uk\x00\x00\x01\x00\x01\xc0\x0c\x00\x05\x00\x01\x00\x00\x01W\x00\x12\x07newswww\x03bbc\x03net\xc0\x18\xc0,\x00\x01\x00\x01\x00\x00\x00\xd2\x00\x04\xd4:\xf6P\xc0,\x00\x01\x00\x01\x00\x00\x00\xd2\x00\x04\xd4:\xf6Q";
-        
+        $testPacket = getPacketString(self::$bbcNews);
         $decoder = (new DecoderFactory)->create();
         
         $responseInterpreter = new ResponseInterpreter($decoder);
@@ -198,24 +192,18 @@ class ResponseInterpreterTest extends \PHPUnit_Framework_TestCase
         $interpreted = $responseInterpreter->interpret($response, AddressModes::INET4_ADDR);
         list($type, $addr, $ttl) = $interpreted;
         $this->assertEquals(AddressModes::INET4_ADDR, $type);
-        $this->assertSame("212.58.246.80", $addr);
-        $this->assertSame(210, $ttl);
-
+        //@TODO - this should be multiple - 212.58.246.82 and 212.58.246.83
+        $this->assertSame("212.58.246.82", $addr);
+        $this->assertSame(174, $ttl);
+        
         $interpreted = $responseInterpreter->interpret($response, AddressModes::INET6_ADDR);
-        $this->markTestSkipped("I am unsure what the correct response should be.");
-        //list($type, $addr, $ttl) = $interpreted;
-        //This looks borked - it's returning the CNAME but as the asserts above are going to fail 
-        // this won't be reached.
-        //$type = 8 aka CNAME
-        //$addr = "newswww.bbc.net.uk" aka CNAME
-        //$ttl = null
+        $this->assertNull($interpreted);
     }
     
     
     function createResponseInterpreter()
     {
         $decoder = (new DecoderFactory)->create();
-
         $responseInterpreter = new ResponseInterpreter($decoder);
 
         return $responseInterpreter;
@@ -305,4 +293,23 @@ class ResponseInterpreterTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals(86340, $ttl);
     }
 
+    function testCnameResponse()
+    {
+        $responseInterpreter = $this->createResponseInterpreter();
+        $packet = getPacketString(self::$standardQueryResponseCNAME);
+        $decoded = $responseInterpreter->decode($packet);
+        list($id, $message) = $decoded;
+
+        //Try to get an IPv4 answer - but actually get a CNAME
+        $interpreted = $responseInterpreter->interpret($message, AddressModes::INET4_ADDR);
+        list($type, $addr, $ttl) = $interpreted;
+        $this->assertEquals(AddressModes::CNAME, $type);
+        $this->assertEquals('www.l.google.com', $addr);
+
+        //Try to get an IPv6 answer - but actually get a CNAME
+        $interpreted = $responseInterpreter->interpret($message, AddressModes::INET6_ADDR);
+        list($type, $addr, $ttl) = $interpreted;
+        $this->assertEquals(AddressModes::CNAME, $type);
+        $this->assertEquals('www.l.google.com', $addr);
+    }
 }
