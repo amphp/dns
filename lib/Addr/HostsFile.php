@@ -74,9 +74,9 @@ class HostsFile
             }
 
             $parts = preg_split('/\s+/', $line);
-            if (!filter_var($parts[0], FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+            if (filter_var($parts[0], FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false) {
                 $key = AddressModes::INET4_ADDR;
-            } else if (!filter_var($parts[0], FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+            } else if (filter_var($parts[0], FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false) {
                 $key = AddressModes::INET6_ADDR;
             } else {
                 continue;
@@ -117,10 +117,13 @@ class HostsFile
 
         $have4 = isset($this->data[AddressModes::INET4_ADDR][$name]);
         $have6 = isset($this->data[AddressModes::INET6_ADDR][$name]);
+        $want4 = (bool)($mode & AddressModes::INET4_ADDR);
+        $want6 = (bool)($mode & AddressModes::INET6_ADDR);
+        $pref6 = (bool)($mode & AddressModes::PREFER_INET6);
 
-        if ($have6 && (!$have4 || $mode & AddressModes::PREFER_INET6)) {
+        if ($have6 && $want6 && (!$want4 || !$have4 || $pref6)) {
             return [$this->data[AddressModes::INET6_ADDR][$name], AddressModes::INET6_ADDR];
-        } else if ($have4) {
+        } else if ($have4 && $want4) {
             return [$this->data[AddressModes::INET4_ADDR][$name], AddressModes::INET4_ADDR];
         }
 
