@@ -31,7 +31,7 @@ class ResolverTest extends \PHPUnit_Framework_TestCase {
     /**
      * @return Resolver
      */
-    function createResolver($reactor)
+    function createResolver($reactor, $createClient = true)
     {
         $nameValidator = new NameValidator;
         $cache = new Cache\MemoryCache;
@@ -42,18 +42,22 @@ class ResolverTest extends \PHPUnit_Framework_TestCase {
         $requestTimeout = null;
         $hostsFilePath = null;
         
-        $client = new Client(
-            $reactor,
-            new RequestBuilder(
-                new MessageFactory,
-                new QuestionFactory,
-                (new EncoderFactory)->create()
-            ),
-            new ResponseInterpreter(
-                (new DecoderFactory)->create()
-            ),
-            $cache, $serverAddr, $serverPort, $requestTimeout
-        );
+        $client = null;
+        
+        if ($createClient) {
+            $client = new Client(
+                $reactor,
+                new RequestBuilder(
+                    new MessageFactory,
+                    new QuestionFactory,
+                    (new EncoderFactory)->create()
+                ),
+                new ResponseInterpreter(
+                    (new DecoderFactory)->create()
+                ),
+                $cache, $serverAddr, $serverPort, $requestTimeout
+            );
+        }
 
         $hostsFile = new HostsFile($nameValidator, __DIR__.'/../fixtures/resolverTest.txt');
         $resolver = new Resolver($reactor, $nameValidator, $client, $hostsFile);
@@ -198,5 +202,30 @@ class ResolverTest extends \PHPUnit_Framework_TestCase {
 
         $this->assertSame('192.168.1.3', $resultAddr2);
         $this->assertSame(AddressModes::INET4_ADDR, $resultType1);
+    }
+
+
+    function testWithoutClient()
+    {
+        $reactor = (new ReactorFactory)->select();
+
+        $resolver = $this->createResolver($reactor, false);
+
+        $names = ["host1.example.com", 'news.bbc.co.uk'];
+        $results = [];
+
+        foreach ($names as $name) {
+            $resolver->resolve($name, function($addr) use($name, $resolver, &$results) {
+                    $results[] = [$name, $addr];
+                });
+        }
+
+        $reactor->run();
+        
+        $this->assertCount(
+            count($names),
+            $results,
+            "At least one of the name lookups did not call the callback."
+        );
     }
 }
