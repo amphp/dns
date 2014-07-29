@@ -19,7 +19,7 @@
     "require-dev": {
         "mockery/mockery": ">=0.9.1",
         "rdlowrey/auryn": ">=0.13.0",
-        "predis/predis": "dev-v0.9/phpdoc-method-tags as v0.8.4",    
+        "predis/predis": "~0.8.6",
         "phpunit/phpunit": "~4.1.0"
     },
     "autoload": {
