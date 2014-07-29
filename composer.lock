@@ -1,9 +1,10 @@
 {
     "_readme": [
         "This file locks the dependencies of your project to a known state",
-        "Read more about it at http://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file"
+        "Read more about it at http://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
+        "This file is @generated automatically"
     ],
-    "hash": "7abdbee16c1b23c04cf43ef2bcde99fe",
+    "hash": "d23503749c4b856c90532a92043c7edf",
     "packages": [
         {
             "name": "daverandom/libdns",
@@ -40,16 +41,16 @@
         },
         {
             "name": "rdlowrey/alert",
-            "version": "v0.8.1",
+            "version": "v0.9.0",
             "source": {
                 "type": "git",
-                "url": "https://github.com/rdlowrey/alert.git",
-                "reference": "a09cc62f81d8950e05e6c715668be3cb2a07d716"
+                "url": "https://github.com/rdlowrey/Alert.git",
+                "reference": "16190c9b325d156e394ab3ce3c725f98e73df973"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/rdlowrey/alert/zipball/a09cc62f81d8950e05e6c715668be3cb2a07d716",
-                "reference": "a09cc62f81d8950e05e6c715668be3cb2a07d716",
+                "url": "https://api.github.com/repos/rdlowrey/Alert/zipball/16190c9b325d156e394ab3ce3c725f98e73df973",
+                "reference": "16190c9b325d156e394ab3ce3c725f98e73df973",
                 "shasum": ""
             },
             "require": {
@@ -57,9 +58,9 @@
             },
             "type": "library",
             "autoload": {
-                "files": [
-                    "src/bootstrap.php"
-                ]
+                "psr-4": {
+                    "Alert\\": "lib/"
+                }
             },
             "notification-url": "https://packagist.org/downloads/",
             "license": [
@@ -72,15 +73,15 @@
                     "role": "Creator / Lead Developer"
                 }
             ],
-            "description": "Event loops for event-driven/async PHP",
+            "description": "Event loops and stream IO reactors for non-blocking PHP applications",
             "homepage": "https://github.com/rdlowrey/alert",
             "keywords": [
                 "async",
-                "events",
                 "libevent",
+                "libuv",
                 "non-blocking"
             ],
-            "time": "2014-06-11 14:09:10"
+            "time": "2014-07-22 17:47:22"
         }
     ],
     "packages-dev": [
