@@ -1,1 +1,4 @@
 .idea
+vendor/*
+!vendor/Alert
+!vendor/LibDNS
