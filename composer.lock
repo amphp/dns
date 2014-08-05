@@ -4,7 +4,7 @@
         "Read more about it at http://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
         "This file is @generated automatically"
     ],
-    "hash": "d23503749c4b856c90532a92043c7edf",
+    "hash": "90e3e5aa0e657ae9500041735b0f9006",
     "packages": [
         {
             "name": "daverandom/libdns",
@@ -41,16 +41,16 @@
         },
         {
             "name": "rdlowrey/alert",
-            "version": "v0.9.0",
+            "version": "v0.10.2",
             "source": {
                 "type": "git",
                 "url": "https://github.com/rdlowrey/Alert.git",
-                "reference": "16190c9b325d156e394ab3ce3c725f98e73df973"
+                "reference": "1807f340419f22c41728969d39c8af824f0535e7"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/rdlowrey/Alert/zipball/16190c9b325d156e394ab3ce3c725f98e73df973",
-                "reference": "16190c9b325d156e394ab3ce3c725f98e73df973",
+                "url": "https://api.github.com/repos/rdlowrey/Alert/zipball/1807f340419f22c41728969d39c8af824f0535e7",
+                "reference": "1807f340419f22c41728969d39c8af824f0535e7",
                 "shasum": ""
             },
             "require": {
@@ -60,7 +60,10 @@
             "autoload": {
                 "psr-4": {
                     "Alert\\": "lib/"
-                }
+                },
+                "files": [
+                    "lib/functions.php"
+                ]
             },
             "notification-url": "https://packagist.org/downloads/",
             "license": [
@@ -81,15 +84,23 @@
                 "libuv",
                 "non-blocking"
             ],
-            "time": "2014-07-22 17:47:22"
+            "time": "2014-08-02 06:21:32"
         }
     ],
-    "packages-dev": [],
-    "aliases": [],
+    "packages-dev": [
+
+    ],
+    "aliases": [
+
+    ],
     "minimum-stability": "stable",
-    "stability-flags": [],
+    "stability-flags": [
+
+    ],
     "platform": {
         "php": ">=5.4.0"
     },
-    "platform-dev": []
+    "platform-dev": [
+
+    ]
 }
