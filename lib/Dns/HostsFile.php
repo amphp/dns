@@ -1,9 +1,8 @@
 <?php
 
-namespace Addr;
+namespace Amp\Dns;
 
-class HostsFile
-{
+class HostsFile {
     /**
      * @var NameValidator
      */
@@ -37,9 +36,8 @@ class HostsFile
      * @param string $path
      * @throws \LogicException
      */
-    public function __construct(NameValidator $nameValidator, $path = null)
-    {
-        $this->nameValidator = $nameValidator;
+    public function __construct(NameValidator $nameValidator = null, $path = null) {
+        $this->nameValidator = $nameValidator ?: new NameValidator;
 
         if ($path === null) {
             $path = stripos(PHP_OS, 'win') === 0 ? 'C:\Windows\system32\drivers\etc\hosts' : '/etc/hosts';
@@ -59,8 +57,7 @@ class HostsFile
     /**
      * Parse a hosts file into an array
      */
-    private function reload()
-    {
+    private function reload() {
         $this->data = [
             AddressModes::INET4_ADDR => [],
             AddressModes::INET6_ADDR => [],
@@ -93,8 +90,7 @@ class HostsFile
     /**
      * Ensure the loaded data is current
      */
-    private function ensureDataIsCurrent()
-    {
+    private function ensureDataIsCurrent() {
         clearstatcache(true, $this->path);
         $modTime = filemtime($this->path);
 
@@ -111,8 +107,7 @@ class HostsFile
      * @param int $mode
      * @return array|null
      */
-    public function resolve($name, $mode)
-    {
+    public function resolve($name, $mode) {
         $this->ensureDataIsCurrent();
 
         $have4 = isset($this->data[AddressModes::INET4_ADDR][$name]);

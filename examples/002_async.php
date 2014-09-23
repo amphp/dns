@@ -1,28 +1,7 @@
-dns
-===
-
-Asynchronous DNS resolution built on the [Amp](https://github.com/amphp/amp) concurrency framework
-
-
-## Examples
-
-**Synchronous Wait**
-
-```php
 <?php
 
-require __DIR__ . '/vendor/autoload.php';
+require __DIR__ . '/../vendor/autoload.php';
 
-$name = 'google.com';
-$resolver = new Amp\Dns\Resolver;
-$promise = $resolver->resolve($name);
-list($address, $type) = $promise->wait();
-printf("%s resolved to %s\n", $name, $address);
-```
-
-**Parallel Async**
-
-```php
 Amp\run(function() {
     $names = [
         'github.com',
@@ -53,4 +32,3 @@ Amp\run(function() {
     // Stop the event loop so we don't sit around forever
     Amp\stop();
 });
-```

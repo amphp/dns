@@ -1,9 +1,8 @@
 <?php
 
-namespace Addr;
+namespace Amp\Dns;
 
-class NameValidator
-{
+class NameValidator {
     /**
      * Regex for validating domain name format
      *
@@ -17,8 +16,7 @@ class NameValidator
      * @param string $name
      * @return bool
      */
-    public function validate($name)
-    {
+    public function validate($name) {
         return strlen($name) <= 253 && preg_match($this->validatePattern, $name);
     }
 }

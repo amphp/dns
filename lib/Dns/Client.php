@@ -1,28 +1,35 @@
 <?php
 
-namespace Addr;
+namespace Amp\Dns;
 
-use Alert\Reactor;
+use Amp\Reactor;
+use Amp\Success;
+use Amp\Failure;
+use Amp\Future;
+use Amp\Dns\Cache\MemoryCache;
 
-class Client
-{
+class Client {
+    const OP_MS_REQUEST_TIMEOUT = 0b0001;
+    const OP_SERVER_ADDRESS = 0b0010;
+    const OP_SERVER_PORT = 0b0011;
+
     /**
-     * @var Reactor
+     * @var \Amp\Reactor
      */
     private $reactor;
 
     /**
-     * @var RequestBuilder
+     * @var \Amp\Dns\RequestBuilder
      */
     private $requestBuilder;
 
     /**
-     * @var ResponseInterpreter
+     * @var \Amp\Dns\ResponseInterpreter
      */
     private $responseInterpreter;
 
     /**
-     * @var \Addr\Cache
+     * @var \Amp\Dns\Cache
      */
     private $cache;
 
@@ -34,7 +41,7 @@ class Client
     /**
      * @var int
      */
-    private $requestTimeout;
+    private $msRequestTimeout = 2000;
 
     /**
      * @var int
@@ -67,70 +74,82 @@ class Client
     private $lookupIdCounter = 0;
 
     /**
-     * Constructor
-     *
-     * @param Reactor $reactor
-     * @param RequestBuilder $requestBuilder
-     * @param ResponseInterpreter $responseInterpreter
-     * @param Cache $cache
-     * @param string $serverAddress
-     * @param int $serverPort
-     * @param int $requestTimeout
-     * @throws \RuntimeException
+     * @var string
+     */
+    private $serverAddress = '8.8.8.8';
+
+    /**
+     * @var int
+     */
+    private $serverPort = 53;
+
+    /**
+     * @param \Amp\Reactor $reactor
+     * @param \Amp\Dns\RequestBuilder $requestBuilder
+     * @param \Amp\Dns\ResponseInterpreter $responseInterpreter
+     * @param \Amp\Dns\Cache $cache
      */
     public function __construct(
-        Reactor $reactor,
-        RequestBuilder $requestBuilder,
-        ResponseInterpreter $responseInterpreter,
-        Cache $cache = null,
-        $serverAddress = null,
-        $serverPort = null,
-        $requestTimeout = null
+        Reactor $reactor = null,
+        RequestBuilder $requestBuilder = null,
+        ResponseInterpreter $responseInterpreter = null,
+        Cache $cache = null
     ) {
-        $this->reactor = $reactor;
-        $this->requestBuilder = $requestBuilder;
-        $this->responseInterpreter = $responseInterpreter;
-        $this->cache = $cache;
+        $this->reactor = $reactor ?: \Amp\reactor();
+        $this->requestBuilder = $requestBuilder ?: new RequestBuilder;
+        $this->responseInterpreter = $responseInterpreter ?: new ResponseInterpreter;
+        $this->cache = $cache ?: new MemoryCache;
+    }
 
-        $serverAddress = $serverAddress !== null ? (string)$serverAddress : '8.8.8.8';
-        $serverPort = $serverPort !== null ? (int)$serverPort : 53;
-        $requestTimeout = $requestTimeout !== null ? (int)$requestTimeout : 2000;
+    /**
+     * Resolve a name from a DNS server
+     *
+     * @param string $name
+     * @param int $mode
+     * @return \Amp\Promise
+     */
+    public function resolve($name, $mode) {
+        // Defer UDP server connect until needed to allow custom address/port option assignment
+        // after object instantiation.
+        if (empty($this->socket) && !$this->connect()) {
+            return new Failure(new ResolverException(
+                sprintf(
+                    "Failed connecting to DNS server at %s:%d",
+                    $this->serverAddress,
+                    $this->serverPort
+                )
+            ));
+        }
 
-        $address = sprintf('udp://%s:%d', $serverAddress, $serverPort);
-        $this->socket = stream_socket_client($address, $errNo, $errStr);
-        if (!$this->socket) {
-            throw new \RuntimeException("Creating socket {$address} failed: {$errNo}: {$errStr}");
+        $future = new Future($this->reactor);
+        $id = $this->getNextFreeLookupId();
+        $this->pendingLookups[$id] = [
+            'name'        => $name,
+            'requests'    => $this->getRequestList($mode),
+            'last_type'   => null,
+            'future'      => $future,
+        ];
+
+        $this->processPendingLookup($id);
+
+        return $future->promise();
+    }
+
+    private function connect() {
+        $address = sprintf('udp://%s:%d', $this->serverAddress, $this->serverPort);
+        if (!$this->socket = @stream_socket_client($address, $errNo, $errStr)) {
+            return false;
         }
 
         stream_set_blocking($this->socket, 0);
-        $this->requestTimeout = $requestTimeout;
+        $this->readWatcherId = $this->reactor->onReadable($this->socket, function() {
+            $this->onReadableSocket();
+        });
+
+        return true;
     }
 
-    /**
-     * Get the next available request ID
-     *
-     * @return int
-     */
-    private function getNextFreeRequestId()
-    {
-        do {
-            $result = $this->requestIdCounter++;
-
-            if ($this->requestIdCounter >= 65536) {
-                $this->requestIdCounter = 0;
-            }
-        } while(isset($this->pendingRequestsById[$result]));
-
-        return $result;
-    }
-
-    /**
-     * Get the next available lookup ID
-     *
-     * @return int
-     */
-    private function getNextFreeLookupId()
-    {
+    private function getNextFreeLookupId() {
         do {
             $result = $this->lookupIdCounter++;
 
@@ -142,14 +161,7 @@ class Client
         return $result;
     }
 
-    /**
-     * Get a list of requests to execute for a given mode mask
-     *
-     * @param int $mode
-     * @return array
-     */
-    private function getRequestList($mode)
-    {
+    private function getRequestList($mode) {
         $result = [];
 
         if ($mode & AddressModes::PREFER_INET6) {
@@ -171,13 +183,19 @@ class Client
         return $result;
     }
 
-    /**
-     * Send a request to the server
-     *
-     * @param array $request
-     */
-    private function sendRequest($request)
-    {
+    private function getNextFreeRequestId() {
+        do {
+            $result = $this->requestIdCounter++;
+
+            if ($this->requestIdCounter >= 65536) {
+                $this->requestIdCounter = 0;
+            }
+        } while (isset($this->pendingRequestsById[$result]));
+
+        return $result;
+    }
+
+    private function sendRequest($request) {
         $packet = $this->requestBuilder->buildRequest($request['id'], $request['name'], $request['type']);
 
         $bytesWritten = fwrite($this->socket, $packet);
@@ -189,23 +207,13 @@ class Client
         $request['timeout_id'] = $this->reactor->once(function() use($request) {
             unset($this->pendingRequestsByNameAndType[$request['name']][$request['type']]);
             $this->completeRequest($request, null, ResolutionErrors::ERR_SERVER_TIMEOUT);
-        }, $this->requestTimeout);
-
-        if ($this->readWatcherId === null) {
-            $this->readWatcherId = $this->reactor->onReadable($this->socket, function() {
-                $this->onSocketReadable();
-            });
-        }
+        }, $this->msRequestTimeout);
 
         $this->pendingRequestsById[$request['id']] = $request;
         $this->pendingRequestsByNameAndType[$request['name']][$request['type']] = &$this->pendingRequestsById[$request['id']];
     }
 
-    /**
-     * Handle data waiting to be read from the socket
-     */
-    private function onSocketReadable()
-    {
+    private function onReadableSocket() {
         $packet = fread($this->socket, 512);
 
         // Decode the response and clean up the pending requests list
@@ -219,12 +227,16 @@ class Client
         $name = $request['name'];
 
         $this->reactor->cancel($request['timeout_id']);
-        unset($this->pendingRequestsById[$id], $this->pendingRequestsByNameAndType[$name][$request['type']]);
+        unset(
+            $this->pendingRequestsById[$id],
+            $this->pendingRequestsByNameAndType[$name][$request['type']]
+        );
+        /*
         if (!$this->pendingRequestsById) {
             $this->reactor->cancel($this->readWatcherId);
             $this->readWatcherId = null;
         }
-
+        */
         // Interpret the response and make sure we have at least one resource record
         $interpreted = $this->responseInterpreter->interpret($response, $request['type']);
         if ($interpreted === null) {
@@ -251,43 +263,32 @@ class Client
         }
     }
 
-    /**
-     * Call a response callback with the result
-     *
-     * @param int $id
-     * @param string $addr
-     * @param int $type
-     */
-    private function completePendingLookup($id, $addr, $type)
-    {
-        if (isset($this->pendingLookups[$id])) {
-            call_user_func($this->pendingLookups[$id]['callback'], $addr, $type);
+    private function completePendingLookup($id, $addr, $type) {
+        if (!isset($this->pendingLookups[$id])) {
+            return;
         }
 
+        $lookupStruct = $this->pendingLookups[$id];
+        $future = $lookupStruct['future'];
         unset($this->pendingLookups[$id]);
+
+        if ($addr) {
+            $future->succeed([$addr, $type]);
+        } else {
+            $future->fail(new ResolutionException(
+                $msg = sprintf('DNS resolution failed: %s', $lookupStruct['name']),
+                $code = $type
+            ));
+        }
     }
 
-    /**
-     * Complete all lookups in a request
-     *
-     * @param array $request
-     * @param string|null $addr
-     * @param int $type
-     */
-    private function completeRequest($request, $addr, $type)
-    {
+    private function completeRequest($request, $addr, $type) {
         foreach ($request['lookups'] as $id => $lookup) {
             $this->completePendingLookup($id, $addr, $type);
         }
     }
 
-    /**
-     * Lookup name in cache and send request to server on failure
-     *
-     * @param int $id
-     */
-    private function processPendingLookup($id)
-    {
+    private function processPendingLookup($id) {
         if (!$this->pendingLookups[$id]['requests']) {
             $this->completePendingLookup($id, null, ResolutionErrors::ERR_NO_RECORD);
             return;
@@ -305,15 +306,7 @@ class Client
         });
     }
 
-    /**
-     * Send a request to the server
-     *
-     * @param int $id
-     * @param string $name
-     * @param int $type
-     */
-    private function dispatchRequest($id, $name, $type)
-    {
+    private function dispatchRequest($id, $name, $type) {
         $this->pendingLookups[$id]['last_type'] = $type;
         $this->pendingRequestsByNameAndType[$name][$type]['lookups'][$id] = $this->pendingLookups[$id];
 
@@ -330,14 +323,7 @@ class Client
         }
     }
 
-    /**
-     * Redirect a lookup to search for another name
-     *
-     * @param int $id
-     * @param string $name
-     */
-    private function redirectPendingLookup($id, $name)
-    {
+    private function redirectPendingLookup($id, $name) {
         array_unshift($this->pendingLookups[$id]['requests'], $this->pendingLookups[$id]['last_type']);
         $this->pendingLookups[$id]['last_type'] = null;
         $this->pendingLookups[$id]['name'] = $name;
@@ -346,33 +332,43 @@ class Client
     }
 
     /**
-     * Resolve a name from a server
+     * Set the Client options
      *
-     * @param string $name
-     * @param int $mode
-     * @param callable $callback
+     * @param int $option
+     * @param mixed $value
+     * @throws \RuntimeException If modifying server address/port once connected
+     * @throws \DomainException On unknown option key
+     * @return self
      */
-    public function resolve($name, $mode, callable $callback)
-    {
-        $id = $this->getNextFreeLookupId();
+    public function setOption($option, $value) {
+        switch ($option) {
+            case self::OP_MS_REQUEST_TIMEOUT:
+                $this->msRequestTimeout = (int) $value;
+                break;
+            case self::OP_SERVER_ADDRESS:
+                if ($this->server) {
+                    throw new \RuntimeException(
+                        'Server address cannot be modified once connected'
+                    );
+                } else {
+                    $this->serverAddress = $value;
+                }
+                break;
+            case self::OP_SERVER_PORT:
+                if ($this->server) {
+                    throw new \RuntimeException(
+                        'Server port cannot be modified once connected'
+                    );
+                } else {
+                    $this->serverPort = $value;
+                }
+                break;
+            default:
+                throw new \DomainException(
+                    sprintf("Unkown option: %s", $option)
+                );
+        }
 
-        $this->pendingLookups[$id] = [
-            'name'        => $name,
-            'requests'    => $this->getRequestList($mode),
-            'last_type'   => null,
-            'callback'    => $callback,
-        ];
-
-        $this->processPendingLookup($id);
-    }
-
-    /**
-     * Set the request timeout
-     *
-     * @param int $timeout
-     */
-    public function setRequestTimeout($timeout)
-    {
-        $this->requestTimeout = (int)$timeout;
+        return $this;
     }
 }

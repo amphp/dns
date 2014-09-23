@@ -1,6 +1,6 @@
 <?php
 
-namespace Addr\Cache;
+namespace Amp\Dns\Cache;
 
 class APCCache extends KeyValueCache
 {

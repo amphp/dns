@@ -1,8 +1,8 @@
 {
-    "name": "daverandom/addr",
-    "homepage": "https://github.com/DaveRandom/Addr",
-    "description": "Asynchronous DNS resolver using Alert",
-    "keywords": ["dns", "resolve", "client", "async"],
+    "name": "amphp/dns",
+    "homepage": "https://github.com/amphp/dns",
+    "description": "Asynchronous DNS resolution built on the Amp concurrency framework",
+    "keywords": ["dns", "resolve", "client", "async", "amp"],
     "license": "MIT",
     "authors": [
         {
@@ -12,19 +12,34 @@
         }
     ],
     "require": {
-        "php": ">=5.4.0",
-        "rdlowrey/alert": "~0.10.0",
-        "daverandom/libdns": "~0.2.1"
+        "php": ">=5.5.0",
+        "amphp/amp": "dev-master",
+        "daverandom/libdns": "~0.2"
     },
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/amphp/amp.git"
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/amphp/dns.git"
+        }
+    ],
     "require-dev": {
         "mockery/mockery": ">=0.9.1",
         "rdlowrey/auryn": ">=0.13.0",
-        "predis/predis": "~0.8.6",
-        "phpunit/phpunit": "~4.1.0"
+        "predis/predis": "~0.8.6"
     },
     "autoload": {
         "psr-4": {
-            "Addr\\": "lib/Addr/"
+            "Amp\\": "lib"
         }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Amp\\Test\\": "test/"
+        },
+        "files": ["test/Dns/bootstrap.php"]
     }
 }

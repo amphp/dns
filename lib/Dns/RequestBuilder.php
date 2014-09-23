@@ -1,27 +1,27 @@
 <?php
 
-namespace Addr;
+namespace Amp\Dns;
 
-use LibDNS\Messages\MessageFactory,
-    LibDNS\Messages\MessageTypes,
-    LibDNS\Records\QuestionFactory,
-    LibDNS\Records\ResourceQTypes,
-    LibDNS\Encoder\Encoder;
+use LibDNS\Messages\MessageFactory;
+use LibDNS\Messages\MessageTypes;
+use LibDNS\Records\QuestionFactory;
+use LibDNS\Records\ResourceQTypes;
+use LibDNS\Encoder\EncoderFactory;
+use LibDNS\Encoder\Encoder;
 
-class RequestBuilder
-{
+class RequestBuilder {
     /**
-     * @var MessageFactory
+     * @var \LibDNS\Messages\MessageFactory
      */
     private $messageFactory;
 
     /**
-     * @var QuestionFactory
+     * @var \LibDNS\Records\QuestionFactory
      */
     private $questionFactory;
 
     /**
-     * @var Encoder
+     * @var \LibDNS\Encoder\Encoder
      */
     private $encoder;
 
@@ -32,11 +32,14 @@ class RequestBuilder
      * @param QuestionFactory $questionFactory
      * @param Encoder $encoder
      */
-    public function __construct(MessageFactory $messageFactory, QuestionFactory $questionFactory, Encoder $encoder)
-    {
-        $this->messageFactory = $messageFactory;
-        $this->questionFactory = $questionFactory;
-        $this->encoder = $encoder;
+    public function __construct(
+        MessageFactory $messageFactory = null,
+        QuestionFactory $questionFactory = null,
+        Encoder $encoder = null
+    ) {
+        $this->messageFactory = $messageFactory ?: new MessageFactory;
+        $this->questionFactory = $questionFactory ?: new QuestionFactory;
+        $this->encoder = $encoder ?: (new EncoderFactory)->create();
     }
 
     /**
@@ -47,8 +50,7 @@ class RequestBuilder
      * @param int $type
      * @return string
      */
-    public function buildRequest($id, $name, $type)
-    {
+    public function buildRequest($id, $name, $type) {
         $qType = $type === AddressModes::INET4_ADDR ? ResourceQTypes::A : ResourceQTypes::AAAA;
 
         $question = $this->questionFactory->create($qType);

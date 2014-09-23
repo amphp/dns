@@ -4,18 +4,12 @@ use Auryn\Provider;
 
 error_reporting(E_ALL);
 
-$autoloader = require __DIR__.'/../vendor/autoload.php';
-
-$autoloader->add('AddrTest', [realpath(__DIR__)."/"]);
-
-
-function createProvider($implementations = [], $shareClasses = [])
-{
+function createProvider($implementations = [], $shareClasses = []) {
     $provider = new Provider();
 
     $standardImplementations = [
     ];
-    
+
     $standardShares = [
     ];
 
@@ -39,7 +33,6 @@ function createProvider($implementations = [], $shareClasses = [])
     $provider->share($provider); //YOLO
 
     return $provider;
-
 }
 
 function setImplementations(Provider $provider, $standardImplementations, $implementations) {

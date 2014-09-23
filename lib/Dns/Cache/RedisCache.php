@@ -1,11 +1,10 @@
 <?php
 
-namespace Addr\Cache;
+namespace Amp\Dns\Cache;
 
 use Predis\Client as RedisClient;
 
-class RedisCache extends KeyValueCache
-{
+class RedisCache extends KeyValueCache {
     /**
      * @var RedisClient
      */
@@ -34,8 +33,7 @@ SCRIPT;
      * set via the redis client, in which case you may wish to pass an empty string
      * as $prefixKey
      */
-    public function __construct(RedisClient $redisClient, $keyPrefix = __CLASS__)
-    {
+    public function __construct(RedisClient $redisClient, $keyPrefix = __CLASS__) {
         $this->redisClient = $redisClient;
         parent::__construct($keyPrefix);
     }
@@ -47,8 +45,7 @@ SCRIPT;
      * @param int $type
      * @param callable $callback
      */
-    public function get($name, $type, callable $callback)
-    {
+    public function get($name, $type, callable $callback) {
         list($wasHit, $value) = $this->redisClient->eval($this->fetchLuaScript, 1, $this->generateKey($name, $type));
 
         if ($wasHit) {
@@ -67,8 +64,7 @@ SCRIPT;
      * @param string $addr
      * @param int $ttl
      */
-    public function store($name, $type, $addr, $ttl = null)
-    {
+    public function store($name, $type, $addr, $ttl = null) {
         $key = $this->generateKey($name, $type);
 
         if ($ttl > 0) {
@@ -84,8 +80,7 @@ SCRIPT;
      * @param string $name
      * @param int $type
      */
-    public function delete($name, $type)
-    {
+    public function delete($name, $type) {
         $this->redisClient->del([$this->generateKey($name, $type)]);
     }
 }

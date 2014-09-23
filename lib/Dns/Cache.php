@@ -1,9 +1,9 @@
 <?php
 
-namespace Addr;
+namespace Amp\Dns;
 
-interface Cache
-{
+interface Cache {
+
     /**
      * Attempt to retrieve a value from the cache
      *

@@ -1,11 +1,10 @@
 <?php
 
-namespace Addr\Cache;
+namespace Amp\Dns\Cache;
 
-use Addr\Cache;
+use Amp\Dns\Cache;
 
-class MemoryCache implements Cache
-{
+class MemoryCache implements Cache {
     /**
      * Default time-to-live - 1 day
      */
@@ -25,8 +24,7 @@ class MemoryCache implements Cache
      * @param int $type
      * @param callable $callback
      */
-    public function get($name, $type, callable $callback)
-    {
+    public function get($name, $type, callable $callback) {
         if (isset($this->recordsByTypeAndName[$type][$name])) {
             list($value, $expireTime) = $this->recordsByTypeAndName[$type][$name];
 
@@ -47,8 +45,7 @@ class MemoryCache implements Cache
      * @param string $addr
      * @param int $ttl
      */
-    public function store($name, $type, $addr, $ttl = null)
-    {
+    public function store($name, $type, $addr, $ttl = null) {
         if ($ttl === null) {
             $ttl = self::DEFAULT_TTL;
         }
@@ -62,8 +59,7 @@ class MemoryCache implements Cache
      * @param string $name
      * @param int $type
      */
-    public function delete($name, $type = null)
-    {
+    public function delete($name, $type = null) {
         if ($type !== null) {
             unset($this->recordsByTypeAndName[$type][$name]);
         } else {
@@ -78,8 +74,7 @@ class MemoryCache implements Cache
     /**
      * Delete all expired records from the cache
      */
-    public function collectGarbage()
-    {
+    public function collectGarbage() {
         /* this approach is to avoid COW of the whole record store
            do not "optimise" it! */
         $now = time();

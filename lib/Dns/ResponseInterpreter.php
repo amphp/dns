@@ -1,14 +1,14 @@
 <?php
 
-namespace Addr;
+namespace Amp\Dns;
 
-use LibDNS\Decoder\Decoder,
-    LibDNS\Messages\Message,
-    LibDNS\Messages\MessageTypes,
-    LibDNS\Records\ResourceTypes;
+use LibDNS\Decoder\Decoder;
+use LibDNS\Decoder\DecoderFactory;
+use LibDNS\Messages\Message;
+use LibDNS\Messages\MessageTypes;
+use LibDNS\Records\ResourceTypes;
 
-class ResponseInterpreter
-{
+class ResponseInterpreter {
     /**
      * @var Decoder
      */
@@ -19,9 +19,8 @@ class ResponseInterpreter
      *
      * @param Decoder $decoder
      */
-    public function __construct(Decoder $decoder)
-    {
-        $this->decoder = $decoder;
+    public function __construct(Decoder $decoder = null) {
+        $this->decoder = $decoder ?: (new DecoderFactory)->create();
     }
 
     /**
@@ -30,8 +29,7 @@ class ResponseInterpreter
      * @param string $packet
      * @return Message|null
      */
-    public function decode($packet)
-    {
+    public function decode($packet) {
         try {
             $message = $this->decoder->decode($packet);
         } catch (\Exception $e) {
@@ -52,8 +50,7 @@ class ResponseInterpreter
      * @param int $expectedType
      * @return array|null
      */
-    public function interpret($message, $expectedType)
-    {
+    public function interpret($message, $expectedType) {
         static $typeMap = [
             AddressModes::INET4_ADDR => ResourceTypes::A,
             AddressModes::INET6_ADDR => ResourceTypes::AAAA,

@@ -1,11 +1,10 @@
 <?php
 
-namespace Addr\Cache;
+namespace Amp\Dns\Cache;
 
-use Addr\Cache;
+use Amp\Dns\Cache;
 
-abstract class KeyValueCache implements Cache
-{
+abstract class KeyValueCache implements Cache {
     /**
      * A prefix to prepend to all keys
      *

@@ -1,17 +1,18 @@
 <?php
 
-use Addr\HostsFile,
-    Addr\NameValidator,
-    Addr\AddressModes;
+namespace Amp\Test\Dns;
+
+use Amp\Dns\HostsFile;
+use Amp\Dns\NameValidator;
+use Amp\Dns\AddressModes;
 
 /**
  * Class HostsFileTest
  * @group hosts
  */
-class HostsFileTest extends \PHPUnit_Framework_TestCase
-{
-    public function testBasicIPV4()
-    {
+class HostsFileTest extends \PHPUnit_Framework_TestCase {
+
+    public function testBasicIPV4() {
         $tests = [
             ['192.168.1.1', 'host1.example.com', AddressModes::INET4_ADDR, AddressModes::INET4_ADDR],
             ['192.168.1.2', 'host2.example.com', AddressModes::INET4_ADDR, AddressModes::INET4_ADDR],
@@ -33,11 +34,10 @@ class HostsFileTest extends \PHPUnit_Framework_TestCase
             [null, 'host4.example.com', AddressModes::INET4_ADDR, null],
         ];
 
-        $this->runHostsFileTests($tests, __DIR__ . '/../fixtures/ipv4Hosts.txt');
+        $this->runHostsFileTests($tests, __DIR__ . '/fixtures/ipv4Hosts.txt');
     }
 
-    public function testBasicIPV6()
-    {
+    public function testBasicIPV6() {
         $tests = [
             //Examples taken from http://en.wikipedia.org/wiki/IPv6_address
             ['2001:db8::2:1', 'host1.example.com', AddressModes::INET6_ADDR, AddressModes::INET6_ADDR],
@@ -64,11 +64,10 @@ class HostsFileTest extends \PHPUnit_Framework_TestCase
             [null, 'host4.example.com', AddressModes::INET6_ADDR, null],
         ];
 
-        $this->runHostsFileTests($tests, __DIR__ . '/../fixtures/ipv6Hosts.txt');
+        $this->runHostsFileTests($tests, __DIR__ . '/fixtures/ipv6Hosts.txt');
     }
 
-    public function testMixedIPVersions()
-    {
+    public function testMixedIPVersions() {
         $tests = [
             //Examples taken from http://en.wikipedia.org/wiki/IPv6_address
             ['2001:db8::2:1', 'host1.example.com', AddressModes::INET6_ADDR, AddressModes::INET6_ADDR],
@@ -95,11 +94,10 @@ class HostsFileTest extends \PHPUnit_Framework_TestCase
             [null, 'host3.example.com', AddressModes::INET4_ADDR, null],
         ];
 
-        $this->runHostsFileTests($tests, __DIR__ . '/../fixtures/mixedVersionHosts.txt');
+        $this->runHostsFileTests($tests, __DIR__ . '/fixtures/mixedVersionHosts.txt');
     }
 
-    public function runHostsFileTests($tests, $hostsFile)
-    {
+    public function runHostsFileTests($tests, $hostsFile) {
         $nameValidator = new NameValidator;
         $hostsFile = new HostsFile($nameValidator, $hostsFile);
 

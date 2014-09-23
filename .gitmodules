@@ -1,6 +1,0 @@
-[submodule "vendor/Alert"]
-	path = vendor/Alert
-	url = git@github.com:/rdlowrey/Alert.git
-[submodule "vendor/LibDNS"]
-	path = vendor/LibDNS
-	url = git@github.com:/DaveRandom/LibDNS.git
