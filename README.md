@@ -56,3 +56,15 @@ Amp\run(function() {
     Amp\stop();
 });
 ```
+
+## Tests
+
+[![Build Status](https://travis-ci.org/amphp/dns.svg?branch=master)](https://travis-ci.org/amphp/dns)
+
+Tests can be run from the command line using:
+
+`php vendor/bin/phpunit -c phpunit.xml`
+
+or to exlude tests that require a working internet connection:
+
+`php vendor/bin/phpunit -c phpunit.xml --exclude-group internet`
