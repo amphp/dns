@@ -47,7 +47,9 @@ Amp\run(function() {
     list($errors, $successes) = (yield $comboPromise);
 
     foreach ($names as $name) {
-        echo isset($errors[$name]) ? "FAILED: {$name}\n" : "{$name} => {$successes[$name][0]}\n";
+        echo isset($errors[$name])
+            ? "FAILED: {$name}\n"
+            : "{$name} => {$successes[$name][0]}\n";
     }
 
     // Stop the event loop so we don't sit around forever
