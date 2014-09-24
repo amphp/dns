@@ -6,24 +6,50 @@ Asynchronous DNS resolution built on the [Amp](https://github.com/amphp/amp) con
 
 ## Examples
 
-**Synchronous Wait**
+**Synchronous via `wait()`**
 
 ```php
 <?php
-
 require __DIR__ . '/vendor/autoload.php';
 
-$name = 'google.com';
 $resolver = new Amp\Dns\Resolver;
-$promise = $resolver->resolve($name);
-list($address, $type) = $promise->wait();
+$name = 'google.com';
+list($address, $type) = $resolver->resolve($name)->wait();
 printf("%s resolved to %s\n", $name, $address);
 ```
 
-**Parallel Async**
+**Parallel Synchronous via `wait()`**
 
 ```php
+<?php
+require __DIR__ . '/vendor/autoload.php';
+
+$resolver = new Amp\Dns\Resolver;
+$names = [
+    'github.com',
+    'google.com',
+    'stackoverflow.com',
+];
+$promises = [];
+foreach ($names as $name) {
+    $promises[$name] = $resolver->resolve($name);
+}
+$results = Amp\all($promises)->wait();
+foreach ($results as $name => $resultArray) {
+    list($addr, $type) = $resultArray;
+    printf("%s => %s\n", $name, $addr);
+}
+```
+
+
+**Event Loop Async**
+
+```php
+<?php
+require __DIR__ . '/vendor/autoload.php';
+
 Amp\run(function() {
+    $resolver = new Amp\Dns\Resolver;
     $names = [
         'github.com',
         'google.com',
@@ -34,13 +60,12 @@ Amp\run(function() {
     ];
 
     $promises = [];
-    $resolver = new Amp\Dns\Resolver;
     foreach ($names as $name) {
         $promise = $resolver->resolve($name);
         $promises[$name] = $promise;
     }
 
-    // Combine our multiple promises into a single promise
+    // Flatten multiple promises into a single promise
     $comboPromise = Amp\some($promises);
 
     // Yield control until the combo promise resolves
