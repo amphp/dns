@@ -1,6 +1,6 @@
 <?php
 
-namespace Amp\Test\Dns;
+namespace Amp\Dns\Test;
 
 use Amp\NativeReactor;
 use Amp\Combinator;

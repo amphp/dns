@@ -1,6 +1,6 @@
 <?php
 
-namespace Amp\Test\Dns;
+namespace Amp\Dns\Test;
 
 use Amp\Dns\AddressModes;
 use Amp\Dns\ResponseInterpreter;

@@ -16,7 +16,7 @@
 
     <testsuites>
         <testsuite name="Addr Test Suite">
-            <directory suffix=".php">./test/Dns/</directory>
+            <directory suffix=".php">./test</directory>
         </testsuite>
     </testsuites>
 
