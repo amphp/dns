@@ -6,7 +6,7 @@ Asynchronous DNS resolution built on the [Amp](https://github.com/amphp/amp) con
 
 ## Examples
 
-**Synchronous via `wait()`**
+**Synchronous Resolution Via `wait()`**
 
 ```php
 <?php
@@ -18,7 +18,7 @@ list($address, $type) = $resolver->resolve($name)->wait();
 printf("%s resolved to %s\n", $name, $address);
 ```
 
-**Parallel Synchronous via `wait()`**
+**Concurrent Synchronous Resolution Via `wait()`**
 
 ```php
 <?php
