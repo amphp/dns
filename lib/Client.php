@@ -84,6 +84,11 @@ class Client {
     private $serverPort = 53;
 
     /**
+     * @var bool
+     */
+    private $isReadWatcherEnabled = false;
+
+    /**
      * @param \Amp\Reactor $reactor
      * @param \Amp\Dns\RequestBuilder $requestBuilder
      * @param \Amp\Dns\ResponseInterpreter $responseInterpreter
@@ -121,18 +126,23 @@ class Client {
             ));
         }
 
-        $future = new Future($this->reactor);
+        if (!$this->isReadWatcherEnabled) {
+            $this->isReadWatcherEnabled = true;
+            $this->reactor->enable($this->readWatcherId);
+        }
+
+        $promisor = new Future($this->reactor);
         $id = $this->getNextFreeLookupId();
         $this->pendingLookups[$id] = [
             'name'        => $name,
             'requests'    => $this->getRequestList($mode),
             'last_type'   => null,
-            'future'      => $future,
+            'future'      => $promisor,
         ];
 
         $this->processPendingLookup($id);
 
-        return $future->promise();
+        return $promisor->promise();
     }
 
     private function connect() {
@@ -142,9 +152,10 @@ class Client {
         }
 
         stream_set_blocking($this->socket, 0);
+
         $this->readWatcherId = $this->reactor->onReadable($this->socket, function() {
             $this->onReadableSocket();
-        });
+        }, $enableNow = false);
 
         return true;
     }
@@ -231,12 +242,7 @@ class Client {
             $this->pendingRequestsById[$id],
             $this->pendingRequestsByNameAndType[$name][$request['type']]
         );
-        /*
-        if (!$this->pendingRequestsById) {
-            $this->reactor->cancel($this->readWatcherId);
-            $this->readWatcherId = null;
-        }
-        */
+
         // Interpret the response and make sure we have at least one resource record
         $interpreted = $this->responseInterpreter->interpret($response, $request['type']);
         if ($interpreted === null) {
@@ -279,6 +285,11 @@ class Client {
                 $msg = sprintf('DNS resolution failed: %s', $lookupStruct['name']),
                 $code = $type
             ));
+        }
+
+        if (empty($this->pendingLookups)) {
+            $this->isReadWatcherEnabled = false;
+            $this->reactor->disable($this->readWatcherId);
         }
     }
 
