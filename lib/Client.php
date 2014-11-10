@@ -117,7 +117,7 @@ class Client {
         // Defer UDP server connect until needed to allow custom address/port option assignment
         // after object instantiation.
         if (empty($this->socket) && !$this->connect()) {
-            return new Failure(new ResolverException(
+            return new Failure(new ResolutionException(
                 sprintf(
                     "Failed connecting to DNS server at %s:%d",
                     $this->serverAddress,
