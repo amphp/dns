@@ -67,4 +67,29 @@ class ClientTest extends \PHPUnit_Framework_TestCase {
         $promise = $client->resolve('googleaiusdisuhdihas.apsidjpasjdisjdajsoidaugiug.com', AddressModes::INET4_ADDR);
         $promise->wait();
     }
+
+    /**
+     * Test that the overflow of lookupIdCounter and requestIdCounter to 
+     * zero occurs.
+     */
+    public function testPendingIdOverflow() {
+        $class = new \ReflectionClass('Amp\Dns\Client');
+        $lookupIdProperty = $class->getProperty("lookupIdCounter");
+        $requestIdCounterProperty = $class->getProperty("requestIdCounter");
+
+        /** @var Client $client */
+        $client = $class->newInstance();
+        $lookupIdProperty->setAccessible(true);
+        $lookupIdProperty->setValue($client, PHP_INT_MAX);
+        $requestIdCounterProperty->setAccessible(true);
+        $requestIdCounterProperty->setValue($client, 65535);
+
+        $promise = $client->resolve('google.com', AddressModes::INET4_ADDR);
+        $promise->wait();
+        $lookupIdCounter = $lookupIdProperty->getValue($client);
+        $this->assertEquals(0, $lookupIdCounter);
+
+        $requestIdCounter = $lookupIdProperty->getValue($client);
+        $this->assertEquals(0, $requestIdCounter);
+    }
 }
