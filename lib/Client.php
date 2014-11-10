@@ -357,7 +357,7 @@ class Client {
                 $this->msRequestTimeout = (int) $value;
                 break;
             case self::OP_SERVER_ADDRESS:
-                if ($this->server) {
+                if ($this->socket) {
                     throw new \RuntimeException(
                         'Server address cannot be modified once connected'
                     );
@@ -366,7 +366,7 @@ class Client {
                 }
                 break;
             case self::OP_SERVER_PORT:
-                if ($this->server) {
+                if ($this->socket) {
                     throw new \RuntimeException(
                         'Server port cannot be modified once connected'
                     );
