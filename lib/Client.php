@@ -7,6 +7,7 @@ use Amp\Success;
 use Amp\Failure;
 use Amp\Future;
 use Amp\Dns\Cache\MemoryCache;
+use Amp\Dns\Cache\APCCache;
 
 class Client {
     const OP_MS_REQUEST_TIMEOUT = 0b0001;
@@ -103,7 +104,17 @@ class Client {
         $this->reactor = $reactor ?: \Amp\reactor();
         $this->requestBuilder = $requestBuilder ?: new RequestBuilder;
         $this->responseInterpreter = $responseInterpreter ?: new ResponseInterpreter;
-        $this->cache = $cache ?: new MemoryCache;
+
+        if (!$cache) {
+            if (extension_loaded('apc')) {
+                $cache = new APCCache;
+            }
+            else {
+                $cache = new MemoryCache;
+            }
+        }
+
+        $this->cache = $cache;
     }
 
     /**
