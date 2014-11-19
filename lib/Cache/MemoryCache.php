@@ -5,10 +5,6 @@ namespace Amp\Dns\Cache;
 use Amp\Dns\Cache;
 
 class MemoryCache implements Cache {
-    /**
-     * Default time-to-live - 1 day
-     */
-    const DEFAULT_TTL = 86400;
 
     /**
      * Internal data store for cache values
@@ -32,6 +28,8 @@ class MemoryCache implements Cache {
                 $callback(true, $value);
                 return;
             }
+
+            unset($this->recordsByTypeAndName[$type][$name]);
         }
 
         $callback(false, null);
@@ -46,6 +44,10 @@ class MemoryCache implements Cache {
      * @param int $ttl
      */
     public function store($name, $type, $addr, $ttl = null) {
+        if ($addr === null) {
+            throw new \InvalidArgumentException('Caching null addresses is disallowed');
+        }
+
         if ($ttl === null) {
             $ttl = self::DEFAULT_TTL;
         }

@@ -5,6 +5,11 @@ namespace Amp\Dns;
 interface Cache {
 
     /**
+     * Default time-to-live - 1 hour
+     */
+    const DEFAULT_TTL = 3600;
+
+    /**
      * Attempt to retrieve a value from the cache
      *
      * Callback has the following signature:
