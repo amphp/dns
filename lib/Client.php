@@ -106,7 +106,7 @@ class Client {
         $this->responseInterpreter = $responseInterpreter ?: new ResponseInterpreter;
 
         if (!$cache) {
-            if (extension_loaded('apc')) {
+            if (extension_loaded('apc') && ini_get("apc.enabled")) {
                 $cache = new APCCache;
             }
             else {
