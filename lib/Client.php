@@ -3,7 +3,6 @@
 namespace Amp\Dns;
 
 use Amp\Reactor;
-use Amp\Success;
 use Amp\Failure;
 use Amp\Future;
 use Amp\Dns\Cache\MemoryCache;
