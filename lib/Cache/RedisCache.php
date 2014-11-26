@@ -65,6 +65,14 @@ SCRIPT;
      * @param int $ttl
      */
     public function store($name, $type, $addr, $ttl = null) {
+        if ($addr === null) {
+            throw new \InvalidArgumentException('Caching null addresses is disallowed');
+        }
+
+        if ($ttl === null) {
+            $ttl = self::DEFAULT_TTL;
+        }
+
         $key = $this->generateKey($name, $type);
 
         if ($ttl > 0) {

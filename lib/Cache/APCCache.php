@@ -43,6 +43,14 @@ class APCCache extends KeyValueCache
      */
     public function store($name, $type, $addr, $ttl = null)
     {
+        if ($addr === null) {
+            throw new \InvalidArgumentException('Caching null addresses is disallowed');
+        }
+
+        if ($ttl === null) {
+            $ttl = self::DEFAULT_TTL;
+        }
+
         apc_store($this->generateKey($name, $type), $addr, $ttl);
     }
 
