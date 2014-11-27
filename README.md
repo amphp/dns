@@ -90,6 +90,6 @@ Tests can be run from the command line using:
 
 `php vendor/bin/phpunit -c phpunit.xml`
 
-or to exlude tests that require a working internet connection:
+or to exclude tests that require a working internet connection:
 
 `php vendor/bin/phpunit -c phpunit.xml --exclude-group internet`
