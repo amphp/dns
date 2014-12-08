@@ -6,7 +6,7 @@ Asynchronous DNS resolution built on the [Amp](https://github.com/amphp/amp) con
 
 ## Examples
 
-**Synchronous Resolution Via `wait()`**
+**Synchronous Resolution Via `Amp\wait()`**
 
 ```php
 <?php
@@ -14,7 +14,7 @@ require __DIR__ . '/vendor/autoload.php';
 
 $resolver = new Amp\Dns\Resolver;
 $name = 'google.com';
-list($address, $type) = $resolver->resolve($name)->wait();
+list($address, $type) = Amp\wait($resolver->resolve($name));
 printf("%s resolved to %s\n", $name, $address);
 ```
 
@@ -34,7 +34,8 @@ $promises = [];
 foreach ($names as $name) {
     $promises[$name] = $resolver->resolve($name);
 }
-$results = Amp\all($promises)->wait();
+$comboPromise = Amp\all($promises);
+$results = Amp\wait($comboPromise);
 foreach ($results as $name => $resultArray) {
     list($addr, $type) = $resultArray;
     printf("%s => %s\n", $name, $addr);
@@ -65,11 +66,8 @@ Amp\run(function() {
         $promises[$name] = $promise;
     }
 
-    // Flatten multiple promises into a single promise
-    $comboPromise = Amp\some($promises);
-
     // Yield control until the combo promise resolves
-    list($errors, $successes) = (yield $comboPromise);
+    list($errors, $successes) = (yield 'some' => $promises);
 
     foreach ($names as $name) {
         echo isset($errors[$name])

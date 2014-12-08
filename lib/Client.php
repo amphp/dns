@@ -98,7 +98,7 @@ class Client {
         ResponseInterpreter $responseInterpreter = null,
         Cache $cache = null
     ) {
-        $this->reactor = $reactor ?: \Amp\reactor();
+        $this->reactor = $reactor ?: \Amp\getReactor();
         $this->requestBuilder = $requestBuilder ?: new RequestBuilder;
         $this->responseInterpreter = $responseInterpreter ?: new ResponseInterpreter;
         $this->cache = $cache ?: (new CacheFactory)->select();
@@ -129,7 +129,7 @@ class Client {
             $this->reactor->enable($this->readWatcherId);
         }
 
-        $promisor = new Future($this->reactor);
+        $promisor = new Future;
         $id = $this->getNextFreeLookupId();
         $this->pendingLookups[$id] = [
             'name'        => $name,

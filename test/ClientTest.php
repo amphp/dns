@@ -2,9 +2,9 @@
 
 namespace Amp\Dns\Test;
 
+use Amp\NativeReactor;
 use Amp\Dns\AddressModes;
 use Amp\Dns\Client;
-
 
 class ClientTest extends \PHPUnit_Framework_TestCase {
 
@@ -12,10 +12,11 @@ class ClientTest extends \PHPUnit_Framework_TestCase {
      * @expectedException \Amp\Dns\ResolutionException
      */
     public function testFailToConnect() {
-        $client = new Client();
+        $reactor = new NativeReactor;
+        $client = new Client($reactor);
         $client->setOption(Client::OP_SERVER_ADDRESS, '260.260.260.260');
         $promise = $client->resolve('example.com', AddressModes::INET4_ADDR);
-        $promise->wait();
+        $result = \Amp\wait($promise, $reactor);
     }
 
     /**
@@ -23,7 +24,8 @@ class ClientTest extends \PHPUnit_Framework_TestCase {
      * but it makes it easier to detect missing important coverage.
      */
     public function testSetRequestTime() {
-        $client = new Client();
+        $reactor = new NativeReactor;
+        $client = new Client($reactor);
         $client->setOption(Client::OP_MS_REQUEST_TIMEOUT, 1000);
         $client->setOption(Client::OP_SERVER_PORT, 53);
     }
@@ -32,7 +34,8 @@ class ClientTest extends \PHPUnit_Framework_TestCase {
      * @expectedException \DomainException
      */
     public function testUnknownOptionThrowsException() {
-        $client = new Client();
+        $reactor = new NativeReactor;
+        $client = new Client($reactor);
         $client->setOption('foo', 1000);
     }
 
@@ -41,9 +44,10 @@ class ClientTest extends \PHPUnit_Framework_TestCase {
      * @group internet
      */
     public function testSetAddressAfterConnectException() {
-        $client = new Client();
+        $reactor = new NativeReactor;
+        $client = new Client($reactor);
         $promise = $client->resolve('google.com', AddressModes::INET4_ADDR);
-        $promise->wait();
+        $result = \Amp\wait($promise, $reactor);
         $client->setOption(Client::OP_SERVER_ADDRESS, '260.260.260.260');
     }
 
@@ -52,9 +56,10 @@ class ClientTest extends \PHPUnit_Framework_TestCase {
      * @group internet
      */
     public function testSetPortAfterConnectException() {
-        $client = new Client();
+        $reactor = new NativeReactor;
+        $client = new Client($reactor);
         $promise = $client->resolve('google.com', AddressModes::INET4_ADDR);
-        $promise->wait();
+        $result = \Amp\wait($promise, $reactor);
         $client->setOption(Client::OP_SERVER_PORT, 53);
     }
 
@@ -63,29 +68,31 @@ class ClientTest extends \PHPUnit_Framework_TestCase {
      * @expectedException \Amp\Dns\ResolutionException
      */
     public function testNoAnswers() {
-        $client = new Client();
+        $reactor = new NativeReactor;
+        $client = new Client($reactor);
         $promise = $client->resolve('googleaiusdisuhdihas.apsidjpasjdisjdajsoidaugiug.com', AddressModes::INET4_ADDR);
-        $promise->wait();
+        $result = \Amp\wait($promise, $reactor);
     }
 
     /**
-     * Test that the overflow of lookupIdCounter and requestIdCounter to 
+     * Test that the overflow of lookupIdCounter and requestIdCounter to
      * zero occurs.
      */
     public function testPendingIdOverflow() {
+        $reactor = new NativeReactor;
         $class = new \ReflectionClass('Amp\Dns\Client');
         $lookupIdProperty = $class->getProperty("lookupIdCounter");
         $requestIdCounterProperty = $class->getProperty("requestIdCounter");
 
         /** @var Client $client */
-        $client = $class->newInstance();
+        $client = $class->newInstance($reactor);
         $lookupIdProperty->setAccessible(true);
         $lookupIdProperty->setValue($client, PHP_INT_MAX);
         $requestIdCounterProperty->setAccessible(true);
         $requestIdCounterProperty->setValue($client, 65535);
 
         $promise = $client->resolve('google.com', AddressModes::INET4_ADDR);
-        $promise->wait();
+        $result = \Amp\wait($promise, $reactor);
         $lookupIdCounter = $lookupIdProperty->getValue($client);
         $this->assertEquals(0, $lookupIdCounter);
 

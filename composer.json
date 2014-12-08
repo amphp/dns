@@ -13,7 +13,7 @@
     ],
     "require": {
         "php": ">=5.4.0",
-        "amphp/amp": "~0.12",
+        "amphp/amp": "~0.15.0",
         "daverandom/libdns": "~0.2"
     },
     "require-dev": {

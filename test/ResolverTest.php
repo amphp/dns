@@ -34,7 +34,8 @@ class ResolverTest extends \PHPUnit_Framework_TestCase {
         $tooLongName = $tooLongName.$alphabet;    //234
         $tooLongName = $tooLongName.$alphabet;    //260
 
-        $resolver->resolve($tooLongName, AddressModes::PREFER_INET6)->wait();
+        $promise = $resolver->resolve($tooLongName, AddressModes::PREFER_INET6);
+        $addrStruct = \Amp\wait($promise, $reactor);
     }
 
     /**
@@ -44,17 +45,20 @@ class ResolverTest extends \PHPUnit_Framework_TestCase {
      */
     public function testUnknownName() {
         list($reactor, $resolver) = $this->createResolver();
-        $resolver->resolve("doesntexist", AddressModes::PREFER_INET6)->wait();
+        $promise = $resolver->resolve("doesntexist", AddressModes::PREFER_INET6);
+        $addrStruct = \Amp\wait($promise, $reactor);
     }
 
     public function testLocalHostResolution() {
         list($reactor, $resolver) = $this->createResolver();
 
-        list($addr, $type) = $resolver->resolve("localhost", AddressModes::INET4_ADDR)->wait();
+        $promise = $resolver->resolve("localhost", AddressModes::INET4_ADDR);
+        list($addr, $type) = \Amp\wait($promise, $reactor);
         $this->assertSame('127.0.0.1', $addr);
         $this->assertSame(AddressModes::INET4_ADDR, $type, "Wrong result type - should be INET4_ADDR but got $type");
 
-        list($addr, $type) = $resolver->resolve("localhost", AddressModes::PREFER_INET6)->wait();
+        $promise = $resolver->resolve("localhost", AddressModes::PREFER_INET6);
+        list($addr, $type) = \Amp\wait($promise, $reactor);
         $this->assertSame('::1', $addr);
         $this->assertSame(AddressModes::INET6_ADDR, $type, "Wrong result type - should be INET6_ADDR but got $type");
     }
@@ -63,11 +67,13 @@ class ResolverTest extends \PHPUnit_Framework_TestCase {
         $hostsFile = __DIR__ . '/fixtures/resolverTest.txt';
         list($reactor, $resolver) = $this->createResolver($hostsFile);
 
-        list($addr, $type) = $resolver->resolve("host1.example.com", AddressModes::INET4_ADDR)->wait();
+        $promise = $resolver->resolve("host1.example.com", AddressModes::INET4_ADDR);
+        list($addr, $type) = \Amp\wait($promise, $reactor);
         $this->assertSame('192.168.1.1', $addr);
         $this->assertSame(AddressModes::INET4_ADDR, $type);
 
-        list($addr, $type) = $resolver->resolve("resolvertest", AddressModes::INET4_ADDR)->wait();
+        $promise = $resolver->resolve("resolvertest", AddressModes::INET4_ADDR);
+        list($addr, $type) = \Amp\wait($promise, $reactor);
         $this->assertSame('192.168.1.3', $addr);
         $this->assertSame(AddressModes::INET4_ADDR, $type);
     }

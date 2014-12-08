@@ -3,7 +3,6 @@
 namespace Amp\Dns\Test;
 
 use Amp\NativeReactor;
-use Amp\Combinator;
 use Amp\Dns\Cache;
 use Amp\Dns\Client;
 use Amp\Dns\Resolver;
@@ -81,7 +80,6 @@ class IntegrationTest extends \PHPUnit_Framework_TestCase {
         ];
 
         $reactor = new NativeReactor;
-        $combinator = new Combinator($reactor);
         $client = new Client($reactor, null, null, $cache);
         $resolver = new Resolver($client);
 
@@ -90,7 +88,9 @@ class IntegrationTest extends \PHPUnit_Framework_TestCase {
             $promises[$name] = $resolver->resolve($name);
         }
 
-        $results = $combinator->all($promises)->wait();
+        $comboPromise = \Amp\all($promises);
+        $results = \Amp\wait($comboPromise, $reactor);
+
         foreach ($results as $name => $addrStruct) {
             list($addr, $type) = $addrStruct;
             $validIP = @inet_pton($addr);
@@ -132,7 +132,6 @@ class IntegrationTest extends \PHPUnit_Framework_TestCase {
         $mockedCache->makePartial();
 
         $reactor = new NativeReactor;
-        $combinator = new Combinator($reactor);
         $client = new Client($reactor, null, null, $mockedCache);
         $resolver = new Resolver($client);
 
@@ -141,7 +140,9 @@ class IntegrationTest extends \PHPUnit_Framework_TestCase {
             $promises[$name] = $resolver->resolve($name);
         }
 
-        $results = $combinator->all($promises)->wait();
+        $comboPromise = \Amp\all($promises);
+        $results = \Amp\wait($comboPromise, $reactor);
+
         foreach ($results as $name => $addrStruct) {
             list($addr, $type) = $addrStruct;
             $validIP = @inet_pton($addr);
@@ -156,7 +157,8 @@ class IntegrationTest extends \PHPUnit_Framework_TestCase {
             $promises[$name] = $resolver->resolve($name);
         }
 
-        $results = $combinator->all($promises)->wait();
+        $comboPromise = \Amp\all($promises);
+        $results = \Amp\wait($comboPromise, $reactor);
         foreach ($results as $name => $addrStruct) {
             list($addr, $type) = $addrStruct;
             $validIP = @inet_pton($addr);
