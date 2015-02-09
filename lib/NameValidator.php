@@ -8,7 +8,7 @@ class NameValidator {
      *
      * @var string
      */
-    private $validatePattern = '/^(?:[a-z0-9][a-z0-9\-]{0,61}[a-z0-9])(?:\.[a-z0-9][a-z0-9\-]{0,61}[a-z0-9])*$/i';
+    private $validatePattern = '/^(?:[a-z0-9](?:[a-z0-9\-]{0,61}[a-z0-9]){0,1})(?:\.[a-z0-9][a-z0-9\-]{0,61}[a-z0-9])*$/i';
 
     /**
      * Check that a name is valid
