@@ -71,12 +71,12 @@ class HostsFile {
             }
 
             $parts = preg_split('/\s+/', $line);
-            if (filter_var($parts[0], FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false) {
-                $key = AddressModes::INET4_ADDR;
-            } else if (filter_var($parts[0], FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false) {
+            if (!($ip = @inet_pton($parts[0]))) {
+                continue;
+            } elseif (isset($ip[4])) {
                 $key = AddressModes::INET6_ADDR;
             } else {
-                continue;
+                $key = AddressModes::INET4_ADDR;
             }
 
             for ($i = 1, $l = count($parts); $i < $l; $i++) {
