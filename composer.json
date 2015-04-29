@@ -12,7 +12,7 @@
         }
     ],
     "require": {
-        "php": ">=7.0.0",
+        "php": ">=7.0.0-dev",
         "amphp/amp": "1.0.x-dev",
         "daverandom/libdns": "~1.0"
     },
