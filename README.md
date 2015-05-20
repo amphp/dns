@@ -1,5 +1,5 @@
-dns
-===
+dns [![Build Status](https://travis-ci.org/amphp/dns.svg?branch=master)](https://travis-ci.org/amphp/dns)
+============
 
 Asynchronous DNS resolution built on the [Amp](https://github.com/amphp/amp) concurrency framework
 
