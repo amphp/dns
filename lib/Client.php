@@ -4,7 +4,7 @@ namespace Amp\Dns;
 
 use Amp\Reactor;
 use Amp\Failure;
-use Amp\Future;
+use Amp\Deferred;
 
 class Client {
     const OP_MS_REQUEST_TIMEOUT = 0b0001;
@@ -98,7 +98,7 @@ class Client {
         ResponseInterpreter $responseInterpreter = null,
         Cache $cache = null
     ) {
-        $this->reactor = $reactor ?: \Amp\getReactor();
+        $this->reactor = $reactor ?: \Amp\reactor();
         $this->requestBuilder = $requestBuilder ?: new RequestBuilder;
         $this->responseInterpreter = $responseInterpreter ?: new ResponseInterpreter;
         $this->cache = $cache ?: (new CacheFactory)->select();
@@ -129,7 +129,7 @@ class Client {
             $this->reactor->enable($this->readWatcherId);
         }
 
-        $promisor = new Future;
+        $promisor = new Deferred;
         $id = $this->getNextFreeLookupId();
         $this->pendingLookups[$id] = [
             'name'        => $name,
@@ -153,7 +153,7 @@ class Client {
 
         $this->readWatcherId = $this->reactor->onReadable($this->socket, function() {
             $this->onReadableSocket();
-        }, $enableNow = false);
+        }, ["enable" => false]);
 
         return true;
     }
