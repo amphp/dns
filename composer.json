@@ -14,18 +14,18 @@
     "require": {
         "php": ">=5.5",
         "amphp/amp": "^1",
+        "amphp/cache": "dev-master",
         "daverandom/libdns": "~1.0"
     },
     "require-dev": {
         "mockery/mockery": ">=0.9.1",
-        "rdlowrey/auryn": ">=0.13.0",
-        "predis/predis": "~0.8.6",
         "phpunit/phpunit": "~4.1.0"
     },
     "autoload": {
         "psr-4": {
             "Amp\\Dns\\": "lib"
-        }
+        },
+        "files": ["lib/functions.php"]
     },
     "autoload-dev": {
         "psr-4": {

@@ -4,11 +4,6 @@ namespace Amp\Dns;
 
 class HostsFile {
     /**
-     * @var NameValidator
-     */
-    private $nameValidator;
-
-    /**
      * Path to hosts file
      *
      * @var string
@@ -27,22 +22,22 @@ class HostsFile {
      *
      * @var int
      */
-    private $lastModTime = 0;
+    private $mtime = 0;
 
     /**
      * Constructor
      *
-     * @param NameValidator $nameValidator
      * @param string $path
      * @throws \LogicException
      */
-    public function __construct(NameValidator $nameValidator = null, $path = null) {
-        $this->nameValidator = $nameValidator ?: new NameValidator;
-
+    public function __construct($path = null) {
         if ($path === null) {
-            $path = stripos(PHP_OS, 'win') === 0 ? 'C:\Windows\system32\drivers\etc\hosts' : '/etc/hosts';
+            $path = \stripos(PHP_OS, "win") === 0
+                ? "C:\Windows\system32\drivers\etc\hosts"
+                : "/etc/hosts"
+            ;
         }
-
+        
         if (!file_exists($path)) {
             throw new \LogicException($path . ' does not exist');
         } else if (!is_file($path)) {
@@ -54,9 +49,6 @@ class HostsFile {
         $this->path = $path;
     }
 
-    /**
-     * Parse a hosts file into an array
-     */
     private function reload() {
         $this->data = [
             AddressModes::INET4_ADDR => [],
@@ -80,23 +72,20 @@ class HostsFile {
             }
 
             for ($i = 1, $l = count($parts); $i < $l; $i++) {
-                if ($this->nameValidator->validate($parts[$i])) {
+                if (validateHostName($parts[$i])) {
                     $this->data[$key][$parts[$i]] = $parts[0];
                 }
             }
         }
     }
 
-    /**
-     * Ensure the loaded data is current
-     */
     private function ensureDataIsCurrent() {
         clearstatcache(true, $this->path);
         $modTime = filemtime($this->path);
 
-        if ($modTime > $this->lastModTime) {
+        if ($modTime > $this->mtime) {
             $this->reload();
-            $this->lastModTime = $modTime;
+            $this->mtime = $modTime;
         }
     }
 
@@ -123,5 +112,9 @@ class HostsFile {
         }
 
         return null;
+    }
+    
+    public function getPath() {
+        return $this->path;
     }
 }

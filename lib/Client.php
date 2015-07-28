@@ -258,7 +258,7 @@ class Client {
                 $this->redirectPendingLookup($id, $addr);
             }
         } else if ($addr !== null) {
-            $this->cache->store($name, $type, $addr, $ttl);
+            $this->cache->set($key, $addr, $ttl);
             $this->completeRequest($request, $addr, $type);
         } else {
             foreach ($request['lookups'] as $id => $lookup) {
@@ -305,14 +305,13 @@ class Client {
 
         $name = $this->pendingLookups[$id]['name'];
         $type = array_shift($this->pendingLookups[$id]['requests']);
+        $key = $name . $type;
 
-        $this->cache->get($name, $type, function($cacheHit, $addr) use($id, $name, $type) {
-            if ($cacheHit) {
-                $this->completePendingLookup($id, $addr, $type);
-            } else {
-                $this->dispatchRequest($id, $name, $type);
-            }
-        });
+        if (yield $this->cache->has($key)) {
+            $this->completePendingLookup($id, $addr, $type);
+        } else {
+            $this->dispatchRequest($id, $name, $type);
+        }
     }
 
     private function dispatchRequest($id, $name, $type) {
