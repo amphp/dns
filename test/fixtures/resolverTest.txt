@@ -1,8 +1,0 @@
-192.168.1.1             host1.example.com
-192.168.1.2             host2.example.com
-192.168.1.3             resolvertest
-2001:db8::2:1           host1.example.com
-2001:db8:0:1:1:1:1:1    host2.example.com
-2001:db8::1:0:0:1       host3.example.com
-
-
