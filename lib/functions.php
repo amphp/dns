@@ -47,20 +47,10 @@ use \LibDNS\Decoder\DecoderFactory;
  */
 function resolve($name, array $options = []) {
     $mode = isset($options["mode"]) ? $options["mode"] : MODE_INET4;
-    switch ($mode) {
-        case MODE_INET4:
-        case MODE_INET6:
-            break;
-        default:
-            return new \Amp\Failure(new ResolutionException(
-                "Invalid request mode option; Amp\Dns\MODE_INET4 or Amp\Dns\MODE_INET6 required"
-            ));
-    }
-    if (\strcasecmp($name, "localhost") === 0) {
-        return new \Amp\Success(($mode === MODE_INET6)
-            ? ["::1", MODE_INET6, $ttl = null]
-            : ["127.0.0.1", MODE_INET4, $ttl = null]
-        );
+    if (!($mode === MODE_INET4 || $mode === MODE_INET6)) {
+        return new \Amp\Failure(new ResolutionException(
+            "Invalid request mode option; Amp\Dns\MODE_INET4 or Amp\Dns\MODE_INET6 required"
+        ));
     } elseif (!$inAddr = @\inet_pton($name)) {
         return __isValidHostName($name)
             ? \Amp\resolve(__doResolve($name, $mode, $options))
@@ -68,7 +58,7 @@ function resolve($name, array $options = []) {
                 "Cannot resolve; invalid host name"
             ))
         ;
-    } elseif (isset($inAddr[15])) {
+    } elseif (isset($inAddr[4])) {
         return new \Amp\Success([$name, MODE_INET6, $ttl = null]);
     } else {
         return new \Amp\Success([$name, MODE_INET4, $ttl = null]);
@@ -215,35 +205,35 @@ function __loadHostsFile($path = null) {
         MODE_INET6 => [],
     ];
     if (empty($path)) {
-        $path = \stripos(PHP_OS, "win") === 0
-            ? "C:\\Windows\\system32\\drivers\\etc\\hosts"
-            : "/etc/hosts"
+        $path = \stripos(PHP_OS, 'win') === 0
+            ? 'C:\Windows\system32\drivers\etc\hosts'
+            : '/etc/hosts'
         ;
     }
     try {
         $contents = (yield \Amp\Filesystem\get($path));
-        $key = null;
-        $lines = \array_filter(\array_map("trim", \explode("\n", $contents)));
-        foreach ($lines as $line) {
-            if ($line[0] === "#") {
-                continue;
-            }
-            $parts = \preg_split('/\s+/', $line);
-            if (!($ip = @\inet_pton($parts[0]))) {
-                continue;
-            } elseif (isset($ip[4])) {
-                $key = MODE_INET6;
-            } else {
-                $key = MODE_INET4;
-            }
-            for ($i = 1, $l = \count($parts); $i < $l; $i++) {
-                if (__isValidHostName($parts[$i])) {
-                    $data[$key][$parts[$i]] = $parts[0];
-                }
+    } catch (\Exception $e) {
+        yield new \Amp\CoroutineResult($data);
+        return;
+    }
+    $lines = \array_filter(\array_map("trim", \explode("\n", $contents)));
+    foreach ($lines as $line) {
+        if ($line[0] === "#") {
+            continue;
+        }
+        $parts = \preg_split('/\s+/', $line);
+        if (!($ip = @\inet_pton($parts[0]))) {
+            continue;
+        } elseif (isset($ip[4])) {
+            $key = MODE_INET6;
+        } else {
+            $key = MODE_INET4;
+        }
+        for ($i = 1, $l = \count($parts); $i < $l; $i++) {
+            if (__isValidHostName($parts[$i])) {
+                $data[$key][strtolower($parts[$i])] = $parts[0];
             }
         }
-    } catch (\Exception $e) {
-        // hosts file doesn't exist
     }
 
     yield new \Amp\CoroutineResult($data);
@@ -269,7 +259,7 @@ function __parseCustomServerUri($uri) {
         );
     }
 
-    return isset($inAddr[15]) ? "udp://[{$addr}]:{$port}" : "udp://{$addr}:{$port}";
+    return isset($inAddr[4]) ? "udp://[{$addr}]:{$port}" : "udp://{$addr}:{$port}";
 }
 
 function __loadExistingServer($state, $uri) {
@@ -277,7 +267,7 @@ function __loadExistingServer($state, $uri) {
         return;
     }
     $server = $state->serverUriMap[$uri];
-    if (\is_resource($server->socket) && !@\feof($server->socket)) {
+    if (\is_resource($server->socket)) {
         unset($state->serverIdTimeoutMap[$server->id]);
         \Amp\enable($server->watcherId);
         return $server;
