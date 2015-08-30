@@ -22,25 +22,13 @@ class IntegrationTest extends \PHPUnit_Framework_TestCase {
             ];
 
             foreach ($names as $name) {
-                list($addr, $mode) = (yield \Amp\Dns\resolve($name));
+                $result = (yield \Amp\Dns\resolve($name));
+                list($addr, $type, $ttl) = $result[0];
                 $inAddr = @\inet_pton($addr);
                 $this->assertNotFalse(
                     $inAddr,
                     "Server name $name did not resolve to a valid IP address"
                 );
-                if (isset($inAddr[15])) {
-                    $this->assertSame(
-                        \Amp\Dns\MODE_INET6,
-                        $mode,
-                        "Returned mode parameter did not match expected MODE_INET6"
-                    );
-                } else {
-                    $this->assertSame(
-                        \Amp\Dns\MODE_INET4,
-                        $mode,
-                        "Returned mode parameter did not match expected MODE_INET4"
-                    );
-                }
             }
         });
     }

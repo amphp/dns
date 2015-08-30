@@ -5,8 +5,6 @@ namespace Amp\Dns;
 use \LibDNS\Messages\MessageFactory;
 use \LibDNS\Messages\MessageTypes;
 use \LibDNS\Records\QuestionFactory;
-use \LibDNS\Records\ResourceTypes;
-use \LibDNS\Records\ResourceQTypes;
 use \LibDNS\Encoder\EncoderFactory;
 use \LibDNS\Decoder\DecoderFactory;
 
@@ -15,24 +13,21 @@ use \LibDNS\Decoder\DecoderFactory;
  *
  * Upon success the returned promise resolves to an indexed array of the form:
  *
- *  [string $resolvedIp, int $mode, int $ttl]
- *
- * The $mode parameter at index 1 corresponds to one of two constant values to
- * indicate if the resulting IP is IPv4 or IPv6:
- *
- *  - Amp\Dns\MODE_INET4
- *  - Amp\Dns\MODE_INET6
+ *  [string $resolvedIp, int $type, int $ttl]
  *
  * A null $ttl value indicates the DNS name was resolved from the cache or the
  * local hosts file.
+ * $type being one constant from Amp\Dns\Record
  *
  * Options:
  *
  *  - "server"       | string   Custom DNS server address in ip or ip:port format
  *  - "timeout"      | int      Default: 3000ms
- *  - "mode"         | int      Either Amp\Dns\MODE_INET4 or Amp\Dns\MODE_INET6
  *  - "no_hosts"     | bool     Ignore entries in the hosts file
+ *  - "reload_hosts" | bool     Reload the hosts file (Default: false), only active when no_hosts not true
  *  - "no_cache"     | bool     Ignore cached DNS response entries
+ *  - "types"        | array    Default: [Record::A, Record::AAAA] (only for resolve())
+ *  - "recurse"      | bool     Check for DNAME and CNAME records (always active for resolve(), Default: false for query())
  *
  * If the custom per-request "server" option is not present the resolver will
  * use the default from the following built-in constant:
@@ -43,25 +38,31 @@ use \LibDNS\Decoder\DecoderFactory;
  * @param array  $options
  * @return \Amp\Promise
  * @TODO add boolean "clear_cache" option flag
- * @TODO add boolean "reload_hosts" option flag
  */
 function resolve($name, array $options = []) {
-    $mode = isset($options["mode"]) ? $options["mode"] : MODE_INET4;
-    if (!($mode === MODE_INET4 || $mode === MODE_INET6)) {
-        return new \Amp\Failure(new ResolutionException(
-            "Invalid request mode option; Amp\Dns\MODE_INET4 or Amp\Dns\MODE_INET6 required"
-        ));
-    } elseif (!$inAddr = @\inet_pton($name)) {
-        return __isValidHostName($name)
-            ? \Amp\resolve(__doResolve($name, $mode, $options))
-            : new \Amp\Failure(new ResolutionException(
-                "Cannot resolve; invalid host name"
-            ))
-        ;
-    } elseif (isset($inAddr[4])) {
-        return new \Amp\Success([$name, MODE_INET6, $ttl = null]);
+    if (!$inAddr = @\inet_pton($name)) {
+        if (__isValidHostName($name)) {
+            $types = empty($options["types"]) ? [Record::A, Record::AAAA] : $options["types"];
+            return __pipeResult(__recurseWithHosts($name, $types, $options), $types);
+        } else {
+            return new \Amp\Failure(new ResolutionException("Cannot resolve; invalid host name"));
+        }
     } else {
-        return new \Amp\Success([$name, MODE_INET4, $ttl = null]);
+        return new \Amp\Success([[$name, isset($inAddr[4]) ? Record::AAAA : Record::A, $ttl = null]]);
+    }
+}
+
+function query($name, $type, array $options = []) {
+    if (!$inAddr = @\inet_pton($name)) {
+        if (__isValidHostName($name)) {
+            $handler = __NAMESPACE__ . "\\" . (empty($options["recurse"]) ? "__doRecurse" : "__doResolve");
+            $types = (array) $type;
+            return __pipeResult(\Amp\resolve($handler($name, $types, $options)), $types);
+        } else {
+            return new \Amp\Failure(new ResolutionException("Cannot resolve; invalid host name"));
+        }
+    } else {
+        return new \Amp\Failure(new ResolutionException("Cannot resolve records from an IP address"));
     }
 }
 
@@ -71,36 +72,93 @@ function __isValidHostName($name) {
     return isset($name[253]) ? false : (bool) \preg_match($pattern, $name);
 }
 
-function __doResolve($name, $mode, $options) {
-    static $state;
-    $state = $state ?: (yield \Amp\resolve(__init()));
+// preserve order according to $types
+function __pipeResult($promise, array $types) {
+    return \Amp\pipe($promise, function (array $result) use ($types) {
+        $retval = [];
+        foreach ($types as $type) {
+            if (isset($result[$type])) {
+                $retval = \array_merge($retval, $result[$type]);
+                unset($result[$type]);
+            }
+        }
+        return $result ? \array_merge($retval, $result) : $retval;
+    });
+}
 
-    $name = \strtolower($name);
-
-    // Check for cache hits
-    $cacheKey = "{$mode}#{$name}";
-    if (empty($options["no_cache"])) {
-        if (yield $state->arrayCache->has($cacheKey)) {
-            $result = (yield $state->arrayCache->get($cacheKey));
-            yield new \Amp\CoroutineResult([$result, $mode, $ttl = null]);
-            return;
+function __recurseWithHosts($name, array $types, $options) {
+    // Check for hosts file matches
+    if (empty($options["no_hosts"])) {
+        static $hosts = null;
+        if ($hosts === null || !empty($options["reload_hosts"])) {
+            return \Amp\pipe(\Amp\resolve(__loadHostsFile()), function($value) use (&$hosts, $name, $types, $options) {
+                $hosts = $value;
+                return __recurseWithHosts($name, $types, $options);
+            });
+        }
+        $result = [];
+        if (in_array(Record::A, $types) && isset($hosts[Record::A][$name])) {
+            $result[Record::A] = [[$hosts[Record::A][$name], Record::A, $ttl = null]];
+        }
+        if (in_array(Record::AAAA, $types) && isset($hosts[Record::AAAA][$name])) {
+            $result[Record::AAAA] = [[$hosts[Record::AAAA][$name], Record::AAAA, $ttl = null]];
+        }
+        if ($result) {
+            return new \Amp\Success($result);
         }
     }
 
-    // Check for hosts file matches
-    if (empty($options["no_hosts"])) {
-        $have4 = isset($state->hostsFile[MODE_INET4][$name]);
-        $have6 = isset($state->hostsFile[MODE_INET6][$name]);
-        $want4 = (bool)($mode & MODE_INET4);
-        $want6 = (bool)($mode & MODE_INET6);
-        if ($have6 && $want6) {
-            $result = [$state->hostsFile[MODE_INET6][$name], MODE_INET6, $ttl = null];
-        } elseif ($have4 && $want4) {
-            $result = [$state->hostsFile[MODE_INET4][$name], MODE_INET4, $ttl = null];
-        } else {
-            $result = null;
+    return \Amp\resolve(__doRecurse($name, $types, $options));
+}
+
+function __doRecurse($name, array $types, $options) {
+    if (array_intersect($types, [Record::CNAME, Record::DNAME])) {
+        throw new ResolutionException("Cannot use recursion for CNAME and DNAME records");
+    }
+
+    $types = array_merge($types, [Record::CNAME, Record::DNAME]);
+    $lookupName = $name;
+    for ($i = 0; $i < 30; $i++) {
+        $result = (yield \Amp\resolve(__doResolve($lookupName, $types, $options)));
+        if (count($result) > isset($result[Record::CNAME]) + isset($result[Record::DNAME])) {
+            unset($result[Record::CNAME], $result[Record::DNAME]);
+            yield new \Amp\CoroutineResult($result);
+            return;
         }
-        if ($result) {
+        // @TODO check for potentially using recursion and iterate over *all* CNAME/DNAME
+        // @FIXME check higher level for CNAME?
+        foreach ([Record::CNAME, Record::DNAME] as $type) {
+            if (isset($result[$type])) {
+                list($lookupName) = $result[$type][0];
+            }
+        }
+    }
+
+    throw new ResolutionException("CNAME or DNAME chain too long (possible recursion?)");
+}
+
+function __doResolve($name, array $types, $options) {
+    static $state;
+    $state = $state ?: (yield \Amp\resolve(__init()));
+
+    if (empty($types)) {
+        yield new \Amp\CoroutineResult([]);
+        return;
+    }
+
+    $name = \strtolower($name);
+    $result = [];
+
+    // Check for cache hits
+    if (empty($options["no_cache"])) {
+        foreach ($types as $k => $type) {
+            $cacheKey = "$name#$type";
+            if (yield $state->arrayCache->has($cacheKey)) {
+                $result[$type] = (yield $state->arrayCache->get($cacheKey));
+                unset($types[$k]);
+            }
+        }
+        if (empty($types)) {
             yield new \Amp\CoroutineResult($result);
             return;
         }
@@ -114,57 +172,53 @@ function __doResolve($name, $mode, $options) {
     ;
     $server = __loadExistingServer($state, $uri) ?: __loadNewServer($state, $uri);
 
-    // Get the next available request ID
-    do {
-        $requestId = $state->requestIdCounter++;
-        if ($state->requestIdCounter >= MAX_REQUEST_ID) {
-            $state->requestIdCounter = 1;
+    foreach ($types as $type) {
+        // Get the next available request ID
+        do {
+            $requestId = $state->requestIdCounter++;
+            if ($state->requestIdCounter >= MAX_REQUEST_ID) {
+                $state->requestIdCounter = 1;
+            }
+        } while (isset($state->pendingRequests[$requestId]));
+
+        // Create question record
+        $question = $state->questionFactory->create($type);
+        $question->setName($name);
+
+        // Create request message
+        $request = $state->messageFactory->create(MessageTypes::QUERY);
+        $request->getQuestionRecords()->add($question);
+        $request->isRecursionDesired(true);
+        $request->setID($requestId);
+
+        // Encode request message
+        $requestPacket = $state->encoder->encode($request);
+
+        // Send request
+        $bytesWritten = \fwrite($server->socket, $requestPacket);
+        if ($bytesWritten === false || isset($packet[$bytesWritten])) {
+            throw new ResolutionException(
+                "Request send failed"
+            );
         }
-    } while (isset($state->pendingRequests[$requestId]));
 
-    // Create question record
-    $questionType = ($mode === MODE_INET4) ? ResourceQTypes::A : ResourceQTypes::AAAA;
-    $question = $state->questionFactory->create($questionType);
-    $question->setName($name);
-
-    // Create request message
-    $request = $state->messageFactory->create(MessageTypes::QUERY);
-    $request->getQuestionRecords()->add($question);
-    $request->isRecursionDesired(true);
-    $request->setID($requestId);
-
-    // Encode request message
-    $requestPacket = $state->encoder->encode($request);
-
-    // Send request
-    $bytesWritten = \fwrite($server->socket, $requestPacket);
-    if ($bytesWritten === false || isset($packet[$bytesWritten])) {
-        throw new ResolutionException(
-            "Request send failed"
-        );
+        $promisor = new \Amp\Deferred;
+        $server->pendingRequests[$requestId] = true;
+        $state->pendingRequests[$requestId] = [$promisor, $name];
+        $promises[] = $promisor->promise();
     }
 
-    $promisor = new \Amp\Deferred;
-    $server->pendingRequests[$requestId] = true;
-    $state->pendingRequests[$requestId] = [$promisor, $name, $mode];
-
     try {
-        $resultArr = (yield \Amp\timeout($promisor->promise(), $timeout));
+        list( , $resultArr) = (yield \Amp\timeout(\Amp\some($promises), $timeout));
+        foreach ($resultArr as $value) {
+            $result += $value;
+        }
+        yield new \Amp\CoroutineResult($result);
     } catch (\Amp\TimeoutException $e) {
         throw new TimeoutException(
             "Name resolution timed out for {$name}"
         );
     }
-
-    list($resultIp, $resultMode, $resultTtl) = $resultArr;
-
-    if ($resultMode === MODE_CNAME) {
-        $result = (yield resolve($resultIp, $mode, $options));
-        list($resultIp, $resultMode, $resultTtl) = $result;
-    }
-
-    yield $state->arrayCache->set($cacheKey, $resultIp, $resultTtl);
-    yield new \Amp\CoroutineResult($resultArr);
 }
 
 function __init() {
@@ -174,7 +228,6 @@ function __init() {
     $state->encoder = (new EncoderFactory)->create();
     $state->decoder = (new DecoderFactory)->create();
     $state->arrayCache = new \Amp\Cache\ArrayCache;
-    $state->hostsFile = (yield \Amp\resolve(__loadHostsFile()));
     $state->requestIdCounter = 1;
     $state->pendingRequests = [];
     $state->serverIdMap = [];
@@ -200,10 +253,7 @@ function __init() {
 }
 
 function __loadHostsFile($path = null) {
-    $data = [
-        MODE_INET4 => [],
-        MODE_INET6 => [],
-    ];
+    $data = [];
     if (empty($path)) {
         $path = \stripos(PHP_OS, 'win') === 0
             ? 'C:\Windows\system32\drivers\etc\hosts'
@@ -225,9 +275,9 @@ function __loadHostsFile($path = null) {
         if (!($ip = @\inet_pton($parts[0]))) {
             continue;
         } elseif (isset($ip[4])) {
-            $key = MODE_INET6;
+            $key = Record::AAAA;
         } else {
-            $key = MODE_INET4;
+            $key = Record::A;
         }
         for ($i = 1, $l = \count($parts); $i < $l; $i++) {
             if (__isValidHostName($parts[$i])) {
@@ -266,6 +316,7 @@ function __loadExistingServer($state, $uri) {
     if (empty($state->serverUriMap[$uri])) {
         return;
     }
+
     $server = $state->serverUriMap[$uri];
     if (\is_resource($server->socket)) {
         unset($state->serverIdTimeoutMap[$server->id]);
@@ -353,37 +404,20 @@ function __decodeResponsePacket($state, $serverId, $packet) {
         }
     } catch (\Exception $e) {
         __unloadServer($state, $serverId, new ResolutionException(
-            "Response decode error",
-            0,
-            $e
+            "Response decode error", 0, $e
         ));
     }
 }
 
 function __processDecodedResponse($state, $serverId, $requestId, $response) {
-    static $typeMap = [
-        MODE_INET4 => ResourceTypes::A,
-        MODE_INET6 => ResourceTypes::AAAA,
-    ];
-
-    list($promisor, $name, $mode) = $state->pendingRequests[$requestId];
+    list( , $name) = $state->pendingRequests[$requestId];
     $answers = $response->getAnswerRecords();
     foreach ($answers as $record) {
-        switch ($record->getType()) {
-            case $typeMap[$mode]:
-                $result = [(string) $record->getData(), $mode, $record->getTTL()];
-                break 2;
-            case ResourceTypes::CNAME:
-                // CNAME should only be used if no A records exist so we only
-                // break out of the switch (and not the foreach loop) here.
-                $result = [(string) $record->getData(), MODE_CNAME, $record->getTTL()];
-                break;
-        }
+        $result[$record->getType()][] = [(string) $record->getData(), $record->getType(), $record->getTTL()];
     }
     if (empty($result)) {
-        $recordType = ($mode === MODE_INET4) ? "A" : "AAAA";
         __finalizeResult($state, $serverId, $requestId, new NoRecordException(
-            "No {$recordType} records returned for {$name}"
+            "No records returned for {$name}"
         ));
     } else {
         __finalizeResult($state, $serverId, $requestId, $error = null, $result);
@@ -395,7 +429,7 @@ function __finalizeResult($state, $serverId, $requestId, $error = null, $result 
         return;
     }
 
-    list($promisor) = $state->pendingRequests[$requestId];
+    list($promisor, $name) = $state->pendingRequests[$requestId];
     $server = $state->serverIdMap[$serverId];
     unset(
         $state->pendingRequests[$requestId],
@@ -409,6 +443,15 @@ function __finalizeResult($state, $serverId, $requestId, $error = null, $result 
     if ($error) {
         $promisor->fail($error);
     } else {
+        foreach ($result as $type => $records) {
+            $minttl = INF;
+            foreach ($records as list( , $ttl)) {
+                if ($ttl && $minttl > $ttl) {
+                    $minttl = $ttl;
+                }
+            }
+            $state->arrayCache->set("$name#$type", $records, $minttl);
+        }
         $promisor->succeed($result);
     }
 }
