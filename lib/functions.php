@@ -137,6 +137,49 @@ function __doRecurse($name, array $types, $options) {
     throw new ResolutionException("CNAME or DNAME chain too long (possible recursion?)");
 }
 
+function __doRequest($state, $uri, $name, $type) {
+    $server = __loadExistingServer($state, $uri) ?: __loadNewServer($state, $uri);
+
+    // Get the next available request ID
+    do {
+        $requestId = $state->requestIdCounter++;
+        if ($state->requestIdCounter >= MAX_REQUEST_ID) {
+            $state->requestIdCounter = 1;
+        }
+    } while (isset($state->pendingRequests[$requestId]));
+
+    // Create question record
+    $question = $state->questionFactory->create($type);
+    $question->setName($name);
+
+    // Create request message
+    $request = $state->messageFactory->create(MessageTypes::QUERY);
+    $request->getQuestionRecords()->add($question);
+    $request->isRecursionDesired(true);
+    $request->setID($requestId);
+
+    // Encode request message
+    $requestPacket = $state->encoder->encode($request);
+
+    if (substr($uri, 0, 6) == "tcp://") {
+        $requestPacket = pack("n", strlen($requestPacket)) . $requestPacket;
+    }
+
+    // Send request
+    $bytesWritten = \fwrite($server->socket, $requestPacket);
+    if ($bytesWritten === false || isset($packet[$bytesWritten])) {
+        throw new ResolutionException(
+            "Request send failed"
+        );
+    }
+
+    $promisor = new \Amp\Deferred;
+    $server->pendingRequests[$requestId] = true;
+    $state->pendingRequests[$requestId] = [$promisor, $name, $type, $uri];
+
+    return $promisor->promise();
+}
+
 function __doResolve($name, array $types, $options) {
     static $state;
     $state = $state ?: (yield \Amp\resolve(__init()));
@@ -170,42 +213,9 @@ function __doResolve($name, array $types, $options) {
         ? "udp://" . DEFAULT_SERVER . ":" . DEFAULT_PORT
         : __parseCustomServerUri($options["server"])
     ;
-    $server = __loadExistingServer($state, $uri) ?: __loadNewServer($state, $uri);
 
     foreach ($types as $type) {
-        // Get the next available request ID
-        do {
-            $requestId = $state->requestIdCounter++;
-            if ($state->requestIdCounter >= MAX_REQUEST_ID) {
-                $state->requestIdCounter = 1;
-            }
-        } while (isset($state->pendingRequests[$requestId]));
-
-        // Create question record
-        $question = $state->questionFactory->create($type);
-        $question->setName($name);
-
-        // Create request message
-        $request = $state->messageFactory->create(MessageTypes::QUERY);
-        $request->getQuestionRecords()->add($question);
-        $request->isRecursionDesired(true);
-        $request->setID($requestId);
-
-        // Encode request message
-        $requestPacket = $state->encoder->encode($request);
-
-        // Send request
-        $bytesWritten = \fwrite($server->socket, $requestPacket);
-        if ($bytesWritten === false || isset($packet[$bytesWritten])) {
-            throw new ResolutionException(
-                "Request send failed"
-            );
-        }
-
-        $promisor = new \Amp\Deferred;
-        $server->pendingRequests[$requestId] = true;
-        $state->pendingRequests[$requestId] = [$promisor, $name];
-        $promises[] = $promisor->promise();
+        $promises[] = __doRequest($state, $uri, $name, $type);
     }
 
     try {
@@ -342,6 +352,8 @@ function __loadNewServer($state, $uri) {
     $server->id = $id;
     $server->uri = $uri;
     $server->socket = $socket;
+    $server->buffer = "";
+    $server->length = INF;
     $server->pendingRequests = [];
     $server->watcherId = \Amp\onReadable($socket, "Amp\Dns\__onReadable", [
         "enable" => true,
@@ -376,7 +388,26 @@ function __onReadable($watcherId, $socket, $state) {
     $serverId = (int) $socket;
     $packet = @\fread($socket, 512);
     if ($packet != "") {
-        __decodeResponsePacket($state, $serverId, $packet);
+        $server = $state->serverIdMap[$serverId];
+        if (\substr($server->uri, 0, 6) == "tcp://") {
+            if ($server->length == INF) {
+                $server->length = unpack("n", $packet)[1];
+                $packet = substr($packet, 2);
+            }
+            $server->buffer .= $packet;
+            while ($server->length <= \strlen($server->buffer)) {
+                __decodeResponsePacket($state, $serverId, substr($server->buffer, 0, $server->length));
+                $server->buffer = substr($server->buffer, $server->length);
+                if (\strlen($server->buffer) >= 2 + $server->length) {
+                    $server->length = unpack("n", $server->buffer)[1];
+                    $server->buffer = substr($server->buffer, 2);
+                } else {
+                    $server->length = INF;
+                }
+            }
+        } else {
+            __decodeResponsePacket($state, $serverId, $packet);
+        }
     } else {
         __unloadServer($state, $serverId, new ResolutionException(
             "Server connection failed"
@@ -410,7 +441,21 @@ function __decodeResponsePacket($state, $serverId, $packet) {
 }
 
 function __processDecodedResponse($state, $serverId, $requestId, $response) {
-    list( , $name) = $state->pendingRequests[$requestId];
+    list($promisor, $name, $type, $uri) = $state->pendingRequests[$requestId];
+
+    // Retry via tcp if message has been truncated
+    if ($response->isTruncated()) {
+        if (\substr($uri, 0, 6) != "tcp://") {
+            $uri = \preg_replace("#[a-z.]+://#", "tcp://", $uri);
+            $promisor->succeed(__doRequest($state, $uri, $name, $type));
+        } else {
+            __finalizeResult($state, $serverId, $requestId, new ResolutionException(
+                "Server returned truncated response"
+            ));
+        }
+        return;
+    }
+
     $answers = $response->getAnswerRecords();
     foreach ($answers as $record) {
         $result[$record->getType()][] = [(string) $record->getData(), $record->getType(), $record->getTTL()];
