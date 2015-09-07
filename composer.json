@@ -18,7 +18,7 @@
         "php": ">=5.5",
         "amphp/amp": "^1",
         "amphp/cache": "dev-master",
-        "amphp/filesystem": "dev-master",
+        "amphp/file": "dev-master",
         "daverandom/libdns": "~1.0"
     },
     "require-dev": {
