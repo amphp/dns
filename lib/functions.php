@@ -13,7 +13,7 @@ use \LibDNS\Decoder\DecoderFactory;
  *
  * Upon success the returned promise resolves to an indexed array of the form:
  *
- *  [string $resolvedIp, int $type, int $ttl]
+ *  [string $recordValue, int $type, int $ttl]
  *
  * A null $ttl value indicates the DNS name was resolved from the cache or the
  * local hosts file.
@@ -21,11 +21,11 @@ use \LibDNS\Decoder\DecoderFactory;
  *
  * Options:
  *
- *  - "server"       | string   Custom DNS server address in ip or ip:port format
- *  - "timeout"      | int      Default: 3000ms
- *  - "no_hosts"     | bool     Ignore entries in the hosts file
+ *  - "server"       | string   Custom DNS server address in ip or ip:port format (Default: 8.8.8.8:53)
+ *  - "timeout"      | int      DNS server query timeout (Default: 3000ms)
+ *  - "hosts"        | bool     Use the hosts file (Default: true)
  *  - "reload_hosts" | bool     Reload the hosts file (Default: false), only active when no_hosts not true
- *  - "no_cache"     | bool     Ignore cached DNS response entries
+ *  - "cache"        | bool     Use local DNS cache when querying (Default: true)
  *  - "types"        | array    Default: [Record::A, Record::AAAA] (only for resolve())
  *  - "recurse"      | bool     Check for DNAME and CNAME records (always active for resolve(), Default: false for query())
  *
@@ -59,20 +59,20 @@ function query($name, $type, array $options = []) {
             $types = (array) $type;
             return __pipeResult(\Amp\resolve($handler($name, $types, $options)), $types);
         } else {
-            return new \Amp\Failure(new ResolutionException("Cannot resolve; invalid host name"));
+            return new \Amp\Failure(new ResolutionException("Query failed; invalid host name"));
         }
     } else {
-        return new \Amp\Failure(new ResolutionException("Cannot resolve records from an IP address"));
+        return new \Amp\Failure(new ResolutionException("Cannot query records from an IP address"));
     }
 }
 
 function __isValidHostName($name) {
     $pattern = "/^(?:[a-z0-9](?:[a-z0-9\-]{0,61}[a-z0-9]){0,1})(?:\.[a-z0-9][a-z0-9\-]{0,61}[a-z0-9])*$/i";
 
-    return isset($name[253]) ? false : (bool) \preg_match($pattern, $name);
+    return !isset($name[253]) && \preg_match($pattern, $name);
 }
 
-// preserve order according to $types
+// flatten $result while preserving order according to $types (append unspecified types for e.g. Record::ALL queries)
 function __pipeResult($promise, array $types) {
     return \Amp\pipe($promise, function (array $result) use ($types) {
         $retval = [];
@@ -82,16 +82,17 @@ function __pipeResult($promise, array $types) {
                 unset($result[$type]);
             }
         }
-        return $result ? \array_merge($retval, $result) : $retval;
+        return $result ? \array_merge($retval, \call_user_func_array("array_merge", $result)) : $retval;
     });
 }
 
 function __recurseWithHosts($name, array $types, $options) {
     // Check for hosts file matches
-    if (empty($options["no_hosts"])) {
+    if (!isset($options["hosts"]) || $options["hosts"]) {
         static $hosts = null;
         if ($hosts === null || !empty($options["reload_hosts"])) {
             return \Amp\pipe(\Amp\resolve(__loadHostsFile()), function($value) use (&$hosts, $name, $types, $options) {
+                unset($options["reload_hosts"]); // avoid recursion
                 $hosts = $value;
                 return __recurseWithHosts($name, $types, $options);
             });
@@ -189,17 +190,19 @@ function __doResolve($name, array $types, $options) {
         return;
     }
 
+    assert(array_reduce($types, function($result, $val) { return $result && \is_int($val); }, true), 'The $types passed to DNS functions must all be integers (from \Amp\Dns\Record class)');
+
     $name = \strtolower($name);
     $result = [];
 
     // Check for cache hits
-    if (empty($options["no_cache"])) {
+    if (!isset($options["cache"]) || $options["cache"]) {
         foreach ($types as $k => $type) {
             $cacheKey = "$name#$type";
-            if (yield $state->arrayCache->has($cacheKey)) {
+            try {
                 $result[$type] = (yield $state->arrayCache->get($cacheKey));
                 unset($types[$k]);
-            }
+            } catch (\Exception $e) { /* no match */ }
         }
         if (empty($types)) {
             yield new \Amp\CoroutineResult($result);
@@ -223,12 +226,18 @@ function __doResolve($name, array $types, $options) {
         foreach ($resultArr as $value) {
             $result += $value;
         }
-        yield new \Amp\CoroutineResult($result);
     } catch (\Amp\TimeoutException $e) {
         throw new TimeoutException(
             "Name resolution timed out for {$name}"
         );
+    } catch (ResolutionException $e) {
+        // if we have no cached results
+        if (empty($result)) {
+            throw $e;
+        }
     }
+
+    yield new \Amp\CoroutineResult($result);
 }
 
 function __init() {
@@ -271,7 +280,7 @@ function __loadHostsFile($path = null) {
         ;
     }
     try {
-        $contents = (yield \Amp\Filesystem\get($path));
+        $contents = (yield \Amp\File\get($path));
     } catch (\Exception $e) {
         yield new \Amp\CoroutineResult($data);
         return;
@@ -302,7 +311,7 @@ function __loadHostsFile($path = null) {
 function __parseCustomServerUri($uri) {
     if (!\is_string($uri)) {
         throw new ResolutionException(
-            "Invalid server address (". gettype($uri) ."); string IP required"
+            'Invalid server address ($uri must be a string IP address, '. gettype($uri) ." given)"
         );
     }
     if (($colonPos = strrpos(":", $uri)) !== false) {
@@ -315,7 +324,7 @@ function __parseCustomServerUri($uri) {
     $addr = trim($addr, "[]");
     if (!$inAddr = @\inet_pton($addr)) {
         throw new ResolutionException(
-            "Invalid server URI; IP address required"
+            'Invalid server $uri; string IP address required'
         );
     }
 
@@ -461,6 +470,7 @@ function __processDecodedResponse($state, $serverId, $requestId, $response) {
         $result[$record->getType()][] = [(string) $record->getData(), $record->getType(), $record->getTTL()];
     }
     if (empty($result)) {
+        $state->arrayCache->set("$name#$type", [], 300); // "it MUST NOT cache it for longer than five (5) minutes" per RFC 2308 section 7.1
         __finalizeResult($state, $serverId, $requestId, new NoRecordException(
             "No records returned for {$name}"
         ));
