@@ -2,6 +2,11 @@
 
 namespace Amp\Dns;
 
+use Amp\Cache\ArrayCache;
+use Amp\CoroutineResult;
+use Amp\Deferred;
+use Amp\Failure;
+use Amp\Success;
 use \LibDNS\Messages\MessageFactory;
 use \LibDNS\Messages\MessageTypes;
 use \LibDNS\Records\QuestionFactory;
@@ -45,10 +50,10 @@ function resolve($name, array $options = []) {
             $types = empty($options["types"]) ? [Record::A, Record::AAAA] : $options["types"];
             return __pipeResult(__recurseWithHosts($name, $types, $options), $types);
         } else {
-            return new \Amp\Failure(new ResolutionException("Cannot resolve; invalid host name"));
+            return new Failure(new ResolutionException("Cannot resolve; invalid host name"));
         }
     } else {
-        return new \Amp\Success([[$name, isset($inAddr[4]) ? Record::AAAA : Record::A, $ttl = null]]);
+        return new Success([[$name, isset($inAddr[4]) ? Record::AAAA : Record::A, $ttl = null]]);
     }
 }
 
@@ -59,15 +64,15 @@ function query($name, $type, array $options = []) {
             $types = (array) $type;
             return __pipeResult(\Amp\resolve($handler($name, $types, $options)), $types);
         } else {
-            return new \Amp\Failure(new ResolutionException("Query failed; invalid host name"));
+            return new Failure(new ResolutionException("Query failed; invalid host name"));
         }
     } else {
-        return new \Amp\Failure(new ResolutionException("Cannot query records from an IP address"));
+        return new Failure(new ResolutionException("Cannot query records from an IP address"));
     }
 }
 
 function __isValidHostName($name) {
-    $pattern = "/^(?:[a-z0-9](?:[a-z0-9\-]{0,61}[a-z0-9]){0,1})(?:\.[a-z0-9][a-z0-9\-]{0,61}[a-z0-9])*$/i";
+    $pattern = "/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9]){0,1})(?:\\.[a-z0-9][a-z0-9-]{0,61}[a-z0-9])*$/i";
 
     return !isset($name[253]) && \preg_match($pattern, $name);
 }
@@ -105,7 +110,7 @@ function __recurseWithHosts($name, array $types, $options) {
             $result[Record::AAAA] = [[$hosts[Record::AAAA][$name], Record::AAAA, $ttl = null]];
         }
         if ($result) {
-            return new \Amp\Success($result);
+            return new Success($result);
         }
     }
 
@@ -123,7 +128,7 @@ function __doRecurse($name, array $types, $options) {
         $result = (yield \Amp\resolve(__doResolve($lookupName, $types, $options)));
         if (count($result) > isset($result[Record::CNAME]) + isset($result[Record::DNAME])) {
             unset($result[Record::CNAME], $result[Record::DNAME]);
-            yield new \Amp\CoroutineResult($result);
+            yield new CoroutineResult($result);
             return;
         }
         // @TODO check for potentially using recursion and iterate over *all* CNAME/DNAME
@@ -174,7 +179,7 @@ function __doRequest($state, $uri, $name, $type) {
         );
     }
 
-    $promisor = new \Amp\Deferred;
+    $promisor = new Deferred;
     $server->pendingRequests[$requestId] = true;
     $state->pendingRequests[$requestId] = [$promisor, $name, $type, $uri];
 
@@ -186,7 +191,7 @@ function __doResolve($name, array $types, $options) {
     $state = $state ?: (yield \Amp\resolve(__init()));
 
     if (empty($types)) {
-        yield new \Amp\CoroutineResult([]);
+        yield new CoroutineResult([]);
         return;
     }
 
@@ -199,13 +204,15 @@ function __doResolve($name, array $types, $options) {
     if (!isset($options["cache"]) || $options["cache"]) {
         foreach ($types as $k => $type) {
             $cacheKey = "$name#$type";
-            try {
-                $result[$type] = (yield $state->arrayCache->get($cacheKey));
+            $cacheValue = (yield $state->arrayCache->get($cacheKey));
+
+            if ($cacheValue !== null) {
+                $result[$type] = $cacheValue;
                 unset($types[$k]);
-            } catch (\Exception $e) { /* no match */ }
+            }
         }
         if (empty($types)) {
-            yield new \Amp\CoroutineResult($result);
+            yield new CoroutineResult($result);
             return;
         }
     }
@@ -237,7 +244,7 @@ function __doResolve($name, array $types, $options) {
         }
     }
 
-    yield new \Amp\CoroutineResult($result);
+    yield new CoroutineResult($result);
 }
 
 function __init() {
@@ -246,7 +253,7 @@ function __init() {
     $state->questionFactory = new QuestionFactory;
     $state->encoder = (new EncoderFactory)->create();
     $state->decoder = (new DecoderFactory)->create();
-    $state->arrayCache = new \Amp\Cache\ArrayCache;
+    $state->arrayCache = new ArrayCache;
     $state->requestIdCounter = 1;
     $state->pendingRequests = [];
     $state->serverIdMap = [];
@@ -268,7 +275,7 @@ function __init() {
         "keep_alive" => false,
     ]);
 
-    yield new \Amp\CoroutineResult($state);
+    yield new CoroutineResult($state);
 }
 
 function __loadHostsFile($path = null) {
@@ -282,7 +289,7 @@ function __loadHostsFile($path = null) {
     try {
         $contents = (yield \Amp\File\get($path));
     } catch (\Exception $e) {
-        yield new \Amp\CoroutineResult($data);
+        yield new CoroutineResult($data);
         return;
     }
     $lines = \array_filter(\array_map("trim", \explode("\n", $contents)));
@@ -305,7 +312,7 @@ function __loadHostsFile($path = null) {
         }
     }
 
-    yield new \Amp\CoroutineResult($data);
+    yield new CoroutineResult($data);
 }
 
 function __parseCustomServerUri($uri) {
@@ -333,16 +340,20 @@ function __parseCustomServerUri($uri) {
 
 function __loadExistingServer($state, $uri) {
     if (empty($state->serverUriMap[$uri])) {
-        return;
+        return null;
     }
 
     $server = $state->serverUriMap[$uri];
+
     if (\is_resource($server->socket)) {
         unset($state->serverIdTimeoutMap[$server->id]);
         \Amp\enable($server->watcherId);
         return $server;
     }
+
     __unloadServer($state, $server->id);
+
+    return null;
 }
 
 function __loadNewServer($state, $uri) {
