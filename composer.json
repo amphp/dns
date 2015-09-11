@@ -12,14 +12,18 @@
         {
             "name": "Daniel Lowrey",
             "email": "rdlowrey@php.net"
+        },
+        {
+            "name": "Bob Weinand",
+            "email": "bobwei9@hotmail.com"
         }
     ],
     "require": {
         "php": ">=5.5",
         "amphp/amp": "^1",
         "amphp/cache": "^0.1",
-        "amphp/file": "dev-master",
-        "daverandom/libdns": "^1.0"
+        "amphp/file": "^0.1",
+        "daverandom/libdns": "^1"
     },
     "require-dev": {
         "phpunit/phpunit": "^4.8",
