@@ -234,9 +234,14 @@ function __doResolve($name, array $types, $options) {
             $result += $value;
         }
     } catch (\Amp\TimeoutException $e) {
-        throw new TimeoutException(
-            "Name resolution timed out for {$name}"
-        );
+        if (substr($uri, 0, 6) == "tcp://") {
+            throw new TimeoutException(
+                "Name resolution timed out for {$name}"
+            );
+        } else {
+            $options["server"] = \preg_replace("#[a-z.]+://#", "tcp://", $uri);
+            yield new CoroutineResult(\Amp\resolve(__doResolve($name, $types, $options)));
+        }
     } catch (ResolutionException $e) {
         // if we have no cached results
         if (empty($result)) {
@@ -320,6 +325,9 @@ function __parseCustomServerUri($uri) {
         throw new ResolutionException(
             'Invalid server address ($uri must be a string IP address, '. gettype($uri) ." given)"
         );
+    }
+    if (strpos("://", $uri) !== false) {
+        return $uri;
     }
     if (($colonPos = strrpos(":", $uri)) !== false) {
         $addr = \substr($uri, 0, $colonPos);
