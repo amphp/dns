@@ -2,7 +2,13 @@
     "name": "amphp/dns",
     "homepage": "https://github.com/amphp/dns",
     "description": "Async DNS resolution built on the amp concurrency framework",
-    "keywords": ["dns", "resolve", "client", "async", "amp"],
+    "keywords": [
+        "dns",
+        "resolve",
+        "client",
+        "async",
+        "amp"
+    ],
     "license": "MIT",
     "authors": [
         {
@@ -16,6 +22,10 @@
         {
             "name": "Bob Weinand",
             "email": "bobwei9@hotmail.com"
+        },
+        {
+            "name": "Niklas Keller",
+            "email": "me@kelunik.com"
         }
     ],
     "require": {
