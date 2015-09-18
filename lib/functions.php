@@ -32,8 +32,7 @@ use LibDNS\Records\QuestionFactory;
  *  - "reload_hosts" | bool     Reload the hosts file (Default: false), only active when no_hosts not true
  *  - "cache"        | bool     Use local DNS cache when querying (Default: true)
  *  - "types"        | array    Default: [Record::A, Record::AAAA] (only for resolve())
- *  - "recurse"      | bool     Check for DNAME and CNAME records (always active for resolve(), Default: false for
- * query())
+ *  - "recurse"      | bool     Check for DNAME and CNAME records (always active for resolve(), Default: false for query())
  *
  * If the custom per-request "server" option is not present the resolver will
  * use the default from the following built-in constant:
@@ -49,7 +48,6 @@ function resolve($name, array $options = []) {
     if (!$inAddr = @\inet_pton($name)) {
         if (__isValidHostName($name)) {
             $types = empty($options["types"]) ? [Record::A, Record::AAAA] : $options["types"];
-
             return __pipeResult(__recurseWithHosts($name, $types, $options), $types);
         } else {
             return new Failure(new ResolutionException("Cannot resolve; invalid host name"));
@@ -64,7 +62,6 @@ function query($name, $type, array $options = []) {
         if (__isValidHostName($name)) {
             $handler = __NAMESPACE__ . "\\" . (empty($options["recurse"]) ? "__doRecurse" : "__doResolve");
             $types = (array) $type;
-
             return __pipeResult(\Amp\resolve($handler($name, $types, $options)), $types);
         } else {
             return new Failure(new ResolutionException("Query failed; invalid host name"));
@@ -90,7 +87,6 @@ function __pipeResult($promise, array $types) {
                 unset($result[$type]);
             }
         }
-
         return $result ? \array_merge($retval, \call_user_func_array("array_merge", $result)) : $retval;
     });
 }
@@ -103,7 +99,6 @@ function __recurseWithHosts($name, array $types, $options) {
             return \Amp\pipe(\Amp\resolve(__loadHostsFile()), function ($value) use (&$hosts, $name, $types, $options) {
                 unset($options["reload_hosts"]); // avoid recursion
                 $hosts = $value;
-
                 return __recurseWithHosts($name, $types, $options);
             });
         }
@@ -134,7 +129,6 @@ function __doRecurse($name, array $types, $options) {
         if (count($result) > isset($result[Record::CNAME]) + isset($result[Record::DNAME])) {
             unset($result[Record::CNAME], $result[Record::DNAME]);
             yield new CoroutineResult($result);
-
             return;
         }
         // @TODO check for potentially using recursion and iterate over *all* CNAME/DNAME
@@ -198,13 +192,10 @@ function __doResolve($name, array $types, $options) {
 
     if (empty($types)) {
         yield new CoroutineResult([]);
-
         return;
     }
 
-    assert(array_reduce($types, function ($result, $val) {
-        return $result && \is_int($val);
-    }, true), 'The $types passed to DNS functions must all be integers (from \Amp\Dns\Record class)');
+    assert(array_reduce($types, function ($result, $val) { return $result && \is_int($val); }, true), 'The $types passed to DNS functions must all be integers (from \Amp\Dns\Record class)');
 
     $name = \strtolower($name);
     $result = [];
@@ -222,7 +213,6 @@ function __doResolve($name, array $types, $options) {
         }
         if (empty($types)) {
             yield new CoroutineResult($result);
-
             return;
         }
     }
@@ -244,7 +234,7 @@ function __doResolve($name, array $types, $options) {
     }
 
     try {
-        list(, $resultArr) = (yield \Amp\timeout(\Amp\some($promises), $timeout));
+        list( , $resultArr) = (yield \Amp\timeout(\Amp\some($promises), $timeout));
         foreach ($resultArr as $value) {
             $result += $value;
         }
@@ -300,13 +290,9 @@ function __init() {
     yield new CoroutineResult($state);
 }
 
-/**
- * @param string $path
- * @return \Generator
- * @link http://man7.org/linux/man-pages/man5/resolv.conf.5.html
- */
+/** @link http://man7.org/linux/man-pages/man5/resolv.conf.5.html */
 function __loadResolvConf($path = null) {
-    $default = [
+    $result = [
         "nameservers" => [
             "8.8.8.8",
             "8.8.4.4",
@@ -315,35 +301,21 @@ function __loadResolvConf($path = null) {
         "attempts" => 2,
     ];
 
-    if (empty($path)) {
-        if (\stripos(PHP_OS, "win") === 0) {
-            yield new CoroutineResult($default);
+    if (\stripos(PHP_OS, "win") !== 0) {
+        $path = $path ?: "/etc/resolv.conf";
 
-            return;
-        } else {
-            $path = $path ?: "/etc/resolv.conf";
-
-            try {
-                $contents = (yield \Amp\File\get($path));
-            } catch (\Exception $e) {
-                yield new CoroutineResult($default);
-
-                return;
-            }
-
-            $result = $default;
+        try {
+            $lines = explode("\n", (yield \Amp\File\get($path)));
             $result["nameservers"] = [];
 
-            $lines = \explode("\n", $contents);
-
             foreach ($lines as $line) {
-                $line = \preg_split("~\\s+~", $line, 2);
-
+                $line = \preg_split('#\s+#', $line, 2);
                 if (\count($line) !== 2) {
                     continue;
                 }
 
-                if ($line[0] === "nameserver") {
+                list($type, $value) = $line;
+                if ($type === "nameserver") {
                     $line[1] = trim($line[1]);
                     $ip = @\inet_pton($line[1]);
 
@@ -352,33 +324,30 @@ function __loadResolvConf($path = null) {
                     }
 
                     $result["nameservers"][] = $line[1] . ":53";
-                } elseif ($line[0] === "options") {
-                    $option = preg_split("~\\s+~", $line[1], 2);
-
-                    if (\count($option) !== 2) {
+                } elseif ($type === "options") {
+                    $optline = preg_split('#\s+#', $value, 2);
+                    if (\count($optline) !== 2) {
                         continue;
                     }
 
-                    if ($option[0] === "timeout") {
-                        $result["timeout"] = (int) $option[1];
-                    } elseif ($option[1] === "attempts") {
-                        $result["attempts"] = (int) $option[1];
+                    list($option, $value) = $optline;
+                    if (in_array($option, ["timeout", "attempts"])) {
+                        $result[$option] = (int) $value;
                     }
                 }
             }
-
-            yield new CoroutineResult($result);
-            return;
-        }
+        } catch (\Amp\File\FilesystemException $e) {}
     }
+
+    yield new CoroutineResult($result);
 }
 
 function __loadHostsFile($path = null) {
     $data = [];
     if (empty($path)) {
         $path = \stripos(PHP_OS, "win") === 0
-            ? "C:\\Windows\\system32\\drivers\\etc\\hosts"
-            : "/etc/hosts";
+            ? 'C:\Windows\system32\drivers\etc\hosts'
+            : '/etc/hosts';
     }
     try {
         $contents = (yield \Amp\File\get($path));
@@ -446,12 +415,10 @@ function __loadExistingServer($state, $uri) {
     if (\is_resource($server->socket)) {
         unset($state->serverIdTimeoutMap[$server->id]);
         \Amp\enable($server->watcherId);
-
         return $server;
     }
 
     __unloadServer($state, $server->id);
-
     return null;
 }
 
@@ -474,7 +441,7 @@ function __loadNewServer($state, $uri) {
     $server->buffer = "";
     $server->length = INF;
     $server->pendingRequests = [];
-    $server->watcherId = \Amp\onReadable($socket, "Amp\\Dns\\__onReadable", [
+    $server->watcherId = \Amp\onReadable($socket, 'Amp\Dns\__onReadable', [
         "enable" => true,
         "keep_alive" => true,
         "cb_data" => $state,
@@ -572,7 +539,6 @@ function __processDecodedResponse($state, $serverId, $requestId, $response) {
                 "Server returned truncated response"
             ));
         }
-
         return;
     }
 
@@ -611,7 +577,7 @@ function __finalizeResult($state, $serverId, $requestId, $error = null, $result 
     } else {
         foreach ($result as $type => $records) {
             $minttl = INF;
-            foreach ($records as list(, $ttl)) {
+            foreach ($records as list( , $ttl)) {
                 if ($ttl && $minttl > $ttl) {
                     $minttl = $ttl;
                 }
