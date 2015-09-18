@@ -35,9 +35,8 @@ use LibDNS\Records\QuestionFactory;
  *  - "recurse"      | bool     Check for DNAME and CNAME records (always active for resolve(), Default: false for query())
  *
  * If the custom per-request "server" option is not present the resolver will
- * use the default from the following built-in constant:
- *
- *  - Amp\Dns\DEFAULT_SERVER
+ * use the first nameserver in /etc/resolv.conf or default to Google's public
+ * DNS servers on Windows or if /etc/resolv.conf is not found.
  *
  * @param string $name The hostname to resolve
  * @param array  $options
@@ -57,6 +56,15 @@ function resolve($name, array $options = []) {
     }
 }
 
+/**
+ * Query specific DNS records.
+ *
+ * @param string $name
+ * @param int|int[] $type Use constants of Amp\Dns\Record
+ * @param array $options
+ * @return \Amp\Promise
+ * @TODO document options
+ */
 function query($name, $type, array $options = []) {
     if (!$inAddr = @\inet_pton($name)) {
         if (__isValidHostName($name)) {
@@ -195,7 +203,9 @@ function __doResolve($name, array $types, $options) {
         return;
     }
 
-    assert(array_reduce($types, function ($result, $val) { return $result && \is_int($val); }, true), 'The $types passed to DNS functions must all be integers (from \Amp\Dns\Record class)');
+    assert(array_reduce($types, function ($result, $val) {
+        return $result && \is_int($val);
+    }, true), 'The $types passed to DNS functions must all be integers (from \Amp\Dns\Record class)');
 
     $name = \strtolower($name);
     $result = [];
@@ -329,6 +339,8 @@ function __loadResolvConf($path = null) {
                     if (\count($optline) !== 2) {
                         continue;
                     }
+
+                    // TODO: Respect the contents of the attempts setting during resolution
 
                     list($option, $value) = $optline;
                     if (in_array($option, ["timeout", "attempts"])) {
