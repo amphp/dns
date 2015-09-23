@@ -258,9 +258,12 @@ function __doResolve($name, array $types, $options) {
             yield new CoroutineResult(\Amp\resolve(__doResolve($name, $types, $options)));
         }
     } catch (ResolutionException $e) {
-        // if we have no cached results
-        if (empty($result)) {
+        if (empty($result)) { // if we have no cached results
             throw $e;
+        }
+    } catch (\RuntimeException $e) { // if all promises in Amp\some fail
+        if (empty($result)) { // if we have no cached results
+            throw new ResolutionException("All name resolution requests failed", 0, $e);
         }
     }
 
