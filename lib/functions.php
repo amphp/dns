@@ -307,8 +307,8 @@ function __init() {
 function __loadResolvConf($path = null) {
     $result = [
         "nameservers" => [
-            "8.8.8.8",
-            "8.8.4.4",
+            "8.8.8.8:53",
+            "8.8.4.4:53",
         ],
         "timeout" => 3000,
         "attempts" => 2,
