@@ -6,6 +6,7 @@ use Amp\Cache\ArrayCache;
 use Amp\CoroutineResult;
 use Amp\Deferred;
 use Amp\Failure;
+use Amp\File\FilesystemException;
 use Amp\Success;
 use LibDNS\Decoder\DecoderFactory;
 use LibDNS\Encoder\EncoderFactory;
@@ -256,6 +257,7 @@ function __doResolve($name, array $types, $options) {
         } else {
             $options["server"] = \preg_replace("#[a-z.]+://#", "tcp://", $uri);
             yield new CoroutineResult(\Amp\resolve(__doResolve($name, $types, $options)));
+            return;
         }
     } catch (ResolutionException $e) {
         if (empty($result)) { // if we have no cached results
@@ -355,7 +357,9 @@ function __loadResolvConf($path = null) {
                     }
                 }
             }
-        } catch (\Amp\File\FilesystemException $e) {}
+        } catch (FilesystemException $e) {
+            // use default
+        }
     }
 
     yield new CoroutineResult($result);
