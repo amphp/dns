@@ -336,7 +336,11 @@ function __loadResolvConf($path = null) {
                         continue;
                     }
 
-                    $result["nameservers"][] = $line[1] . ":53";
+                    if (isset($ip[15])) {
+                        $result["nameservers"][] = "[" . $line[1] . "]:53";
+                    } else {
+                        $result["nameservers"][] = $line[1] . ":53";
+                    }
                 } elseif ($type === "options") {
                     $optline = preg_split('#\s+#', $value, 2);
                     if (\count($optline) !== 2) {
