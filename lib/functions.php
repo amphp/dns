@@ -6,7 +6,6 @@ use Amp\Cache\ArrayCache;
 use Amp\CoroutineResult;
 use Amp\Deferred;
 use Amp\Failure;
-use Amp\File\FilesystemException;
 use Amp\Success;
 use LibDNS\Decoder\DecoderFactory;
 use LibDNS\Encoder\EncoderFactory;
@@ -69,7 +68,7 @@ function resolve($name, array $options = []) {
 function query($name, $type, array $options = []) {
     if (!$inAddr = @\inet_pton($name)) {
         if (__isValidHostName($name)) {
-            $handler = __NAMESPACE__ . "\\" . (empty($options["recurse"]) ? "__doRecurse" : "__doResolve");
+            $handler = __NAMESPACE__ . "\\" . (empty($options["recurse"]) ?  "__doResolve" : "__doRecurse");
             $types = (array) $type;
             return __pipeResult(\Amp\resolve($handler($name, $types, $options)), $types);
         } else {
@@ -204,9 +203,7 @@ function __doResolve($name, array $types, $options) {
         return;
     }
 
-    assert(array_reduce($types, function ($result, $val) {
-        return $result && \is_int($val);
-    }, true), 'The $types passed to DNS functions must all be integers (from \Amp\Dns\Record class)');
+    assert(array_reduce($types, function ($result, $val) { return $result && \is_int($val); }, true), 'The $types passed to DNS functions must all be integers (from \Amp\Dns\Record class)');
 
     $name = \strtolower($name);
     $result = [];
@@ -263,7 +260,7 @@ function __doResolve($name, array $types, $options) {
         if (empty($result)) { // if we have no cached results
             throw $e;
         }
-    } catch (\RuntimeException $e) { // if all promises in Amp\some fail
+    } catch (\Amp\CombinatorException $e) { // if all promises in Amp\some fail
         if (empty($result)) { // if we have no cached results
             throw new ResolutionException("All name resolution requests failed", 0, $e);
         }
@@ -357,9 +354,7 @@ function __loadResolvConf($path = null) {
                     }
                 }
             }
-        } catch (FilesystemException $e) {
-            // use default
-        }
+        } catch (\Amp\File\FilesystemException $e) {}
     }
 
     yield new CoroutineResult($result);
@@ -408,7 +403,7 @@ function __parseCustomServerUri($uri) {
             'Invalid server address ($uri must be a string IP address, ' . gettype($uri) . " given)"
         );
     }
-    if (strpos("://", $uri) !== false) {
+    if (strpos($uri, "://") !== false) {
         return $uri;
     }
     if (($colonPos = strrpos(":", $uri)) !== false) {
