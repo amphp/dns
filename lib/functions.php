@@ -14,7 +14,8 @@ use LibDNS\Messages\MessageTypes;
 use LibDNS\Records\QuestionFactory;
 
 /**
- * Resolve a DNS name to an IP address
+ * Resolve a hostname name to an IP address
+ * [hostname as defined by RFC 3986]
  *
  * Upon success the returned promise resolves to an indexed array of the form:
  *
@@ -59,24 +60,15 @@ function resolve($name, array $options = []) {
 /**
  * Query specific DNS records.
  *
- * @param string $name
+ * @param string $name Unlike resolve(), query() allows for requesting _any_ name (as DNS RFC allows for arbitrary strings)
  * @param int|int[] $type Use constants of Amp\Dns\Record
- * @param array $options
+ * @param array $options @see resolve documentation
  * @return \Amp\Promise
- * @TODO document options
  */
 function query($name, $type, array $options = []) {
-    if (!$inAddr = @\inet_pton($name)) {
-        if (__isValidHostName($name)) {
-            $handler = __NAMESPACE__ . "\\" . (empty($options["recurse"]) ?  "__doResolve" : "__doRecurse");
-            $types = (array) $type;
-            return __pipeResult(\Amp\resolve($handler($name, $types, $options)), $types);
-        } else {
-            return new Failure(new ResolutionException("Query failed; invalid host name"));
-        }
-    } else {
-        return new Failure(new ResolutionException("Cannot query records from an IP address"));
-    }
+    $handler = __NAMESPACE__ . "\\" . (empty($options["recurse"]) ?  "__doResolve" : "__doRecurse");
+    $types = (array) $type;
+    return __pipeResult(\Amp\resolve($handler($name, $types, $options)), $types);
 }
 
 function __isValidHostName($name) {
