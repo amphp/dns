@@ -463,6 +463,11 @@ function __loadNewServer($state, $uri) {
 }
 
 function __unloadServer($state, $serverId, $error = null) {
+    // Might already have been unloaded (especially if multiple requests happen)
+    if (!isset($state->serverIdMap[$serverId])) {
+        return;
+    }
+
     $server = $state->serverIdMap[$serverId];
     \Amp\cancel($server->watcherId);
     unset(
