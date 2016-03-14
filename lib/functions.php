@@ -212,8 +212,12 @@ function __doResolve($name, array $types, $options) {
             }
         }
         if (empty($types)) {
-            yield new CoroutineResult($result);
-            return;
+            if (empty(array_filter($result))) {
+                throw new NoRecordException("No records returned for {$name} (cached result)");
+            } else {
+                yield new CoroutineResult($result);
+                return;
+            }
         }
     }
 
@@ -254,6 +258,11 @@ function __doResolve($name, array $types, $options) {
         }
     } catch (\Amp\CombinatorException $e) { // if all promises in Amp\some fail
         if (empty($result)) { // if we have no cached results
+            foreach ($e->getExceptions() as $ex) {
+                if ($ex instanceof NoRecordException) {
+                    throw new NoRecordException("No records returned for {$name}", 0, $e);
+                }
+            }
             throw new ResolutionException("All name resolution requests failed", 0, $e);
         }
     }
