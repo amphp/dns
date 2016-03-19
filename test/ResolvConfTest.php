@@ -2,9 +2,15 @@
 
 namespace Amp\Dns\Test;
 
+use ReflectionObject;
+
 class ResolvConfTest extends \PHPUnit_Framework_TestCase {
     public function test() {
-        $result = \Amp\wait(\Amp\resolve(\Amp\Dns\__loadResolvConf(__DIR__ . "/data/resolv.conf")));
+        $reflector = new ReflectionObject(\Amp\Dns\resolver());
+        $method = $reflector->getMethod("loadResolvConf");
+        $method->setAccessible(true);
+
+        $result = \Amp\wait(\Amp\resolve($method->invoke(\Amp\Dns\resolver(), __DIR__ . "/data/resolv.conf")));
 
         $this->assertSame([
             "nameservers" => [
@@ -17,7 +23,11 @@ class ResolvConfTest extends \PHPUnit_Framework_TestCase {
     }
 
     public function testDefaultsOnConfNotFound() {
-        $result = \Amp\wait(\Amp\resolve(\Amp\Dns\__loadResolvConf(__DIR__ . "/data/invalid.conf")));
+        $reflector = new ReflectionObject(\Amp\Dns\resolver());
+        $method = $reflector->getMethod("loadResolvConf");
+        $method->setAccessible(true);
+
+        $result = \Amp\wait(\Amp\resolve($method->invoke(\Amp\Dns\resolver(), __DIR__ . "/data/invalid.conf")));
 
         $this->assertSame([
             "nameservers" => [
