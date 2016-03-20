@@ -15,7 +15,7 @@ function resolver(Resolver $assign = null) {
     } elseif ($resolver) {
         return $resolver;
     } else {
-        return ($resolver = driver());
+        return $resolver = driver();
     }
 }
 /**
@@ -24,7 +24,7 @@ function resolver(Resolver $assign = null) {
  * @return \Amp\Dns\Resolver
  */
 function driver() {
-    return new SystemResolver;
+    return new DefaultResolver;
 }
 
 /**

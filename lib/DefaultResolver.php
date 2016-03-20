@@ -15,7 +15,7 @@ use LibDNS\Messages\MessageFactory;
 use LibDNS\Messages\MessageTypes;
 use LibDNS\Records\QuestionFactory;
 
-class SystemResolver implements Resolver {
+class DefaultResolver implements Resolver {
     private $messageFactory;
     private $questionFactory;
     private $encoder;
@@ -442,9 +442,7 @@ class SystemResolver implements Resolver {
         $server->buffer = "";
         $server->length = INF;
         $server->pendingRequests = [];
-        $server->watcherId = \Amp\onReadable($socket, function($watcherId, $socket) {
-            $this->onReadable($socket);
-        }, [
+        $server->watcherId = \Amp\onReadable($socket, $this->makePrivateCallable("onReadable"), [
             "enable" => true,
             "keep_alive" => true,
         ]);
@@ -477,7 +475,7 @@ class SystemResolver implements Resolver {
         }
     }
 
-    private function onReadable($socket) {
+    private function onReadable($watcherId, $socket) {
         $serverId = (int) $socket;
         $packet = @\fread($socket, 512);
         if ($packet != "") {
@@ -593,5 +591,9 @@ class SystemResolver implements Resolver {
             }
             $promisor->succeed($result);
         }
+    }
+
+    private function makePrivateCallable($method) {
+        return (new \ReflectionClass($this))->getMethod($method)->getClosure($this);
     }
 }
