@@ -64,7 +64,7 @@ class DefaultResolver implements Resolver {
     public function resolve($name, array $options = []) {
         if (!$inAddr = @\inet_pton($name)) {
             if ($this->isValidHostName($name)) {
-                $types = empty($options["types"]) ? [Record::A, Record::AAAA] : $options["types"];
+                $types = empty($options["types"]) ? [Record::A, Record::AAAA] : (array) $options["types"];
                 return $this->pipeResult($this->recurseWithHosts($name, $types, $options), $types);
             } else {
                 return new Failure(new ResolutionException("Cannot resolve; invalid host name"));
