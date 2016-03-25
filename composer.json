@@ -33,7 +33,8 @@
         "amphp/amp": "^1",
         "amphp/cache": "^0.1",
         "amphp/file": "^0.1",
-        "daverandom/libdns": "^1"
+        "daverandom/libdns": "^1",
+        "paragonie/random_compat": "^1"
     },
     "require-dev": {
         "phpunit/phpunit": "^4.8",
