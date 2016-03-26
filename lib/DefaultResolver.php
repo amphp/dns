@@ -354,9 +354,9 @@ class DefaultResolver implements Resolver {
             $contents = (yield \Amp\File\get($path));
         } catch (\Exception $e) {
             yield new CoroutineResult($data);
-
             return;
         }
+
         $lines = \array_filter(\array_map("trim", \explode("\n", $contents)));
         foreach ($lines as $line) {
             if ($line[0] === "#") {
@@ -374,6 +374,17 @@ class DefaultResolver implements Resolver {
                 if ($this->isValidHostName($parts[$i])) {
                     $data[$key][strtolower($parts[$i])] = $parts[0];
                 }
+            }
+        }
+
+        // Windows does not include localhost in its host file. Fetch it from the system instead
+        if (!isset($data[Record::A]["localhost"]) && !isset($data[Record::AAAA]["localhost"])) {
+            // PHP currently provides no way to **resolve** IPv6 hostnames (not even with fallback)
+            $local = gethostbyname("localhost");
+            if ($local !== "localhost") {
+                $data[Record::A]["localhost"] = $local;
+            } else {
+                $data[Record::AAAA]["localhost"] = "::1";
             }
         }
 
