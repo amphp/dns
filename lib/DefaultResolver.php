@@ -294,7 +294,7 @@ class DefaultResolver implements Resolver {
             "attempts" => 2,
         ];
 
-        if (\stripos(PHP_OS, "win") !== 0) {
+        if (\stripos(PHP_OS, "win") !== 0 || $path !== null) {
             $path = $path ?: "/etc/resolv.conf";
 
             try {
