@@ -158,6 +158,13 @@ class DefaultResolver implements Resolver {
     private function doRequest($uri, $name, $type) {
         $server = $this->loadExistingServer($uri) ?: $this->loadNewServer($uri);
 
+        $useTCP = substr($uri, 0, 6) == "tcp://";
+        if ($useTCP && isset($server->connect)) {
+            return \Amp\pipe($server->connect, function() use ($uri, $name, $type) {
+                return $this->doRequest($uri, $name, $type);
+            });
+        }
+
         // Get the next available request ID
         do {
             $requestId = $this->requestIdCounter++;
@@ -179,7 +186,7 @@ class DefaultResolver implements Resolver {
         // Encode request message
         $requestPacket = $this->encoder->encode($request);
 
-        if (substr($uri, 0, 6) == "tcp://") {
+        if ($useTCP) {
             $requestPacket = pack("n", strlen($requestPacket)) . $requestPacket;
         }
 
@@ -435,7 +442,7 @@ class DefaultResolver implements Resolver {
     }
 
     private function loadNewServer($uri) {
-        if (!$socket = @\stream_socket_client($uri, $errno, $errstr)) {
+        if (!$socket = @\stream_socket_client($uri, $errno, $errstr, 0, STREAM_CLIENT_ASYNC_CONNECT)) {
             throw new ResolutionException(sprintf(
                 "Connection to %s failed: [Error #%d] %s",
                 $uri,
@@ -459,6 +466,22 @@ class DefaultResolver implements Resolver {
         ]);
         $this->serverIdMap[$id] = $server;
         $this->serverUriMap[$uri] = $server;
+
+        if (substr($uri, 0, 6) == "tcp://") {
+            $promisor = new Deferred;
+            $server->connect = $promisor->promise();
+            $watcher = \Amp\onWritable($server->socket, static function($watcher) use ($server, $promisor, &$timer) {
+                \Amp\cancel($watcher);
+                \Amp\cancel($timer);
+                unset($server->connect);
+                $promisor->succeed();
+            });
+            $timer = \Amp\once(function() use ($id, $promisor, $watcher, $uri) {
+                \Amp\cancel($watcher);
+                $this->unloadServer($id);
+                $promisor->fail(new TimeoutException("Name resolution timed out, could not connect to server at $uri"));
+            }, 5000);
+        }
 
         return $server;
     }
