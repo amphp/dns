@@ -435,7 +435,9 @@ class DefaultResolver implements Resolver {
     }
 
     private function loadNewServer($uri) {
-        if (!$socket = @\stream_socket_client($uri, $errno, $errstr)) {
+        $connectTimeout = 3;
+        // TODO: this function is blocking
+        if (!$socket = @\stream_socket_client($uri, $errno, $errstr, $connectTimeout)) {
             throw new ResolutionException(sprintf(
                 "Connection to %s failed: [Error #%d] %s",
                 $uri,
