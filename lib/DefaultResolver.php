@@ -256,7 +256,8 @@ class DefaultResolver implements Resolver {
                 $result += $value;
             }
         } catch (\Amp\TimeoutException $e) {
-            if (substr($uri, 0, 6) == "tcp://") {
+            $tcpFallback = array_key_exists('tcp_fallback', $options) ? $options['tcp_fallback'] : true;
+            if (substr($uri, 0, 6) == "tcp://" or !$tcpFallback) {
                 throw new TimeoutException(
                     "Name resolution timed out for {$name}"
                 );
