@@ -256,7 +256,8 @@ class DefaultResolver implements Resolver {
                 $result += $value;
             }
         } catch (\Amp\TimeoutException $e) {
-            if (substr($uri, 0, 6) == "tcp://") {
+            $tcpFallback = array_key_exists('tcp_fallback', $options) ? $options['tcp_fallback'] : true;
+            if (substr($uri, 0, 6) == "tcp://" or !$tcpFallback) {
                 throw new TimeoutException(
                     "Name resolution timed out for {$name}"
                 );
@@ -435,7 +436,9 @@ class DefaultResolver implements Resolver {
     }
 
     private function loadNewServer($uri) {
-        if (!$socket = @\stream_socket_client($uri, $errno, $errstr)) {
+        $connectTimeout = 3;
+        // TODO: this function is blocking
+        if (!$socket = @\stream_socket_client($uri, $errno, $errstr, $connectTimeout)) {
             throw new ResolutionException(sprintf(
                 "Connection to %s failed: [Error #%d] %s",
                 $uri,
