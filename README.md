@@ -39,7 +39,7 @@ Amp\run(function () {
     $combinedGoogleResult = (yield Amp\Dns\resolve("google.com"));
     var_dump($combinedGoogleResult);
     
-    $googleMx = (yield Amp\Dns\query("google.com", Amp\Dns\Record::MX);
+    $googleMx = (yield Amp\Dns\query("google.com", Amp\Dns\Record::MX));
     var_dump($googleMx);
 });
 ```
