@@ -84,7 +84,9 @@ class DefaultResolver implements Resolver {
     }
 
     private function isValidHostName($name) {
-        $pattern = "/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9]){0,1})(?:\\.[a-z0-9][a-z0-9-]{0,61}[a-z0-9])*$/i";
+        $pattern = <<<'REGEX'
+/^(?<name>[a-z0-9]([a-z0-9-]*[a-z0-9])?)(\.(?&name))*$/i
+REGEX;
 
         return !isset($name[253]) && \preg_match($pattern, $name);
     }
