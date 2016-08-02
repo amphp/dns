@@ -3,12 +3,14 @@
 namespace Amp\Dns;
 
 use Amp\Cache\ArrayCache;
-use Amp\CombinatorException;
-use Amp\CoroutineResult;
+use Amp\MultiReasonException;
+use Amp\Coroutine;
 use Amp\Deferred;
 use Amp\Failure;
 use Amp\File\FilesystemException;
 use Amp\Success;
+use Amp\TimeoutException;
+use Interop\Async\Loop;
 use LibDNS\Decoder\DecoderFactory;
 use LibDNS\Encoder\EncoderFactory;
 use LibDNS\Messages\MessageFactory;
@@ -42,7 +44,7 @@ class DefaultResolver implements Resolver {
         $this->serverUriMap = [];
         $this->serverIdTimeoutMap = [];
         $this->now = \time();
-        $this->serverTimeoutWatcher = \Amp\repeat(function ($watcherId) {
+        $this->serverTimeoutWatcher = \Amp\repeat(1000, function ($watcherId) {
             $this->now = $now = \time();
             foreach ($this->serverIdTimeoutMap as $id => $expiry) {
                 if ($now > $expiry) {
@@ -52,10 +54,8 @@ class DefaultResolver implements Resolver {
             if (empty($this->serverIdMap)) {
                 \Amp\disable($watcherId);
             }
-        }, 1000, $options = [
-            "enable" => true,
-            "keep_alive" => false,
-        ]);
+        });
+        \Amp\unreference($this->serverTimeoutWatcher);
     }
 
     /**
@@ -75,12 +75,12 @@ class DefaultResolver implements Resolver {
     }
 
     /**
-     * {$inheritdoc}
+     * {@inheritdoc}
      */
     public function query($name, $type, array $options = []) {
         $handler = [$this, empty($options["recurse"]) ?  "doResolve" : "doRecurse"];
         $types = (array) $type;
-        return $this->pipeResult(\Amp\resolve($handler($name, $types, $options)), $types);
+        return $this->pipeResult(new Coroutine($handler($name, $types, $options)), $types);
     }
 
     private function isValidHostName($name) {
@@ -92,8 +92,8 @@ REGEX;
     }
 
     // flatten $result while preserving order according to $types (append unspecified types for e.g. Record::ALL queries)
-    private function pipeResult($promise, array $types) {
-        return \Amp\pipe($promise, function (array $result) use ($types) {
+    private function pipeResult($awaitable, array $types) {
+        return \Amp\pipe($awaitable, function (array $result) use ($types) {
             $retval = [];
             foreach ($types as $type) {
                 if (isset($result[$type])) {
@@ -110,7 +110,7 @@ REGEX;
         if (!isset($options["hosts"]) || $options["hosts"]) {
             static $hosts = null;
             if ($hosts === null || !empty($options["reload_hosts"])) {
-                return \Amp\pipe(\Amp\resolve($this->loadHostsFile()), function ($value) use (&$hosts, $name, $types, $options) {
+                return \Amp\pipe(new Coroutine($this->loadHostsFile()), function ($value) use (&$hosts, $name, $types, $options) {
                     unset($options["reload_hosts"]); // avoid recursion
                     $hosts = $value;
                     return $this->recurseWithHosts($name, $types, $options);
@@ -128,7 +128,7 @@ REGEX;
             }
         }
 
-        return \Amp\resolve($this->doRecurse($name, $types, $options));
+        return new Coroutine($this->doRecurse($name, $types, $options));
     }
 
     private function doRecurse($name, array $types, $options) {
@@ -139,10 +139,10 @@ REGEX;
         $types = array_merge($types, [Record::CNAME, Record::DNAME]);
         $lookupName = $name;
         for ($i = 0; $i < 30; $i++) {
-            $result = (yield \Amp\resolve($this->doResolve($lookupName, $types, $options)));
+            $result = (yield new Coroutine($this->doResolve($lookupName, $types, $options)));
             if (count($result) > isset($result[Record::CNAME]) + isset($result[Record::DNAME])) {
                 unset($result[Record::CNAME], $result[Record::DNAME]);
-                yield new CoroutineResult($result);
+                yield Coroutine::result($result);
                 return;
             }
             // @TODO check for potentially using recursion and iterate over *all* CNAME/DNAME
@@ -200,20 +200,20 @@ REGEX;
             );
         }
 
-        $promisor = new Deferred;
+        $deferred = new Deferred;
         $server->pendingRequests[$requestId] = true;
-        $this->pendingRequests[$requestId] = [$promisor, $name, $type, $uri];
+        $this->pendingRequests[$requestId] = [$deferred, $name, $type, $uri];
 
-        return $promisor->promise();
+        return $deferred->getAwaitable();
     }
 
     private function doResolve($name, array $types, $options) {
         if (!$this->config) {
-            $this->config = (yield \Amp\resolve($this->loadResolvConf()));
+            $this->config = (yield new Coroutine($this->loadResolvConf()));
         }
 
         if (empty($types)) {
-            yield new CoroutineResult([]);
+            yield Coroutine::result([]);
             return;
         }
 
@@ -237,7 +237,7 @@ REGEX;
                 if (empty(array_filter($result))) {
                     throw new NoRecordException("No records returned for {$name} (cached result)");
                 } else {
-                    yield new CoroutineResult($result);
+                    yield Coroutine::result($result);
                     return;
                 }
             }
@@ -256,29 +256,29 @@ REGEX;
         }
 
         foreach ($types as $type) {
-            $promises[] = $this->doRequest($uri, $name, $type);
+            $awaitables[] = $this->doRequest($uri, $name, $type);
         }
 
         try {
-            list( , $resultArr) = (yield \Amp\timeout(\Amp\some($promises), $timeout));
+            list( , $resultArr) = (yield \Amp\timeout(\Amp\some($awaitables), $timeout));
             foreach ($resultArr as $value) {
                 $result += $value;
             }
-        } catch (\Amp\TimeoutException $e) {
+        } catch (TimeoutException $e) {
             if (substr($uri, 0, 6) == "tcp://") {
                 throw new TimeoutException(
                     "Name resolution timed out for {$name}"
                 );
             } else {
                 $options["server"] = \preg_replace("#[a-z.]+://#", "tcp://", $uri);
-                yield new CoroutineResult(\Amp\resolve($this->doResolve($name, $types, $options)));
+                yield Coroutine::result(\Amp\coroutine($this->doResolve($name, $types, $options)));
                 return;
             }
         } catch (ResolutionException $e) {
             if (empty($result)) { // if we have no cached results
                 throw $e;
             }
-        } catch (CombinatorException $e) { // if all promises in Amp\some fail
+        } catch (MultiReasonException $e) { // if all promises in Amp\some fail
             if (empty($result)) { // if we have no cached results
                 foreach ($e->getExceptions() as $ex) {
                     if ($ex instanceof NoRecordException) {
@@ -289,7 +289,7 @@ REGEX;
             }
         }
 
-        yield new CoroutineResult($result);
+        yield Coroutine::result($result);
     }
 
     /** @link http://man7.org/linux/man-pages/man5/resolv.conf.5.html */
@@ -349,7 +349,7 @@ REGEX;
             }
         }
 
-        yield new CoroutineResult($result);
+        yield Coroutine::result($result);
     }
 
     private function loadHostsFile($path = null) {
@@ -397,7 +397,7 @@ REGEX;
             }
         }
 
-        yield new CoroutineResult($data);
+        yield Coroutine::result($data);
     }
 
     private function parseCustomServerUri($uri) {
@@ -462,27 +462,25 @@ REGEX;
         $server->buffer = "";
         $server->length = INF;
         $server->pendingRequests = [];
-        $server->watcherId = \Amp\onReadable($socket, $this->makePrivateCallable("onReadable"), [
-            "enable" => true,
-            "keep_alive" => true,
-        ]);
+        $server->watcherId = \Amp\onReadable($socket, $this->makePrivateCallable("onReadable"));
+        \Amp\unreference($server->watcherId);
         $this->serverIdMap[$id] = $server;
         $this->serverUriMap[$uri] = $server;
 
         if (substr($uri, 0, 6) == "tcp://") {
-            $promisor = new Deferred;
-            $server->connect = $promisor->promise();
-            $watcher = \Amp\onWritable($server->socket, static function($watcher) use ($server, $promisor, &$timer) {
+            $deferred = new Deferred;
+            $server->connect = $deferred->getAwaitable();
+            $watcher = \Amp\onWritable($server->socket, static function($watcher) use ($server, $deferred, &$timer) {
                 \Amp\cancel($watcher);
                 \Amp\cancel($timer);
                 unset($server->connect);
-                $promisor->succeed();
+                $deferred->resolve();
             });
-            $timer = \Amp\once(function() use ($id, $promisor, $watcher, $uri) {
+            $timer = \Amp\delay(5000, function() use ($id, $deferred, $watcher, $uri) {
                 \Amp\cancel($watcher);
                 $this->unloadServer($id);
-                $promisor->fail(new TimeoutException("Name resolution timed out, could not connect to server at $uri"));
-            }, 5000);
+                $deferred->fail(new TimeoutException("Name resolution timed out, could not connect to server at $uri"));
+            });
         }
 
         return $server;
@@ -505,8 +503,8 @@ REGEX;
         }
         if ($error && $server->pendingRequests) {
             foreach (array_keys($server->pendingRequests) as $requestId) {
-                list($promisor) = $this->pendingRequests[$requestId];
-                $promisor->fail($error);
+                list($deferred) = $this->pendingRequests[$requestId];
+                $deferred->fail($error);
             }
         }
     }
@@ -568,13 +566,13 @@ REGEX;
     }
 
     private function processDecodedResponse($serverId, $requestId, $response) {
-        list($promisor, $name, $type, $uri) = $this->pendingRequests[$requestId];
+        list($deferred, $name, $type, $uri) = $this->pendingRequests[$requestId];
 
         // Retry via tcp if message has been truncated
         if ($response->isTruncated()) {
             if (\substr($uri, 0, 6) != "tcp://") {
                 $uri = \preg_replace("#[a-z.]+://#", "tcp://", $uri);
-                $promisor->succeed($this->doRequest($uri, $name, $type));
+                $deferred->resolve($this->doRequest($uri, $name, $type));
             } else {
                 $this->finalizeResult($serverId, $requestId, new ResolutionException(
                     "Server returned truncated response"
@@ -602,7 +600,7 @@ REGEX;
             return;
         }
 
-        list($promisor, $name) = $this->pendingRequests[$requestId];
+        list($deferred, $name) = $this->pendingRequests[$requestId];
         $server = $this->serverIdMap[$serverId];
         unset(
             $this->pendingRequests[$requestId],
@@ -614,7 +612,7 @@ REGEX;
             \Amp\enable($this->serverTimeoutWatcher);
         }
         if ($error) {
-            $promisor->fail($error);
+            $deferred->fail($error);
         } else {
             foreach ($result as $type => $records) {
                 $minttl = INF;
@@ -625,7 +623,7 @@ REGEX;
                 }
                 $this->arrayCache->set("$name#$type", $records, $minttl);
             }
-            $promisor->succeed($result);
+            $deferred->resolve($result);
         }
     }
 

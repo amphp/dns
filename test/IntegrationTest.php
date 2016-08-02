@@ -3,15 +3,11 @@
 namespace Amp\Dns\Test;
 
 class IntegrationTest extends \PHPUnit_Framework_TestCase {
-    protected function setUp() {
-        \Amp\reactor(\Amp\driver());
-    }
-
     /**
      * @group internet
      */
     public function testResolve() {
-        \Amp\run(function () {
+        \Amp\execute(function () {
             $names = [
                 "google.com",
                 "github.com",

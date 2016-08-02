@@ -1,22 +1,27 @@
 <?php
 
 namespace Amp\Dns;
+use Interop\Async\Loop;
+
+const LOOP_STATE_IDENTIFIER = Resolver::class;
 
 /**
  * Retrieve the application-wide dns resolver instance
  *
- * @param \Amp\Dns\Resolver $assign Optionally specify a new default dns resolver instance
+ * @param \Amp\Dns\Resolver $resolver Optionally specify a new default dns resolver instance
  * @return \Amp\Dns\Resolver Returns the application-wide dns resolver instance
  */
-function resolver(Resolver $assign = null) {
-    static $resolver;
-    if ($assign) {
-        return ($resolver = $assign);
-    } elseif ($resolver) {
-        return $resolver;
-    } else {
-        return $resolver = driver();
+function resolver(Resolver $resolver = null) {
+    if ($resolver === null) {
+        $resolver = Loop::fetchState(LOOP_STATE_IDENTIFIER);
+        if ($resolver) {
+            return $resolver;
+        }
+
+        $resolver = driver();
     }
+    Loop::storeState(LOOP_STATE_IDENTIFIER, $resolver);
+    return $resolver;
 }
 /**
  * Create a new dns resolver best-suited for the current environment
@@ -55,7 +60,7 @@ function driver() {
  *
  * @param string $name The hostname to resolve
  * @param array  $options
- * @return \Amp\Promise
+ * @return \Interop\Async\Awaitable
  * @TODO add boolean "clear_cache" option flag
  */
 function resolve($name, array $options = []) {
@@ -67,7 +72,7 @@ function resolve($name, array $options = []) {
  * @param string $name Unlike resolve(), query() allows for requesting _any_ name (as DNS RFC allows for arbitrary strings)
  * @param int|int[] $type Use constants of Amp\Dns\Record
  * @param array $options @see resolve documentation
- * @return \Amp\Promise
+ * @return \Interop\Async\Awaitable
  */
 function query($name, $type, array $options = []) {
     return resolver()->query($name, $type, $options);

@@ -30,12 +30,15 @@
     ],
     "require": {
         "php": ">=5.5",
-        "amphp/amp": "^1",
-        "amphp/cache": "^0.1",
-        "amphp/file": "^0.1",
+        "amphp/amp": "dev-master as 2.0",
+        "amphp/cache": "dev-amp_v2 as 0.2",
+        "amphp/file": "dev-amp_v2 as 0.2",
         "daverandom/libdns": "^1"
     },
+    "minimum-stability": "dev",
+    "prefer-stable": true,
     "require-dev": {
+        "amphp/loop": "dev-master",
         "phpunit/phpunit": "^4.8",
         "fabpot/php-cs-fixer": "^1.9"
     },

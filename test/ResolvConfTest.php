@@ -2,6 +2,7 @@
 
 namespace Amp\Dns\Test;
 
+use Amp\Coroutine;
 use ReflectionObject;
 
 class ResolvConfTest extends \PHPUnit_Framework_TestCase {
@@ -10,7 +11,7 @@ class ResolvConfTest extends \PHPUnit_Framework_TestCase {
         $method = $reflector->getMethod("loadResolvConf");
         $method->setAccessible(true);
 
-        $result = \Amp\wait(\Amp\resolve($method->invoke(\Amp\Dns\resolver(), __DIR__ . "/data/resolv.conf")));
+        $result = \Amp\wait(new Coroutine($method->invoke(\Amp\Dns\resolver(), __DIR__ . "/data/resolv.conf")));
 
         $this->assertSame([
             "nameservers" => [
@@ -27,7 +28,7 @@ class ResolvConfTest extends \PHPUnit_Framework_TestCase {
         $method = $reflector->getMethod("loadResolvConf");
         $method->setAccessible(true);
 
-        $result = \Amp\wait(\Amp\resolve($method->invoke(\Amp\Dns\resolver(), __DIR__ . "/data/invalid.conf")));
+        $result = \Amp\wait(new Coroutine($method->invoke(\Amp\Dns\resolver(), __DIR__ . "/data/invalid.conf")));
 
         $this->assertSame([
             "nameservers" => [
