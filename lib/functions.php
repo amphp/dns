@@ -13,14 +13,14 @@ const LOOP_STATE_IDENTIFIER = Resolver::class;
  */
 function resolver(Resolver $resolver = null) {
     if ($resolver === null) {
-        $resolver = Loop::fetchState(LOOP_STATE_IDENTIFIER);
+        $resolver = Loop::getState(LOOP_STATE_IDENTIFIER);
         if ($resolver) {
             return $resolver;
         }
 
         $resolver = driver();
     }
-    Loop::storeState(LOOP_STATE_IDENTIFIER, $resolver);
+    Loop::setState(LOOP_STATE_IDENTIFIER, $resolver);
     return $resolver;
 }
 /**
