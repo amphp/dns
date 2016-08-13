@@ -78,9 +78,8 @@ class DefaultResolver implements Resolver {
      * {@inheritdoc}
      */
     public function query($name, $type, array $options = []) {
-        $handler = [$this, empty($options["recurse"]) ?  "doResolve" : "doRecurse"];
         $types = (array) $type;
-        return $this->pipeResult(new Coroutine($handler($name, $types, $options)), $types);
+        return $this->pipeResult(new Coroutine($this->{empty($options["recurse"]) ? "doResolve" : "doRecurse"}($name, $types, $options)), $types);
     }
 
     private function isValidHostName($name) {
@@ -139,11 +138,10 @@ REGEX;
         $types = array_merge($types, [Record::CNAME, Record::DNAME]);
         $lookupName = $name;
         for ($i = 0; $i < 30; $i++) {
-            $result = (yield new Coroutine($this->doResolve($lookupName, $types, $options)));
+            $result = yield from $this->doResolve($lookupName, $types, $options);
             if (count($result) > isset($result[Record::CNAME]) + isset($result[Record::DNAME])) {
                 unset($result[Record::CNAME], $result[Record::DNAME]);
-                yield Coroutine::result($result);
-                return;
+                return $result;
             }
             // @TODO check for potentially using recursion and iterate over *all* CNAME/DNAME
             // @FIXME check higher level for CNAME?
@@ -209,12 +207,11 @@ REGEX;
 
     private function doResolve($name, array $types, $options) {
         if (!$this->config) {
-            $this->config = (yield new Coroutine($this->loadResolvConf()));
+            $this->config = yield from $this->loadResolvConf();
         }
 
         if (empty($types)) {
-            yield Coroutine::result([]);
-            return;
+            return [];
         }
 
         assert(array_reduce($types, function ($result, $val) { return $result && \is_int($val); }, true), 'The $types passed to DNS functions must all be integers (from \Amp\Dns\Record class)');
@@ -226,7 +223,7 @@ REGEX;
         if (!isset($options["cache"]) || $options["cache"]) {
             foreach ($types as $k => $type) {
                 $cacheKey = "$name#$type";
-                $cacheValue = (yield $this->arrayCache->get($cacheKey));
+                $cacheValue = yield $this->arrayCache->get($cacheKey);
 
                 if ($cacheValue !== null) {
                     $result[$type] = $cacheValue;
@@ -237,8 +234,7 @@ REGEX;
                 if (empty(array_filter($result))) {
                     throw new NoRecordException("No records returned for {$name} (cached result)");
                 } else {
-                    yield Coroutine::result($result);
-                    return;
+                    return $result;
                 }
             }
         }
@@ -260,7 +256,7 @@ REGEX;
         }
 
         try {
-            list( , $resultArr) = (yield \Amp\timeout(\Amp\some($awaitables), $timeout));
+            list( , $resultArr) = yield \Amp\timeout(\Amp\some($awaitables), $timeout);
             foreach ($resultArr as $value) {
                 $result += $value;
             }
@@ -271,8 +267,7 @@ REGEX;
                 );
             } else {
                 $options["server"] = \preg_replace("#[a-z.]+://#", "tcp://", $uri);
-                yield Coroutine::result(\Amp\coroutine($this->doResolve($name, $types, $options)));
-                return;
+                return yield from $this->doResolve($name, $types, $options);
             }
         } catch (ResolutionException $e) {
             if (empty($result)) { // if we have no cached results
@@ -289,7 +284,7 @@ REGEX;
             }
         }
 
-        yield Coroutine::result($result);
+        return $result;
     }
 
     /** @link http://man7.org/linux/man-pages/man5/resolv.conf.5.html */
@@ -307,7 +302,7 @@ REGEX;
             $path = $path ?: "/etc/resolv.conf";
 
             try {
-                $lines = explode("\n", (yield \Amp\File\get($path)));
+                $lines = explode("\n", yield \Amp\File\get($path));
                 $result["nameservers"] = [];
 
                 foreach ($lines as $line) {
@@ -349,7 +344,7 @@ REGEX;
             }
         }
 
-        yield Coroutine::result($result);
+        return $result;
     }
 
     private function loadHostsFile($path = null) {
@@ -360,10 +355,9 @@ REGEX;
                 : '/etc/hosts';
         }
         try {
-            $contents = (yield \Amp\File\get($path));
+            $contents = yield \Amp\File\get($path);
         } catch (\Exception $e) {
-            yield new CoroutineResult($data);
-            return;
+            return $data;
         }
 
         $lines = \array_filter(\array_map("trim", \explode("\n", $contents)));
@@ -397,7 +391,7 @@ REGEX;
             }
         }
 
-        yield Coroutine::result($data);
+        return $data;
     }
 
     private function parseCustomServerUri($uri) {
