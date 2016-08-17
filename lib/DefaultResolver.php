@@ -21,7 +21,6 @@ class DefaultResolver implements Resolver {
     private $encoder;
     private $decoder;
     private $arrayCache;
-    private $requestIdCounter;
     private $pendingRequests;
     private $serverIdMap;
     private $serverUriMap;
@@ -36,7 +35,6 @@ class DefaultResolver implements Resolver {
         $this->encoder = (new EncoderFactory)->create();
         $this->decoder = (new DecoderFactory)->create();
         $this->arrayCache = new ArrayCache;
-        $this->requestIdCounter = 1;
         $this->pendingRequests = [];
         $this->serverIdMap = [];
         $this->serverUriMap = [];
@@ -168,11 +166,15 @@ REGEX;
         }
 
         // Get the next available request ID
+        if (\count($this->pendingRequests) > MAX_REQUEST_ID / 2) {
+            // throttle DNS requests as long as too many requests are active
+            return \Amp\pipe(\Amp\Pause(100), function () use ($uri, $name, $type) {
+                return $this->doRequest($uri, $name, $type);
+            });
+        }
+
         do {
-            $requestId = $this->requestIdCounter++;
-            if ($this->requestIdCounter >= MAX_REQUEST_ID) {
-                $this->requestIdCounter = 1;
-            }
+            $requestId = random_int(0, MAX_REQUEST_ID - 1);
         } while (isset($this->pendingRequests[$requestId]));
 
         // Create question record
