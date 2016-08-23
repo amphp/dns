@@ -31,8 +31,8 @@
     "require": {
         "php": ">=7.0",
         "amphp/amp": "dev-master as 2.0",
-        "amphp/cache": "dev-amp_v2 as 0.2",
-        "amphp/file": "dev-amp_v2 as 0.2",
+        "amphp/cache": "dev-amp_v2 as 2.0",
+        "amphp/file": "dev-amp_v2 as 2.0",
         "daverandom/libdns": "^1"
     },
     "minimum-stability": "dev",
