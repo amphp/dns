@@ -1,4 +1,4 @@
-/coverage/
-/composer.lock
-/vendor/
-/.idea/
+build
+composer.lock
+phpunit.xml
+vendor
