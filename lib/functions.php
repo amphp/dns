@@ -1,7 +1,8 @@
 <?php
 
 namespace Amp\Dns;
-use Interop\Async\Loop;
+
+use Interop\Async\{ Awaitable, Loop };
 
 const LOOP_STATE_IDENTIFIER = Resolver::class;
 
@@ -11,7 +12,7 @@ const LOOP_STATE_IDENTIFIER = Resolver::class;
  * @param \Amp\Dns\Resolver $resolver Optionally specify a new default dns resolver instance
  * @return \Amp\Dns\Resolver Returns the application-wide dns resolver instance
  */
-function resolver(Resolver $resolver = null) {
+function resolver(Resolver $resolver = null): Resolver {
     if ($resolver === null) {
         $resolver = Loop::getState(LOOP_STATE_IDENTIFIER);
         if ($resolver) {
@@ -28,7 +29,7 @@ function resolver(Resolver $resolver = null) {
  *
  * @return \Amp\Dns\Resolver
  */
-function driver() {
+function driver(): Resolver {
     return new DefaultResolver;
 }
 
@@ -63,7 +64,7 @@ function driver() {
  * @return \Interop\Async\Awaitable
  * @TODO add boolean "clear_cache" option flag
  */
-function resolve($name, array $options = []) {
+function resolve(string $name, array $options = []): Awaitable {
     return resolver()->resolve($name, $options);
 }
 /**
@@ -74,6 +75,6 @@ function resolve($name, array $options = []) {
  * @param array $options @see resolve documentation
  * @return \Interop\Async\Awaitable
  */
-function query($name, $type, array $options = []) {
+function query(string $name, $type, array $options = []): Awaitable {
     return resolver()->query($name, $type, $options);
 }

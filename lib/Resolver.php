@@ -6,10 +6,10 @@ interface Resolver {
     /**
      * @see \Amp\Dns\resolve
      */
-    public function resolve($name, array $options = []);
+    public function resolve(string $name, array $options = []);
 
     /**
      * @see \Amp\Dns\query
      */
-    public function query($name, $type, array $options = []);
+    public function query(string $name, $type, array $options = []);
 }

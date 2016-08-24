@@ -2,4 +2,4 @@
 
 namespace Amp\Dns;
 
-class ResolutionException extends \RuntimeException {}
+class ResolutionException extends \Exception {}
