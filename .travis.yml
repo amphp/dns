@@ -14,7 +14,6 @@ matrix:
 
 before_script:
   - composer self-update
-  - composer require satooshi/php-coveralls:dev-master
   - composer install
 
 script:
@@ -22,6 +21,7 @@ script:
   - php vendor/bin/php-cs-fixer --diff --dry-run -v fix
 
 after_script:
+  - composer require satooshi/php-coveralls:dev-master
   - php vendor/bin/coveralls -v
 
 cache:
