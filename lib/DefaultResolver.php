@@ -2,15 +2,17 @@
 
 namespace Amp\Dns;
 
-use Amp\{ Coroutine, Deferred, Failure, MultiReasonException, Success, TimeoutException };
+use Amp\{ CallableMaker, Coroutine, Deferred, Failure, MultiReasonException, Success, TimeoutException };
 use Amp\Cache\ArrayCache;
 use Amp\File\FilesystemException;
-use Interop\Async\Awaitable;
+use Interop\Async\Promise;
 use LibDNS\{ Decoder\DecoderFactory, Encoder\EncoderFactory };
 use LibDNS\Messages\{ MessageFactory, MessageTypes };
 use LibDNS\Records\QuestionFactory;
 
 class DefaultResolver implements Resolver {
+    use CallableMaker;
+    
     private $messageFactory;
     private $questionFactory;
     private $encoder;
@@ -54,7 +56,7 @@ class DefaultResolver implements Resolver {
     /**
      * {@inheritdoc}
      */
-    public function resolve(string $name, array $options = []): Awaitable {
+    public function resolve(string $name, array $options = []): Promise {
         if (!$inAddr = @\inet_pton($name)) {
             if ($this->isValidHostName($name)) {
                 $types = empty($options["types"]) ? [Record::A, Record::AAAA] : (array) $options["types"];
@@ -70,16 +72,16 @@ class DefaultResolver implements Resolver {
     /**
      * {@inheritdoc}
      */
-    public function query(string $name, $type, array $options = []): Awaitable {
+    public function query(string $name, $type, array $options = []): Promise {
         $types = (array) $type;
         
         if (empty($options["recurse"])) {
-            $awaitable = new Coroutine($this->doResolve($name, $types, $options));
+            $promise = new Coroutine($this->doResolve($name, $types, $options));
         } else {
-            $awaitable = new Coroutine($this->doRecurse($name, $types, $options));
+            $promise = new Coroutine($this->doRecurse($name, $types, $options));
         }
         
-        return $this->pipeResult($awaitable, $types);
+        return $this->pipeResult($promise, $types);
     }
 
     private function isValidHostName($name) {
@@ -88,8 +90,8 @@ class DefaultResolver implements Resolver {
     }
 
     // flatten $result while preserving order according to $types (append unspecified types for e.g. Record::ALL queries)
-    private function pipeResult($awaitable, array $types) {
-        return \Amp\pipe($awaitable, function (array $result) use ($types) {
+    private function pipeResult($promise, array $types) {
+        return \Amp\pipe($promise, function (array $result) use ($types) {
             $retval = [];
             foreach ($types as $type) {
                 if (isset($result[$type])) {
@@ -199,7 +201,7 @@ class DefaultResolver implements Resolver {
         $server->pendingRequests[$requestId] = true;
         $this->pendingRequests[$requestId] = [$deferred, $name, $type, $uri];
 
-        return $deferred->getAwaitable();
+        return $deferred->promise();
     }
 
     private function doResolve($name, array $types, $options) {
@@ -250,13 +252,14 @@ class DefaultResolver implements Resolver {
         } else {
             $uri = $this->parseCustomServerUri($options["server"]);
         }
-
+        
+        $promises = [];
         foreach ($types as $type) {
-            $awaitables[] = $this->doRequest($uri, $name, $type);
+            $promises[] = $this->doRequest($uri, $name, $type);
         }
 
         try {
-            list( , $resultArr) = yield \Amp\timeout(\Amp\some($awaitables), $timeout);
+            list( , $resultArr) = yield \Amp\timeout(\Amp\some($promises), $timeout);
             foreach ($resultArr as $value) {
                 $result += $value;
             }
@@ -456,14 +459,14 @@ class DefaultResolver implements Resolver {
         $server->buffer = "";
         $server->length = INF;
         $server->pendingRequests = [];
-        $server->watcherId = \Amp\onReadable($socket, $this->makePrivateCallable("onReadable"));
+        $server->watcherId = \Amp\onReadable($socket, $this->callableFromInstanceMethod("onReadable"));
         \Amp\unreference($server->watcherId);
         $this->serverIdMap[$id] = $server;
         $this->serverUriMap[$uri] = $server;
 
         if (\substr($uri, 0, 6) == "tcp://") {
             $deferred = new Deferred;
-            $server->connect = $deferred->getAwaitable();
+            $server->connect = $deferred->promise();
             $watcher = \Amp\onWritable($server->socket, static function($watcher) use ($server, $deferred, &$timer) {
                 \Amp\cancel($watcher);
                 \Amp\cancel($timer);
@@ -619,13 +622,5 @@ class DefaultResolver implements Resolver {
             }
             $deferred->resolve($result);
         }
-    }
-
-    private function makePrivateCallable($method): \Closure {
-        if (\PHP_VERSION_ID >= 70100) {
-            return \Closure::fromCallable([$this, $method]);
-        }
-        
-        return (new \ReflectionClass($this))->getMethod($method)->getClosure($this);
     }
 }

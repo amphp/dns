@@ -2,7 +2,7 @@
 
 namespace Amp\Dns;
 
-use Interop\Async\{ Awaitable, Loop };
+use Interop\Async\{ Loop, Promise };
 
 const LOOP_STATE_IDENTIFIER = Resolver::class;
 
@@ -61,10 +61,10 @@ function driver(): Resolver {
  *
  * @param string $name The hostname to resolve
  * @param array  $options
- * @return \Interop\Async\Awaitable
+ * @return \Interop\Async\Promise
  * @TODO add boolean "clear_cache" option flag
  */
-function resolve(string $name, array $options = []): Awaitable {
+function resolve(string $name, array $options = []): Promise {
     return resolver()->resolve($name, $options);
 }
 /**
@@ -73,8 +73,8 @@ function resolve(string $name, array $options = []): Awaitable {
  * @param string $name Unlike resolve(), query() allows for requesting _any_ name (as DNS RFC allows for arbitrary strings)
  * @param int|int[] $type Use constants of Amp\Dns\Record
  * @param array $options @see resolve documentation
- * @return \Interop\Async\Awaitable
+ * @return \Interop\Async\Promise
  */
-function query(string $name, $type, array $options = []): Awaitable {
+function query(string $name, $type, array $options = []): Promise {
     return resolver()->query($name, $type, $options);
 }
