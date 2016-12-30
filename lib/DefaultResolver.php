@@ -5,7 +5,7 @@ namespace Amp\Dns;
 use Amp\{ CallableMaker, Coroutine, Deferred, Failure, MultiReasonException, Success, TimeoutException };
 use Amp\Cache\ArrayCache;
 use Amp\File\FilesystemException;
-use Interop\Async\Promise;
+use Interop\Async\{ Loop, Promise };
 use LibDNS\{ Decoder\DecoderFactory, Encoder\EncoderFactory };
 use LibDNS\Messages\{ MessageFactory, MessageTypes };
 use LibDNS\Records\QuestionFactory;
@@ -39,7 +39,7 @@ class DefaultResolver implements Resolver {
         $this->serverUriMap = [];
         $this->serverIdTimeoutMap = [];
         $this->now = \time();
-        $this->serverTimeoutWatcher = \Amp\repeat(1000, function ($watcherId) {
+        $this->serverTimeoutWatcher = Loop::repeat(1000, function ($watcherId) {
             $this->now = $now = \time();
             foreach ($this->serverIdTimeoutMap as $id => $expiry) {
                 if ($now > $expiry) {
@@ -47,10 +47,10 @@ class DefaultResolver implements Resolver {
                 }
             }
             if (empty($this->serverIdMap)) {
-                \Amp\disable($watcherId);
+                Loop::disable($watcherId);
             }
         });
-        \Amp\unreference($this->serverTimeoutWatcher);
+        Loop::unreference($this->serverTimeoutWatcher);
     }
 
     /**
@@ -432,7 +432,7 @@ class DefaultResolver implements Resolver {
 
         if (\is_resource($server->socket)) {
             unset($this->serverIdTimeoutMap[$server->id]);
-            \Amp\enable($server->watcherId);
+            Loop::enable($server->watcherId);
             return $server;
         }
 
@@ -459,22 +459,22 @@ class DefaultResolver implements Resolver {
         $server->buffer = "";
         $server->length = INF;
         $server->pendingRequests = [];
-        $server->watcherId = \Amp\onReadable($socket, $this->callableFromInstanceMethod("onReadable"));
-        \Amp\unreference($server->watcherId);
+        $server->watcherId = Loop::onReadable($socket, $this->callableFromInstanceMethod("onReadable"));
+        Loop::unreference($server->watcherId);
         $this->serverIdMap[$id] = $server;
         $this->serverUriMap[$uri] = $server;
 
         if (\substr($uri, 0, 6) == "tcp://") {
             $deferred = new Deferred;
             $server->connect = $deferred->promise();
-            $watcher = \Amp\onWritable($server->socket, static function($watcher) use ($server, $deferred, &$timer) {
-                \Amp\cancel($watcher);
-                \Amp\cancel($timer);
+            $watcher = Loop::onWritable($server->socket, static function($watcher) use ($server, $deferred, &$timer) {
+                Loop::cancel($watcher);
+                Loop::cancel($timer);
                 unset($server->connect);
                 $deferred->resolve();
             });
-            $timer = \Amp\delay(5000, function() use ($id, $deferred, $watcher, $uri) {
-                \Amp\cancel($watcher);
+            $timer = Loop::delay(5000, function() use ($id, $deferred, $watcher, $uri) {
+                Loop::cancel($watcher);
                 $this->unloadServer($id);
                 $deferred->fail(new TimeoutException("Name resolution timed out, could not connect to server at $uri"));
             });
@@ -490,7 +490,7 @@ class DefaultResolver implements Resolver {
         }
 
         $server = $this->serverIdMap[$serverId];
-        \Amp\cancel($server->watcherId);
+        Loop::cancel($server->watcherId);
         unset(
             $this->serverIdMap[$serverId],
             $this->serverUriMap[$server->uri]
@@ -605,8 +605,8 @@ class DefaultResolver implements Resolver {
         );
         if (empty($server->pendingRequests)) {
             $this->serverIdTimeoutMap[$server->id] = $this->now + IDLE_TIMEOUT;
-            \Amp\disable($server->watcherId);
-            \Amp\enable($this->serverTimeoutWatcher);
+            Loop::disable($server->watcherId);
+            Loop::enable($this->serverTimeoutWatcher);
         }
         if ($error) {
             $deferred->fail($error);
