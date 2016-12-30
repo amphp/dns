@@ -460,7 +460,7 @@ class DefaultResolver implements Resolver {
         $server->length = INF;
         $server->pendingRequests = [];
         $server->watcherId = Loop::onReadable($socket, $this->callableFromInstanceMethod("onReadable"));
-        Loop::unreference($server->watcherId);
+        Loop::disable($server->watcherId);
         $this->serverIdMap[$id] = $server;
         $this->serverUriMap[$uri] = $server;
 
