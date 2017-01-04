@@ -9,6 +9,8 @@ use Amp\Deferred;
 use Amp\Failure;
 use Amp\File\FilesystemException;
 use Amp\Success;
+use Amp\WindowsRegistry\KeyNotFoundException;
+use Amp\WindowsRegistry\WindowsRegistry;
 use LibDNS\Decoder\DecoderFactory;
 use LibDNS\Encoder\EncoderFactory;
 use LibDNS\Messages\MessageFactory;
@@ -346,6 +348,26 @@ REGEX;
                 }
             } catch (FilesystemException $e) {
                 // use default
+            }
+        } else if (\stripos(PHP_OS, "win") === 0) {
+            $keys = [
+                "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters\\Nameserver",
+                "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters\\DhcpNameServer",
+            ];
+
+            $reader = new WindowsRegistry;
+            $nameserver = "";
+
+            while ($nameserver === "" && ($key = array_shift($keys))) {
+                try {
+                    $nameserver = (yield $reader->read($key));
+                } catch (KeyNotFoundException $e) { }
+            }
+
+            if ($nameserver !== "") {
+                $result["nameservers"] = ["{$nameserver}:53"];
+            } else {
+                throw new ResolutionException("Could not find a nameserver in the Windows Registry.");
             }
         }
 

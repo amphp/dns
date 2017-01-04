@@ -33,6 +33,7 @@
         "amphp/amp": "^1",
         "amphp/cache": "^0.1",
         "amphp/file": "^0.1",
+        "amphp/windows-registry": "^0.2",
         "daverandom/libdns": "^1"
     },
     "require-dev": {
