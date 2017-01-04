@@ -356,21 +356,18 @@ REGEX;
             ];
 
             $reader = new WindowsRegistry;
-            $nameserver = null;
+            $nameserver = "";
 
-            while ($key = array_shift($keys)) {
+            while ($key = array_shift($keys) && $nameserver === "") {
                 try {
                     $nameserver = (yield $reader->read($key));
-
-                    if ($nameserver !== "") {
-                        break;
-                    }
-                } catch (KeyNotFoundException $e) {
-                }
+                } catch (KeyNotFoundException $e) { }
             }
 
-            if (strlen($nameserver)) {
+            if ($nameserver !== "") {
                 $result["nameservers"] = ["{$nameserver}:53"];
+            } else {
+                throw new ResolutionException("Could not find a nameserver in the Windows Registry.");
             }
         } else {
             trigger_error("Default nameservers will be removed in the next version.", E_USER_DEPRECATED);
