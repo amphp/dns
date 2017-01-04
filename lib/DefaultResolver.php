@@ -347,7 +347,7 @@ REGEX;
                     }
                 }
             } catch (FilesystemException $e) {
-                trigger_error("Default nameservers will be removed in the next version.", E_USER_DEPRECATED);
+                // use default
             }
         } else if (\stripos(PHP_OS, "win") === 0) {
             $keys = [
@@ -369,8 +369,6 @@ REGEX;
             } else {
                 throw new ResolutionException("Could not find a nameserver in the Windows Registry.");
             }
-        } else {
-            trigger_error("Default nameservers will be removed in the next version.", E_USER_DEPRECATED);
         }
 
         yield new CoroutineResult($result);
