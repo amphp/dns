@@ -358,7 +358,7 @@ REGEX;
             $reader = new WindowsRegistry;
             $nameserver = "";
 
-            while ($key = array_shift($keys) && $nameserver === "") {
+            while ($nameserver === "" && ($key = array_shift($keys))) {
                 try {
                     $nameserver = (yield $reader->read($key));
                 } catch (KeyNotFoundException $e) { }
