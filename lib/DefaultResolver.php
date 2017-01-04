@@ -297,7 +297,10 @@ REGEX;
     /** @link http://man7.org/linux/man-pages/man5/resolv.conf.5.html */
     private function loadResolvConf($path = null) {
         $result = [
-            "nameservers" => [],
+            "nameservers" => [
+                "8.8.8.8:53",
+                "8.8.4.4:53",
+            ],
             "timeout" => 3000,
             "attempts" => 2,
         ];
