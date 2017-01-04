@@ -27,7 +27,8 @@ class ResolvConfTest extends \PHPUnit_Framework_TestCase {
         $method = $reflector->getMethod("loadResolvConf");
         $method->setAccessible(true);
 
-        $result = \Amp\wait(\Amp\resolve($method->invoke(\Amp\Dns\resolver(), __DIR__ . "/data/invalid.conf")));
+        // Suppress deprecation warning, as it's on purpose
+        $result = @\Amp\wait(\Amp\resolve($method->invoke(\Amp\Dns\resolver(), __DIR__ . "/data/invalid.conf")));
 
         $this->assertSame([
             "nameservers" => [

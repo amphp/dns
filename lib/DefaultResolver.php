@@ -347,7 +347,7 @@ REGEX;
                     }
                 }
             } catch (FilesystemException $e) {
-                // use default
+                trigger_error("Default nameservers will be removed in the next version.", E_USER_DEPRECATED);
             }
         } else if (\stripos(PHP_OS, "win") === 0) {
             $keys = [
@@ -372,6 +372,8 @@ REGEX;
             if (strlen($nameserver)) {
                 $result["nameservers"] = ["{$nameserver}:53"];
             }
+        } else {
+            trigger_error("Default nameservers will be removed in the next version.", E_USER_DEPRECATED);
         }
 
         yield new CoroutineResult($result);
