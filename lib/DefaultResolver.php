@@ -9,6 +9,8 @@ use Amp\Deferred;
 use Amp\Failure;
 use Amp\File\FilesystemException;
 use Amp\Success;
+use Kelunik\WindowsRegistry\KeyNotFoundException;
+use Kelunik\WindowsRegistry\WindowsRegistry;
 use LibDNS\Decoder\DecoderFactory;
 use LibDNS\Encoder\EncoderFactory;
 use LibDNS\Messages\MessageFactory;
@@ -295,10 +297,7 @@ REGEX;
     /** @link http://man7.org/linux/man-pages/man5/resolv.conf.5.html */
     private function loadResolvConf($path = null) {
         $result = [
-            "nameservers" => [
-                "8.8.8.8:53",
-                "8.8.4.4:53",
-            ],
+            "nameservers" => [],
             "timeout" => 3000,
             "attempts" => 2,
         ];
@@ -346,6 +345,29 @@ REGEX;
                 }
             } catch (FilesystemException $e) {
                 // use default
+            }
+        } else if (\stripos(PHP_OS, "win") === 0) {
+            $keys = [
+                "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters\\Nameserver",
+                "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters\\DhcpNameServer",
+            ];
+
+            $reader = new WindowsRegistry;
+            $nameserver = null;
+
+            while ($key = array_shift($keys)) {
+                try {
+                    $nameserver = (yield $reader->read($key));
+
+                    if ($nameserver !== "") {
+                        break;
+                    }
+                } catch (KeyNotFoundException $e) {
+                }
+            }
+
+            if (strlen($nameserver)) {
+                $result["nameservers"] = ["{$nameserver}:53"];
             }
         }
 
