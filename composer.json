@@ -34,7 +34,7 @@
         "amphp/cache": "^0.1",
         "amphp/file": "^0.1",
         "daverandom/libdns": "^1",
-        "kelunik/windows-registry": "^0.1.1"
+        "kelunik/windows-registry": "^0.1.2"
     },
     "require-dev": {
         "phpunit/phpunit": "^4.8",
