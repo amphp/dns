@@ -351,7 +351,7 @@ REGEX;
             }
         } else if (\stripos(PHP_OS, "win") === 0) {
             $keys = [
-                "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters\\Nameserver",
+                "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters\\NameServer",
                 "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters\\DhcpNameServer",
             ];
 
@@ -364,8 +364,21 @@ REGEX;
                 } catch (KeyNotFoundException $e) { }
             }
 
+            if ($nameserver === "") {
+                $subKeys = (yield $reader->listKeys("HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters\\Interfaces"));
+
+                while ($nameserver === "" && ($key = array_shift($subKeys))) {
+                    try {
+                        $nameserver = (yield $reader->read("{$key}\\NameServer"));
+                    } catch (KeyNotFoundException $e) { }
+                }
+            }
+
             if ($nameserver !== "") {
-                $result["nameservers"] = ["{$nameserver}:53"];
+                // Microsoft documents space as delimiter, AppVeyor uses comma.
+                $result["nameservers"] = array_map(function ($ns) {
+                    return trim($ns) . ":53";
+                }, explode(" ", strtr($nameserver, ",", " ")));
             } else {
                 throw new ResolutionException("Could not find a nameserver in the Windows Registry.");
             }
