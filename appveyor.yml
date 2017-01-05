@@ -11,16 +11,16 @@ environment:
     php_ver_target: 5.6
   - dependencies: lowest
     php_ver_target: 7.0
-#  - dependencies: lowest
-#    php_ver_target: 7.1
+  - dependencies: lowest
+    php_ver_target: 7.1
 #  - dependencies: highest
 #    php_ver_target: 5.5
   - dependencies: highest
     php_ver_target: 5.6
   - dependencies: highest
     php_ver_target: 7.0
-#  - dependencies: highest
-#    php_ver_target: 7.1
+  - dependencies: highest
+    php_ver_target: 7.1
 
 ## Cache composer bits
 cache:
@@ -36,7 +36,7 @@ init:
 ## Install PHP and Composer, and run the appropriate Composer command
 install:
     - IF EXIST c:\tools\php (SET PHP=0)
-    - ps: cinst --ignore-checksums -y php --version ((choco search php --exact --all-versions -r | select-string -pattern $Env:php_ver_target | Select-Object -first 1) -replace '[php|]','')
+    - ps: appveyor-retry cinst --ignore-checksums -r -y php --version ((choco search php --exact --all-versions -r | select-string -pattern $Env:php_ver_target | Select-Object -first 1) -replace '[php|]','')
     - cd c:\tools\php
     - IF %PHP%==1 copy php.ini-production php.ini /Y
     - IF %PHP%==1 echo date.timezone="UTC" >> php.ini
