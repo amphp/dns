@@ -5,6 +5,7 @@ namespace Amp\Dns;
 use Amp\{ CallableMaker, Coroutine, Deferred, Failure, MultiReasonException, Success, TimeoutException };
 use Amp\Cache\ArrayCache;
 use Amp\File\FilesystemException;
+use Amp\WindowsRegistry\{ KeyNotFoundException, WindowsRegistry };
 use Interop\Async\{ Loop, Promise };
 use LibDNS\{ Decoder\DecoderFactory, Encoder\EncoderFactory };
 use LibDNS\Messages\{ MessageFactory, MessageTypes };
@@ -344,6 +345,39 @@ class DefaultResolver implements Resolver {
                 }
             } catch (FilesystemException $e) {
                 // use default
+            }
+        } elseif (\stripos(PHP_OS, "win") === 0) {
+            $keys = [
+                "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters\\NameServer",
+                "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters\\DhcpNameServer",
+            ];
+
+            $reader = new WindowsRegistry;
+            $nameserver = "";
+
+            while ($nameserver === "" && ($key = \array_shift($keys))) {
+                try {
+                    $nameserver = yield $reader->read($key);
+                } catch (KeyNotFoundException $e) { }
+            }
+
+            if ($nameserver === "") {
+                $subKeys = (yield $reader->listKeys("HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters\\Interfaces"));
+
+                while ($nameserver === "" && ($key = \array_shift($subKeys))) {
+                    try {
+                        $nameserver = yield $reader->read("{$key}\\NameServer");
+                    } catch (KeyNotFoundException $e) { }
+                }
+            }
+
+            if ($nameserver !== "") {
+                // Microsoft documents space as delimiter, AppVeyor uses comma.
+                $result["nameservers"] = \array_map(function ($ns) {
+                    return \trim($ns) . ":53";
+                }, \explode(" ", \strtr($nameserver, ",", " ")));
+            } else {
+                throw new ResolutionException("Could not find a nameserver in the Windows Registry.");
             }
         }
 

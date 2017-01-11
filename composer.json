@@ -33,13 +33,14 @@
         "amphp/amp": "dev-master as 2.0",
         "amphp/cache": "dev-amp_v2 as 0.2",
         "amphp/file": "dev-amp_v2 as 0.2",
+        "amphp/windows-registry": "dev-amp_v2 as 0.3",
         "daverandom/libdns": "^1"
     },
     "minimum-stability": "dev",
     "prefer-stable": true,
     "require-dev": {
         "amphp/loop": "dev-master",
-        "phpunit/phpunit": "^5.0",
+        "phpunit/phpunit": "^5.1.3",
         "friendsofphp/php-cs-fixer": "^1.9"
     },
     "autoload": {
