@@ -6,7 +6,7 @@ use Amp\{ CallableMaker, Coroutine, Deferred, Failure, MultiReasonException, Suc
 use Amp\Cache\ArrayCache;
 use Amp\File\FilesystemException;
 use Amp\WindowsRegistry\{ KeyNotFoundException, WindowsRegistry };
-use Interop\Async\{ Loop, Promise };
+use AsyncInterop\{ Loop, Promise };
 use LibDNS\{ Decoder\DecoderFactory, Encoder\EncoderFactory };
 use LibDNS\Messages\{ MessageFactory, MessageTypes };
 use LibDNS\Records\QuestionFactory;

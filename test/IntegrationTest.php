@@ -2,7 +2,7 @@
 
 namespace Amp\Dns\Test;
 
-use Interop\Async\Loop;
+use AsyncInterop\Loop;
 
 class IntegrationTest extends \PHPUnit_Framework_TestCase {
     /**

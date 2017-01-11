@@ -2,7 +2,7 @@
 
 namespace Amp\Dns;
 
-use Interop\Async\Promise;
+use AsyncInterop\Promise;
 
 interface Resolver {
     /**
