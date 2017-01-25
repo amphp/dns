@@ -440,9 +440,9 @@ class DefaultResolver implements Resolver {
         if (\strpos($uri, "://") !== false) {
             return $uri;
         }
-        if (($colonPos = \strrpos(":", $uri)) !== false) {
+        if (($colonPos = \strrpos($uri, ":")) !== false) {
             $addr = \substr($uri, 0, $colonPos);
-            $port = \substr($uri, $colonPos);
+            $port = \substr($uri, $colonPos + 1);
         } else {
             $addr = $uri;
             $port = 53;
