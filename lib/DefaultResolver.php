@@ -420,17 +420,17 @@ REGEX;
         list($name, $value) = $option;
 
         if ($name === "timeout") {
-            if (!\is_numeric($option[1])) {
-                \trigger_error("Invalid 'timeout' value in RES_OPTIONS: '{$option[1]}'", E_USER_WARNING);
+            if (!\is_numeric($value)) {
+                \trigger_error("Invalid 'timeout' value in RES_OPTIONS: '{$value}'", E_USER_WARNING);
                 return [];
             }
 
             return ["timeout" => \min(30, \max((int) $value, 0)) * 1000];
         }
 
-        if ($option === "attempts") {
+        if ($name === "attempts") {
             if (!\is_numeric($option[1])) {
-                \trigger_error("Invalid 'attempt' value in RES_OPTIONS: '{$option[1]}'", E_USER_WARNING);
+                \trigger_error("Invalid 'attempts' value in RES_OPTIONS: '{$value}'", E_USER_WARNING);
                 return [];
             }
 
