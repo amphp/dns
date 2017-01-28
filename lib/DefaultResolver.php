@@ -31,6 +31,8 @@ class DefaultResolver implements Resolver {
     private $now;
     private $serverTimeoutWatcher;
     private $config;
+    private $envConfig;
+    private $envConfigCache;
 
     public function __construct() {
         $this->messageFactory = new MessageFactory;
@@ -43,6 +45,8 @@ class DefaultResolver implements Resolver {
         $this->serverIdMap = [];
         $this->serverUriMap = [];
         $this->serverIdTimeoutMap = [];
+        $this->envConfig = [];
+        $this->envConfigCache = "";
         $this->now = \time();
         $this->serverTimeoutWatcher = \Amp\repeat(function ($watcherId) {
             $this->now = $now = \time();
@@ -214,6 +218,8 @@ REGEX;
             $this->config = (yield \Amp\resolve($this->loadResolvConf()));
         }
 
+        $config = $this->loadEnvConfig();
+
         if (empty($types)) {
             yield new CoroutineResult([]);
             return;
@@ -245,14 +251,14 @@ REGEX;
             }
         }
 
-        $timeout = empty($options["timeout"]) ? $this->config["timeout"] : (int) $options["timeout"];
+        $timeout = empty($options["timeout"]) ? $config["timeout"] : (int) $options["timeout"];
 
         if (empty($options["server"])) {
-            if (empty($this->config["nameservers"])) {
+            if (empty($config["nameservers"])) {
                 throw new ResolutionException("No nameserver specified in system config");
             }
 
-            $uri = "udp://" . $this->config["nameservers"][0];
+            $uri = "udp://" . $config["nameservers"][0];
         } else {
             $uri = $this->parseCustomServerUri($options["server"]);
         }
@@ -334,6 +340,7 @@ REGEX;
                         }
                     } elseif ($type === "options") {
                         $optline = preg_split('#\s+#', $value, 2);
+
                         if (\count($optline) !== 2) {
                             continue;
                         }
@@ -341,8 +348,13 @@ REGEX;
                         // TODO: Respect the contents of the attempts setting during resolution
 
                         list($option, $value) = $optline;
-                        if (in_array($option, ["timeout", "attempts"])) {
-                            $result[$option] = (int) $value;
+
+                        if ($option === "timeout") {
+                            $result["timeout"] = min(30, max((int) $value, 0)) * 1000;
+                        }
+
+                        if ($option === "attempts") {
+                            $result["attempts"] = min(5, max((int) $value, 1));
                         }
                     }
                 }
@@ -385,6 +397,45 @@ REGEX;
         }
 
         yield new CoroutineResult($result);
+    }
+
+    private function loadEnvConfig() {
+        $opts = getenv("RES_OPTIONS");
+
+        if (!$opts) {
+            return $this->config;
+        }
+
+        if ($opts === $this->envConfigCache) {
+            return $this->envConfig;
+        }
+
+        $this->envConfig = $this->config;
+        $this->envConfigCache = "";
+
+        $opts = explode(" ", $opts);
+
+        foreach ($opts as $opt) {
+            $opt = explode(":", $opt);
+
+            if (count($opt) === 2) {
+                if ($opt[0] === "timeout") {
+                    if (!is_numeric($opt[1])) {
+                        trigger_error("Invalid 'timeout' value in RES_OPTIONS: '{$opt[1]}'", E_USER_WARNING);
+                    } else {
+                        $this->envConfig["timeout"] = min(30, max((int) $opt[1], 0)) * 1000;
+                    }
+                } else if ($opt[0] === "attempts") {
+                    if (!is_numeric($opt[1])) {
+                        trigger_error("Invalid 'attempt' value in RES_OPTIONS: '{$opt[1]}'", E_USER_WARNING);
+                    } else {
+                        $this->envConfig["timeout"] = min(5, max((int) $opt[1], 1));
+                    }
+                }
+            }
+        }
+
+        return $this->envConfig;
     }
 
     private function loadHostsFile($path = null) {
