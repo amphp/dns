@@ -307,7 +307,7 @@ REGEX;
                 "8.8.8.8:53",
                 "8.8.4.4:53",
             ],
-            "timeout" => 3000,
+            "timeout" => 5000,
             "attempts" => 2,
         ];
 
@@ -320,11 +320,13 @@ REGEX;
 
                 foreach ($lines as $line) {
                     $line = \preg_split('#\s+#', $line, 2);
+
                     if (\count($line) !== 2) {
                         continue;
                     }
 
                     list($type, $value) = $line;
+
                     if ($type === "nameserver") {
                         $line[1] = trim($line[1]);
                         $ip = @\inet_pton($line[1]);
@@ -339,23 +341,7 @@ REGEX;
                             $result["nameservers"][] = $line[1] . ":53";
                         }
                     } elseif ($type === "options") {
-                        $optline = preg_split('#\s+#', $value, 2);
-
-                        if (\count($optline) !== 2) {
-                            continue;
-                        }
-
-                        // TODO: Respect the contents of the attempts setting during resolution
-
-                        list($option, $value) = $optline;
-
-                        if ($option === "timeout") {
-                            $result["timeout"] = min(30, max((int) $value, 0)) * 1000;
-                        }
-
-                        if ($option === "attempts") {
-                            $result["attempts"] = min(5, max((int) $value, 1));
-                        }
+                        $result = array_merge($result, $this->parseOption($value));
                     }
                 }
             } catch (FilesystemException $e) {
@@ -400,42 +386,58 @@ REGEX;
     }
 
     private function loadEnvConfig() {
-        $opts = getenv("RES_OPTIONS");
+        $options = \getenv("RES_OPTIONS");
 
-        if (!$opts) {
+        if (!$options) {
             return $this->config;
         }
 
-        if ($opts === $this->envConfigCache) {
+        if ($options === $this->envConfigCache) {
             return $this->envConfig;
         }
 
         $this->envConfig = $this->config;
-        $this->envConfigCache = "";
+        $this->envConfigCache = $options;
 
-        $opts = explode(" ", $opts);
+        $options = \explode(" ", $options);
 
-        foreach ($opts as $opt) {
-            $opt = explode(":", $opt);
-
-            if (count($opt) === 2) {
-                if ($opt[0] === "timeout") {
-                    if (!is_numeric($opt[1])) {
-                        trigger_error("Invalid 'timeout' value in RES_OPTIONS: '{$opt[1]}'", E_USER_WARNING);
-                    } else {
-                        $this->envConfig["timeout"] = min(30, max((int) $opt[1], 0)) * 1000;
-                    }
-                } else if ($opt[0] === "attempts") {
-                    if (!is_numeric($opt[1])) {
-                        trigger_error("Invalid 'attempt' value in RES_OPTIONS: '{$opt[1]}'", E_USER_WARNING);
-                    } else {
-                        $this->envConfig["timeout"] = min(5, max((int) $opt[1], 1));
-                    }
-                }
-            }
+        foreach ($options as $option) {
+            $this->envConfig = \array_merge($this->envConfig, $this->parseOption($option));
         }
 
         return $this->envConfig;
+    }
+
+    private function parseOption($option) {
+        $option = \explode(":", \trim($option), 2);
+
+        if (\count($option) !== 2) {
+            return [];
+        }
+
+        // TODO: Respect the contents of the attempts setting during resolution
+
+        list($name, $value) = $option;
+
+        if ($name === "timeout") {
+            if (!\is_numeric($option[1])) {
+                \trigger_error("Invalid 'timeout' value in RES_OPTIONS: '{$option[1]}'", E_USER_WARNING);
+                return [];
+            }
+
+            return ["timeout" => \min(30, \max((int) $value, 0)) * 1000];
+        }
+
+        if ($option === "attempts") {
+            if (!\is_numeric($option[1])) {
+                \trigger_error("Invalid 'attempt' value in RES_OPTIONS: '{$option[1]}'", E_USER_WARNING);
+                return [];
+            }
+
+            return ["attempts" => \min(5, \max((int) $value, 1))];
+        }
+
+        return [];
     }
 
     private function loadHostsFile($path = null) {
