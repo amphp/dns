@@ -367,10 +367,16 @@ REGEX;
             if ($nameserver === "") {
                 $subKeys = (yield $reader->listKeys("HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters\\Interfaces"));
 
-                while ($nameserver === "" && ($key = array_shift($subKeys))) {
-                    try {
-                        $nameserver = (yield $reader->read("{$key}\\NameServer"));
-                    } catch (KeyNotFoundException $e) { }
+                foreach ($subKeys as $key) {
+                    foreach (["NameServer", "DhcpNameServer"] as $property) {
+                        try {
+                            $nameserver = (yield $reader->read("{$key}\\{$property}"));
+
+                            if ($nameserver !== "") {
+                                break 2;
+                            }
+                        } catch (KeyNotFoundException $e) { }
+                    }
                 }
             }
 
