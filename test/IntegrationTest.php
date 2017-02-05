@@ -42,6 +42,15 @@ class IntegrationTest extends \PHPUnit_Framework_TestCase {
         });
     }
 
+    public function testPtrLoopup() {
+        \Amp\run(function () {
+            $result = (yield \Amp\Dns\query("8.8.4.4", \Amp\Dns\Record::PTR));
+            list($addr, $type) = $result[0];
+            $this->assertSame($addr, "google-public-dns-b.google.com");
+            $this->assertSame($type, \Amp\Dns\Record::PTR);
+        });
+    }
+
     public function provideHostnames() {
         return [
             ["google.com"],
