@@ -221,6 +221,14 @@ REGEX;
 
         assert(array_reduce($types, function ($result, $val) { return $result && \is_int($val); }, true), 'The $types passed to DNS functions must all be integers (from \Amp\Dns\Record class)');
 
+        if (($packedIp = @inet_pton($name)) !== false) {
+            if (isset($packedIp[4])) { // IPv6
+                $name = wordwrap(strrev(bin2hex($packedIp)), 1, ".", true) . ".ip6.arpa";
+            } else { // IPv4
+                $name = inet_ntop(strrev($packedIp)) . ".in-addr.arpa";
+            }
+        }
+
         $name = \strtolower($name);
         $result = [];
 
