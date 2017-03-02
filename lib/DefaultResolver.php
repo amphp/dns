@@ -195,11 +195,11 @@ REGEX;
         }
 
         // Send request
-        $bytesWritten = \fwrite($server->socket, $requestPacket);
-        if ($bytesWritten === false || isset($packet[$bytesWritten])) {
-            throw new ResolutionException(
-                "Request send failed"
-            );
+        $bytesWritten = @\fwrite($server->socket, $requestPacket);
+        if ($bytesWritten === false || $bytesWritten === 0 && (!\is_resource($server->socket) || !\feof($server->socket))) {
+            $exception = new ResolutionException("Request send failed");
+            $this->unloadServer($server->id, $exception);
+            throw $exception;
         }
 
         $promisor = new Deferred;
@@ -265,6 +265,7 @@ REGEX;
             $uri = $this->parseCustomServerUri($options["server"]);
         }
 
+        $promises = [];
         foreach ($types as $type) {
             $promises[] = $this->doRequest($uri, $name, $type);
         }
