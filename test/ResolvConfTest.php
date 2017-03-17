@@ -11,7 +11,7 @@ class ResolvConfTest extends \PHPUnit_Framework_TestCase {
         $method = $reflector->getMethod("loadResolvConf");
         $method->setAccessible(true);
 
-        $result = \Amp\wait(new Coroutine($method->invoke(\Amp\Dns\resolver(), __DIR__ . "/data/resolv.conf")));
+        $result = \Amp\Promise\wait(new Coroutine($method->invoke(\Amp\Dns\resolver(), __DIR__ . "/data/resolv.conf")));
 
         $this->assertSame([
             "nameservers" => [
@@ -28,7 +28,7 @@ class ResolvConfTest extends \PHPUnit_Framework_TestCase {
         $method = $reflector->getMethod("loadResolvConf");
         $method->setAccessible(true);
 
-        $result = \Amp\wait(new Coroutine($method->invoke(\Amp\Dns\resolver(), __DIR__ . "/data/invalid.conf")));
+        $result = \Amp\Promise\wait(new Coroutine($method->invoke(\Amp\Dns\resolver(), __DIR__ . "/data/invalid.conf")));
 
         $this->assertSame([
             "nameservers" => [

@@ -2,11 +2,10 @@
 
 namespace Amp\Dns;
 
-use Amp\{ CallableMaker, Coroutine, Deferred, Failure, MultiReasonException, Success, TimeoutException };
+use Amp\{ CallableMaker, Coroutine, Deferred, Failure, Loop, MultiReasonException, Promise, Success, TimeoutException };
 use Amp\Cache\ArrayCache;
 use Amp\File\FilesystemException;
 use Amp\WindowsRegistry\{ KeyNotFoundException, WindowsRegistry };
-use AsyncInterop\{ Loop, Promise };
 use LibDNS\{ Decoder\DecoderFactory, Encoder\EncoderFactory };
 use LibDNS\Messages\{ MessageFactory, MessageTypes };
 use LibDNS\Records\QuestionFactory;
@@ -92,7 +91,7 @@ class DefaultResolver implements Resolver {
 
     // flatten $result while preserving order according to $types (append unspecified types for e.g. Record::ALL queries)
     private function pipeResult($promise, array $types) {
-        return \Amp\pipe($promise, function (array $result) use ($types) {
+        return Promise\pipe($promise, function (array $result) use ($types) {
             $retval = [];
             foreach ($types as $type) {
                 if (isset($result[$type])) {
@@ -109,7 +108,7 @@ class DefaultResolver implements Resolver {
         if (!isset($options["hosts"]) || $options["hosts"]) {
             static $hosts = null;
             if ($hosts === null || !empty($options["reload_hosts"])) {
-                return \Amp\pipe(new Coroutine($this->loadHostsFile()), function ($value) use (&$hosts, $name, $types, $options) {
+                return Promise\pipe(new Coroutine($this->loadHostsFile()), function ($value) use (&$hosts, $name, $types, $options) {
                     unset($options["reload_hosts"]); // avoid recursion
                     $hosts = $value;
                     return $this->recurseWithHosts($name, $types, $options);
@@ -160,7 +159,7 @@ class DefaultResolver implements Resolver {
 
         $useTCP = \substr($uri, 0, 6) == "tcp://";
         if ($useTCP && isset($server->connect)) {
-            return \Amp\pipe($server->connect, function() use ($uri, $name, $type) {
+            return Promise\pipe($server->connect, function() use ($uri, $name, $type) {
                 return $this->doRequest($uri, $name, $type);
             });
         }
@@ -260,7 +259,7 @@ class DefaultResolver implements Resolver {
         }
 
         try {
-            list( , $resultArr) = yield \Amp\timeout(\Amp\some($promises), $timeout);
+            list( , $resultArr) = yield Promise\timeout(Promise\some($promises), $timeout);
             foreach ($resultArr as $value) {
                 $result += $value;
             }

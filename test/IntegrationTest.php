@@ -2,7 +2,7 @@
 
 namespace Amp\Dns\Test;
 
-use AsyncInterop\Loop;
+use Amp\Loop;
 
 class IntegrationTest extends \PHPUnit_Framework_TestCase {
     /**
@@ -10,7 +10,7 @@ class IntegrationTest extends \PHPUnit_Framework_TestCase {
      * @dataProvider provideHostnames
      */
     public function testResolve($hostname) {
-        Loop::execute(\Amp\wrap(function () use ($hostname) {
+        Loop::run(function () use ($hostname) {
             $result = (yield \Amp\Dns\resolve($hostname));
             list($addr, $type, $ttl) = $result[0];
             $inAddr = @\inet_pton($addr);
@@ -18,7 +18,7 @@ class IntegrationTest extends \PHPUnit_Framework_TestCase {
                 $inAddr,
                 "Server name $hostname did not resolve to a valid IP address"
             );
-        }));
+        });
     }
 
     /**
@@ -26,7 +26,7 @@ class IntegrationTest extends \PHPUnit_Framework_TestCase {
      * @dataProvider provideServers
      */
     public function testResolveWithCustomServer($server) {
-        Loop::execute(\Amp\wrap(function () use ($server) {
+        Loop::run(function () use ($server) {
             $result = (yield \Amp\Dns\resolve("google.com", [
                 "server" => $server
             ]));
@@ -36,7 +36,7 @@ class IntegrationTest extends \PHPUnit_Framework_TestCase {
                 $inAddr,
                 "Server name google.com did not resolve to a valid IP address via $server"
             );
-        }));
+        });
     }
 
     public function provideHostnames() {
