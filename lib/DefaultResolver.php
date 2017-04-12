@@ -46,7 +46,7 @@ class DefaultResolver implements Resolver {
                     $this->unloadServer($id);
                 }
             }
-            if (empty($this->serverIdMap)) {
+            if (empty($this->serverIdMap) && $watcherId) {
                 Loop::disable($watcherId);
             }
         });
@@ -493,7 +493,9 @@ class DefaultResolver implements Resolver {
         $server->length = INF;
         $server->pendingRequests = [];
         $server->watcherId = Loop::onReadable($socket, $this->callableFromInstanceMethod("onReadable"));
-        Loop::disable($server->watcherId);
+        if($server->watcherId) {
+            Loop::disable($server->watcherId);
+        }
         $this->serverIdMap[$id] = $server;
         $this->serverUriMap[$uri] = $server;
 
@@ -501,13 +503,19 @@ class DefaultResolver implements Resolver {
             $deferred = new Deferred;
             $server->connect = $deferred->promise();
             $watcher = Loop::onWritable($server->socket, static function($watcher) use ($server, $deferred, &$timer) {
-                Loop::cancel($watcher);
-                Loop::cancel($timer);
+                if($watcher) {
+                    Loop::cancel($watcher);
+                }
+                if($timer) {
+                    Loop::cancel($timer);
+                }
                 unset($server->connect);
                 $deferred->resolve();
             });
             $timer = Loop::delay(5000, function() use ($id, $deferred, $watcher, $uri) {
-                Loop::cancel($watcher);
+                if($watcher) {
+                    Loop::cancel($watcher);
+                }
                 $this->unloadServer($id);
                 $deferred->fail(new TimeoutException("Name resolution timed out, could not connect to server at $uri"));
             });
@@ -523,7 +531,9 @@ class DefaultResolver implements Resolver {
         }
 
         $server = $this->serverIdMap[$serverId];
-        Loop::cancel($server->watcherId);
+        if($server->watcherId) {
+            Loop::cancel($server->watcherId);
+        }
         unset(
             $this->serverIdMap[$serverId],
             $this->serverUriMap[$server->uri]
@@ -638,7 +648,9 @@ class DefaultResolver implements Resolver {
         );
         if (empty($server->pendingRequests)) {
             $this->serverIdTimeoutMap[$server->id] = $this->now + IDLE_TIMEOUT;
-            Loop::disable($server->watcherId);
+            if($server->watcherId) {
+                Loop::disable($server->watcherId);
+            }
             Loop::enable($this->serverTimeoutWatcher);
         }
         if ($error) {
