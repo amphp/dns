@@ -2,7 +2,7 @@
 
 namespace Amp\Dns;
 
-use Amp\{ CallableMaker, Coroutine, Deferred, Failure, Loop, MultiReasonException, Promise, Success, TimeoutException };
+use Amp\{ CallableMaker, Deferred, Failure, Loop, MultiReasonException, Promise, Success, TimeoutException, function call };
 use Amp\Cache\ArrayCache;
 use Amp\File\FilesystemException;
 use Amp\WindowsRegistry\{ KeyNotFoundException, WindowsRegistry };
@@ -60,7 +60,10 @@ class DefaultResolver implements Resolver {
         if (!$inAddr = @\inet_pton($name)) {
             if ($this->isValidHostName($name)) {
                 $types = empty($options["types"]) ? [Record::A, Record::AAAA] : (array) $options["types"];
-                return $this->pipeResult($this->recurseWithHosts($name, $types, $options), $types);
+                return call(function () use ($name, $types, $options) {
+                    $result = yield from $this->recurseWithHosts($name, $types, $options);
+                    return $this->flattenResult($result, $types);
+                });
             } else {
                 return new Failure(new ResolutionException("Cannot resolve; invalid host name"));
             }
@@ -74,14 +77,16 @@ class DefaultResolver implements Resolver {
      */
     public function query(string $name, $type, array $options = []): Promise {
         $types = (array) $type;
-        
-        if (empty($options["recurse"])) {
-            $promise = new Coroutine($this->doResolve($name, $types, $options));
-        } else {
-            $promise = new Coroutine($this->doRecurse($name, $types, $options));
-        }
-        
-        return $this->pipeResult($promise, $types);
+
+        return call(function () use ($name, $types, $options) {
+            if (empty($options["recurse"])) {
+                $result = yield from $this->doResolve($name, $types, $options);
+            } else {
+                $result = yield from $this->doRecurse($name, $types, $options);
+            }
+
+            return $this->flattenResult($result, $types);
+        });
     }
 
     private function isValidHostName($name) {
@@ -90,17 +95,15 @@ class DefaultResolver implements Resolver {
     }
 
     // flatten $result while preserving order according to $types (append unspecified types for e.g. Record::ALL queries)
-    private function pipeResult($promise, array $types) {
-        return Promise\pipe($promise, function (array $result) use ($types) {
-            $retval = [];
-            foreach ($types as $type) {
-                if (isset($result[$type])) {
-                    $retval = \array_merge($retval, $result[$type]);
-                    unset($result[$type]);
-                }
+    private function flattenResult(array $result, array $types) {
+        $retval = [];
+        foreach ($types as $type) {
+            if (isset($result[$type])) {
+                $retval = \array_merge($retval, $result[$type]);
+                unset($result[$type]);
             }
-            return $result ? \array_merge($retval, \call_user_func_array("array_merge", $result)) : $retval;
-        });
+        }
+        return $result ? \array_merge($retval, \call_user_func_array("array_merge", $result)) : $retval;
     }
 
     private function recurseWithHosts($name, array $types, $options) {
@@ -108,11 +111,7 @@ class DefaultResolver implements Resolver {
         if (!isset($options["hosts"]) || $options["hosts"]) {
             static $hosts = null;
             if ($hosts === null || !empty($options["reload_hosts"])) {
-                return Promise\pipe(new Coroutine($this->loadHostsFile()), function ($value) use (&$hosts, $name, $types, $options) {
-                    unset($options["reload_hosts"]); // avoid recursion
-                    $hosts = $value;
-                    return $this->recurseWithHosts($name, $types, $options);
-                });
+                $hosts = yield from $this->loadHostsFile();
             }
             $result = [];
             if (\in_array(Record::A, $types) && isset($hosts[Record::A][$name])) {
@@ -122,11 +121,11 @@ class DefaultResolver implements Resolver {
                 $result[Record::AAAA] = [[$hosts[Record::AAAA][$name], Record::AAAA, $ttl = null]];
             }
             if ($result) {
-                return new Success($result);
+                return $result;
             }
         }
 
-        return new Coroutine($this->doRecurse($name, $types, $options));
+        return yield from $this->doRecurse($name, $types, $options);
     }
 
     private function doRecurse($name, array $types, $options) {
@@ -159,7 +158,8 @@ class DefaultResolver implements Resolver {
 
         $useTCP = \substr($uri, 0, 6) == "tcp://";
         if ($useTCP && isset($server->connect)) {
-            return Promise\pipe($server->connect, function() use ($uri, $name, $type) {
+            return call(function () use ($server, $uri, $name, $type) {
+                yield $server->connect;
                 return $this->doRequest($uri, $name, $type);
             });
         }
