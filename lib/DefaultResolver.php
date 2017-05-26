@@ -634,7 +634,7 @@ REGEX;
 
         $answers = $response->getAnswerRecords();
         foreach ($answers as $record) {
-            $result[$record->getType()][] = [(string) $record->getData(), $record->getType(), $record->getTTL()];
+            $result[$type][] = [(string) $record->getData(), $record->getType(), $record->getTTL()];
         }
         if (empty($result)) {
             $this->arrayCache->set("$name#$type", [], 300); // "it MUST NOT cache it for longer than five (5) minutes" per RFC 2308 section 7.1
