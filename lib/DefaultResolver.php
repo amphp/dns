@@ -668,7 +668,7 @@ REGEX;
         } else {
             foreach ($result as $type => $records) {
                 $minttl = INF;
-                foreach ($records as list( , $ttl)) {
+                foreach ($records as list( , , $ttl)) {
                     if ($ttl && $minttl > $ttl) {
                         $minttl = $ttl;
                     }
