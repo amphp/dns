@@ -190,11 +190,11 @@ class DefaultResolver implements Resolver {
         }
 
         // Send request
-        $bytesWritten = \fwrite($server->socket, $requestPacket);
-        if ($bytesWritten === false || isset($packet[$bytesWritten])) {
-            throw new ResolutionException(
-                "Request send failed"
-            );
+        $bytesWritten = @\fwrite($server->socket, $requestPacket);
+        if ($bytesWritten === false || $bytesWritten === 0 && (!\is_resource($server->socket) || !\feof($server->socket))) {
+            $exception = new ResolutionException("Request send failed");
+            $this->unloadServer($server->id, $exception);
+            throw $exception;
         }
 
         $deferred = new Deferred;
@@ -217,6 +217,14 @@ class DefaultResolver implements Resolver {
             \array_reduce($types, function ($result, $val) { return $result && \is_int($val); }, true),
             'The $types passed to DNS functions must all be integers (from \Amp\Dns\Record class)'
         );
+
+        if (($packedIp = @inet_pton($name)) !== false) {
+            if (isset($packedIp[4])) { // IPv6
+                $name = wordwrap(strrev(bin2hex($packedIp)), 1, ".", true) . ".ip6.arpa";
+            } else { // IPv4
+                $name = inet_ntop(strrev($packedIp)) . ".in-addr.arpa";
+            }
+        }
 
         $name = \strtolower($name);
         $result = [];
@@ -252,7 +260,7 @@ class DefaultResolver implements Resolver {
         } else {
             $uri = $this->parseCustomServerUri($options["server"]);
         }
-        
+
         $promises = [];
         foreach ($types as $type) {
             $promises[] = $this->doRequest($uri, $name, $type);
@@ -363,10 +371,16 @@ class DefaultResolver implements Resolver {
             if ($nameserver === "") {
                 $subKeys = (yield $reader->listKeys("HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters\\Interfaces"));
 
-                while ($nameserver === "" && ($key = \array_shift($subKeys))) {
-                    try {
-                        $nameserver = yield $reader->read("{$key}\\NameServer");
-                    } catch (KeyNotFoundException $e) { }
+                foreach ($subKeys as $key) {
+                    foreach (["NameServer", "DhcpNameServer"] as $property) {
+                        try {
+                            $nameserver = (yield $reader->read("{$key}\\{$property}"));
+
+                            if ($nameserver !== "") {
+                                break 2;
+                            }
+                        } catch (KeyNotFoundException $e) { }
+                    }
                 }
             }
 
@@ -646,7 +660,7 @@ class DefaultResolver implements Resolver {
         } else {
             foreach ($result as $type => $records) {
                 $minttl = INF;
-                foreach ($records as list( , $ttl)) {
+                foreach ($records as list( , , $ttl)) {
                     if ($ttl && $minttl > $ttl) {
                         $minttl = $ttl;
                     }
