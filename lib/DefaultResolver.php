@@ -667,9 +667,9 @@ REGEX;
             $promisor->fail($error);
         } else {
             foreach ($result as $type => $records) {
-                $minttl = INF;
+                $minttl = \PHP_INT_MAX;
                 foreach ($records as list( , , $ttl)) {
-                    if ($ttl && $minttl > $ttl) {
+                    if ($ttl < $minttl) {
                         $minttl = $ttl;
                     }
                 }
