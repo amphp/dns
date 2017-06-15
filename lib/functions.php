@@ -2,7 +2,8 @@
 
 namespace Amp\Dns;
 
-use Amp\{ Loop, Promise };
+use Amp\Loop;
+use Amp\Promise;
 
 const LOOP_STATE_IDENTIFIER = Resolver::class;
 
@@ -15,15 +16,19 @@ const LOOP_STATE_IDENTIFIER = Resolver::class;
 function resolver(Resolver $resolver = null): Resolver {
     if ($resolver === null) {
         $resolver = Loop::getState(LOOP_STATE_IDENTIFIER);
+
         if ($resolver) {
             return $resolver;
         }
 
         $resolver = driver();
     }
+
     Loop::setState(LOOP_STATE_IDENTIFIER, $resolver);
+
     return $resolver;
 }
+
 /**
  * Create a new dns resolver best-suited for the current environment
  *
@@ -67,6 +72,7 @@ function driver(): Resolver {
 function resolve(string $name, array $options = []): Promise {
     return resolver()->resolve($name, $options);
 }
+
 /**
  * Query specific DNS records.
  *
@@ -77,4 +83,34 @@ function resolve(string $name, array $options = []): Promise {
  */
 function query(string $name, $type, array $options = []): Promise {
     return resolver()->query($name, $type, $options);
+}
+
+if (\function_exists('idn_to_ascii')) {
+    /**
+     * Normalizes a DNS name.
+     *
+     * @param string $label DNS name.
+     *
+     * @return string Normalized DNS name.
+     *
+     * @throws \Error If an invalid name or an IDN name without ext/intl being installed has been passed.
+     */
+    function normalizeName(string $label): string {
+        if (false === $result = \idn_to_ascii($label, 0, INTL_IDNA_VARIANT_UTS46)) {
+            throw new \Error("Label '{$label}' could not be processed for IDN");
+        }
+
+        return $result;
+    }
+} else {
+    function normalizeName(string $label): string {
+        if (\preg_match('/[\x80-\xff]/', $label)) {
+            throw new \Error(
+                "Label '{$label}' contains non-ASCII characters and IDN support is not available."
+                . " Verify that ext/intl is installed for IDN support."
+            );
+        }
+
+        return \strtolower($label);
+    }
 }
