@@ -17,7 +17,7 @@ class ResolvConfTest extends \PHPUnit_Framework_TestCase {
                 "127.0.0.1:53",
                 "[2001:4860:4860::8888]:53"
             ],
-            "timeout" => 5000,
+            "timeout" => 2000,
             "attempts" => 3,
         ], $result);
     }
@@ -34,7 +34,7 @@ class ResolvConfTest extends \PHPUnit_Framework_TestCase {
                 "8.8.8.8:53",
                 "8.8.4.4:53"
             ],
-            "timeout" => 3000,
+            "timeout" => 5000,
             "attempts" => 2,
         ], $result);
     }
