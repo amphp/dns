@@ -32,7 +32,7 @@
         "php": ">=7.0",
         "amphp/amp": "^2",
         "amphp/cache": "^1",
-        "amphp/file": "dev-amp_v2 as 0.2",
+        "amphp/file": "^0.2@dev",
         "amphp/windows-registry": "^0.3",
         "daverandom/libdns": "^1"
     },
