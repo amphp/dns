@@ -2,12 +2,10 @@
 
 namespace Amp\Dns\Test;
 
-use Amp\Coroutine;
 use Amp\Dns\Config;
 use Amp\Dns\ConfigException;
 use Amp\Dns\UnixConfigLoader;
 use Amp\PHPUnit\TestCase;
-use ReflectionObject;
 use function Amp\Promise\wait;
 
 class ResolvConfTest extends TestCase {
