@@ -3,9 +3,10 @@
 namespace Amp\Dns\Test;
 
 use Amp\Coroutine;
+use Amp\PHPUnit\TestCase;
 use ReflectionObject;
 
-class ResolvConfTest extends \PHPUnit_Framework_TestCase {
+class ResolvConfTest extends TestCase {
     public function test() {
         $reflector = new ReflectionObject(\Amp\Dns\resolver());
         $method = $reflector->getMethod("loadResolvConf");

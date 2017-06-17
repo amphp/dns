@@ -8,7 +8,7 @@ use Amp\Promise;
 const LOOP_STATE_IDENTIFIER = Resolver::class;
 
 /**
- * Retrieve the application-wide dns resolver instance
+ * Retrieve the application-wide dns resolver instance.
  *
  * @param \Amp\Dns\Resolver $resolver Optionally specify a new default dns resolver instance
  * @return \Amp\Dns\Resolver Returns the application-wide dns resolver instance
@@ -30,7 +30,7 @@ function resolver(Resolver $resolver = null): Resolver {
 }
 
 /**
- * Create a new dns resolver best-suited for the current environment
+ * Create a new dns resolver best-suited for the current environment.
  *
  * @return \Amp\Dns\Resolver
  */
@@ -40,7 +40,7 @@ function driver(): Resolver {
 
 /**
  * Resolve a hostname name to an IP address
- * [hostname as defined by RFC 3986]
+ * [hostname as defined by RFC 3986].
  *
  * Upon success the returned promise resolves to an indexed array of the form:
  *

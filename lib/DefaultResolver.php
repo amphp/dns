@@ -2,12 +2,22 @@
 
 namespace Amp\Dns;
 
-use Amp\{ CallableMaker, Deferred, Failure, Loop, MultiReasonException, Promise, Success, TimeoutException, function call };
 use Amp\Cache\ArrayCache;
+use Amp\CallableMaker;
+use Amp\Deferred;
+use Amp\Failure;
 use Amp\File\FilesystemException;
-use Amp\WindowsRegistry\{ KeyNotFoundException, WindowsRegistry };
-use LibDNS\{ Decoder\DecoderFactory, Encoder\EncoderFactory };
-use LibDNS\Messages\{ MessageFactory, MessageTypes };
+use Amp\Loop;
+use Amp\MultiReasonException;
+use Amp\Promise;
+use Amp\Success;
+use Amp\TimeoutException;
+use Amp\WindowsRegistry\KeyNotFoundException;
+use Amp\WindowsRegistry\WindowsRegistry;
+use LibDNS\Decoder\DecoderFactory;
+use LibDNS\Encoder\EncoderFactory;
+use LibDNS\Messages\MessageFactory;
+use LibDNS\Messages\MessageTypes;
 use LibDNS\Records\QuestionFactory;
 
 class DefaultResolver implements Resolver {
@@ -243,9 +253,8 @@ class DefaultResolver implements Resolver {
             if (empty($types)) {
                 if (empty(array_filter($result))) {
                     throw new NoRecordException("No records returned for {$name} (cached result)");
-                } else {
-                    return $result;
                 }
+                return $result;
             }
         }
 
@@ -267,7 +276,7 @@ class DefaultResolver implements Resolver {
         }
 
         try {
-            list( , $resultArr) = yield Promise\timeout(Promise\some($promises), $timeout);
+            list(, $resultArr) = yield Promise\timeout(Promise\some($promises), $timeout);
             foreach ($resultArr as $value) {
                 $result += $value;
             }
@@ -276,10 +285,9 @@ class DefaultResolver implements Resolver {
                 throw new TimeoutException(
                     "Name resolution timed out for {$name}"
                 );
-            } else {
-                $options["server"] = \preg_replace("#[a-z.]+://#", "tcp://", $uri);
-                return yield from $this->doResolve($name, $types, $options);
             }
+            $options["server"] = \preg_replace("#[a-z.]+://#", "tcp://", $uri);
+            return yield from $this->doResolve($name, $types, $options);
         } catch (ResolutionException $e) {
             if (empty($result)) { // if we have no cached results
                 throw $e;
@@ -365,7 +373,8 @@ class DefaultResolver implements Resolver {
             while ($nameserver === "" && ($key = \array_shift($keys))) {
                 try {
                     $nameserver = yield $reader->read($key);
-                } catch (KeyNotFoundException $e) { }
+                } catch (KeyNotFoundException $e) {
+                }
             }
 
             if ($nameserver === "") {
@@ -379,7 +388,8 @@ class DefaultResolver implements Resolver {
                             if ($nameserver !== "") {
                                 break 2;
                             }
-                        } catch (KeyNotFoundException $e) { }
+                        } catch (KeyNotFoundException $e) {
+                        }
                     }
                 }
             }
@@ -514,13 +524,13 @@ class DefaultResolver implements Resolver {
         if (\substr($uri, 0, 6) == "tcp://") {
             $deferred = new Deferred;
             $server->connect = $deferred->promise();
-            $watcher = Loop::onWritable($server->socket, static function($watcher) use ($server, $deferred, &$timer) {
+            $watcher = Loop::onWritable($server->socket, static function ($watcher) use ($server, $deferred, &$timer) {
                 Loop::cancel($watcher);
                 Loop::cancel($timer);
                 unset($server->connect);
                 $deferred->resolve();
             });
-            $timer = Loop::delay(5000, function() use ($id, $deferred, $watcher, $uri) {
+            $timer = Loop::delay(5000, function () use ($id, $deferred, $watcher, $uri) {
                 Loop::cancel($watcher);
                 $this->unloadServer($id);
                 $deferred->fail(new TimeoutException("Name resolution timed out, could not connect to server at $uri"));
@@ -660,7 +670,7 @@ class DefaultResolver implements Resolver {
         } else {
             foreach ($result as $type => $records) {
                 $minttl = \PHP_INT_MAX;
-                foreach ($records as list( , , $ttl)) {
+                foreach ($records as list(, , $ttl)) {
                     if ($ttl < $minttl) {
                         $minttl = $ttl;
                     }

@@ -3,8 +3,9 @@
 namespace Amp\Dns\Test;
 
 use Amp\Loop;
+use Amp\PHPUnit\TestCase;
 
-class IntegrationTest extends \PHPUnit_Framework_TestCase {
+class IntegrationTest extends TestCase {
     /**
      * @group internet
      * @dataProvider provideHostnames
