@@ -19,6 +19,7 @@ use LibDNS\Encoder\EncoderFactory;
 use LibDNS\Messages\MessageFactory;
 use LibDNS\Messages\MessageTypes;
 use LibDNS\Records\QuestionFactory;
+use function Amp\call;
 
 class DefaultResolver implements Resolver {
     use CallableMaker;
@@ -224,7 +225,9 @@ class DefaultResolver implements Resolver {
         }
 
         \assert(
-            \array_reduce($types, function ($result, $val) { return $result && \is_int($val); }, true),
+            \array_reduce($types, function ($result, $val) {
+                return $result && \is_int($val);
+            }, true),
             'The $types passed to DNS functions must all be integers (from \Amp\Dns\Record class)'
         );
 
