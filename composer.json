@@ -30,10 +30,10 @@
     ],
     "require": {
         "php": ">=7.0",
-        "amphp/amp": "^2.0",
-        "amphp/cache": "dev-amp_v2 as 0.2",
+        "amphp/amp": "^2",
+        "amphp/cache": "^1",
         "amphp/file": "dev-amp_v2 as 0.2",
-        "amphp/windows-registry": "dev-amp_v2 as 0.3",
+        "amphp/windows-registry": "^0.3",
         "daverandom/libdns": "^1"
     },
     "minimum-stability": "dev",

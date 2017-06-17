@@ -12,7 +12,7 @@ use LibDNS\Records\QuestionFactory;
 
 class DefaultResolver implements Resolver {
     use CallableMaker;
-    
+
     private $messageFactory;
     private $questionFactory;
     private $encoder;
@@ -236,7 +236,7 @@ class DefaultResolver implements Resolver {
                 $cacheValue = yield $this->arrayCache->get($cacheKey);
 
                 if ($cacheValue !== null) {
-                    $result[$type] = $cacheValue;
+                    $result[$type] = \json_decode($cacheValue, true);
                     unset($types[$k]);
                 }
             }
@@ -630,7 +630,7 @@ class DefaultResolver implements Resolver {
             $result[$record->getType()][] = [(string) $record->getData(), $record->getType(), $record->getTTL()];
         }
         if (empty($result)) {
-            $this->arrayCache->set("$name#$type", [], 300); // "it MUST NOT cache it for longer than five (5) minutes" per RFC 2308 section 7.1
+            $this->arrayCache->set("$name#$type", \json_encode([]), 300); // "it MUST NOT cache it for longer than five (5) minutes" per RFC 2308 section 7.1
             $this->finalizeResult($serverId, $requestId, new NoRecordException(
                 "No records returned for {$name}"
             ));
@@ -665,7 +665,7 @@ class DefaultResolver implements Resolver {
                         $minttl = $ttl;
                     }
                 }
-                $this->arrayCache->set("$name#$type", $records, $minttl);
+                $this->arrayCache->set("$name#$type", \json_encode($records), $minttl);
             }
             $deferred->resolve($result);
         }
