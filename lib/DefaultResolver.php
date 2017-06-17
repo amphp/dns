@@ -2,18 +2,17 @@
 
 namespace Amp\Dns;
 
+use Amp;
 use Amp\Cache\ArrayCache;
+use Amp\Cache\Cache;
 use Amp\CallableMaker;
 use Amp\Deferred;
 use Amp\Failure;
-use Amp\File\FilesystemException;
 use Amp\Loop;
 use Amp\MultiReasonException;
 use Amp\Promise;
 use Amp\Success;
 use Amp\TimeoutException;
-use Amp\WindowsRegistry\KeyNotFoundException;
-use Amp\WindowsRegistry\WindowsRegistry;
 use LibDNS\Decoder\DecoderFactory;
 use LibDNS\Encoder\EncoderFactory;
 use LibDNS\Messages\MessageFactory;
@@ -24,11 +23,15 @@ use function Amp\call;
 class DefaultResolver implements Resolver {
     use CallableMaker;
 
+    const CACHE_PREFIX = "amphp.dns.";
+
+    private $cache;
+    private $configLoader;
+    private $config;
     private $messageFactory;
     private $questionFactory;
     private $encoder;
     private $decoder;
-    private $arrayCache;
     private $requestIdCounter;
     private $pendingRequests;
     private $serverIdMap;
@@ -36,51 +39,60 @@ class DefaultResolver implements Resolver {
     private $serverIdTimeoutMap;
     private $now;
     private $serverTimeoutWatcher;
-    private $config;
 
-    public function __construct() {
+    public function __construct(Cache $cache = null, ConfigLoader $configLoader = null) {
+        $this->cache = $cache ?? new ArrayCache;
+        $this->configLoader = $configLoader ?? \stripos(PHP_OS, "win") === 0
+                ? new WindowsConfigLoader
+                : new UnixConfigLoader;
+
         $this->messageFactory = new MessageFactory;
         $this->questionFactory = new QuestionFactory;
         $this->encoder = (new EncoderFactory)->create();
         $this->decoder = (new DecoderFactory)->create();
-        $this->arrayCache = new ArrayCache;
+
         $this->requestIdCounter = 1;
         $this->pendingRequests = [];
         $this->serverIdMap = [];
         $this->serverUriMap = [];
         $this->serverIdTimeoutMap = [];
         $this->now = \time();
+
         $this->serverTimeoutWatcher = Loop::repeat(1000, function ($watcherId) {
             $this->now = $now = \time();
+
             foreach ($this->serverIdTimeoutMap as $id => $expiry) {
                 if ($now > $expiry) {
                     $this->unloadServer($id);
                 }
             }
+
             if (empty($this->serverIdMap)) {
                 Loop::disable($watcherId);
             }
         });
+
         Loop::unreference($this->serverTimeoutWatcher);
     }
 
-    /**
-     * {@inheritdoc}
-     */
+    /** @inheritdoc */
     public function resolve(string $name, array $options = []): Promise {
         if (!$inAddr = @\inet_pton($name)) {
-            if ($this->isValidHostName($name)) {
+            try {
+                $name = normalizeName($name);
                 $types = empty($options["types"]) ? [Record::A, Record::AAAA] : (array) $options["types"];
+
                 return call(function () use ($name, $types, $options) {
                     $result = yield from $this->recurseWithHosts($name, $types, $options);
                     return $this->flattenResult($result, $types);
                 });
-            } else {
-                return new Failure(new ResolutionException("Cannot resolve; invalid host name"));
+            } catch (InvalidNameError $e) {
+                return new Failure(new ResolutionException("Cannot resolve invalid host name ({$name})", 0, $e));
             }
-        } else {
-            return new Success([[$name, isset($inAddr[4]) ? Record::AAAA : Record::A, $ttl = null]]);
         }
+
+        // It's already a valid IP, don't resolve, immediately return
+        return new Success([[$name, isset($inAddr[4]) ? Record::AAAA : Record::A, $ttl = null]]);
     }
 
     /**
@@ -100,9 +112,21 @@ class DefaultResolver implements Resolver {
         });
     }
 
-    private function isValidHostName($name) {
-        static $pattern = '/^(?<name>[a-z0-9]([a-z0-9-]*[a-z0-9])?)(\.(?&name))*$/i';
-        return !isset($name[253]) && \preg_match($pattern, $name);
+    private function loadConfig(bool $forceReload = false): Promise {
+        if ($this->config && !$forceReload) {
+            return new Success($this->config);
+        }
+
+        $promise = $this->configLoader->loadConfig();
+        $promise->onResolve(function ($error, $result) {
+            if ($error) {
+                return;
+            }
+
+            $this->config = $result;
+        });
+
+        return $promise;
     }
 
     // flatten $result while preserving order according to $types (append unspecified types for e.g. Record::ALL queries)
@@ -122,7 +146,9 @@ class DefaultResolver implements Resolver {
         if (!isset($options["hosts"]) || $options["hosts"]) {
             static $hosts = null;
             if ($hosts === null || !empty($options["reload_hosts"])) {
-                $hosts = yield from $this->loadHostsFile();
+                /** @var Config $config */
+                $config = yield $this->loadConfig(!empty($options["reload_hosts"]));
+                $hosts = $config->getKnownHosts();
             }
             $result = [];
             if (\in_array(Record::A, $types) && isset($hosts[Record::A][$name])) {
@@ -216,9 +242,8 @@ class DefaultResolver implements Resolver {
     }
 
     private function doResolve($name, array $types, $options) {
-        if (!$this->config) {
-            $this->config = yield from $this->loadResolvConf();
-        }
+        /** @var Config $config */
+        $config = yield $this->loadConfig();
 
         if (empty($types)) {
             return [];
@@ -239,36 +264,34 @@ class DefaultResolver implements Resolver {
             }
         }
 
-        $name = \strtolower($name);
+        $name = normalizeName($name);
         $result = [];
 
         // Check for cache hits
         if (!isset($options["cache"]) || $options["cache"]) {
             foreach ($types as $k => $type) {
                 $cacheKey = "$name#$type";
-                $cacheValue = yield $this->arrayCache->get($cacheKey);
+                $cacheValue = yield $this->cache->get(self::CACHE_PREFIX . $cacheKey);
 
                 if ($cacheValue !== null) {
                     $result[$type] = \json_decode($cacheValue, true);
                     unset($types[$k]);
                 }
             }
+
             if (empty($types)) {
                 if (empty(array_filter($result))) {
                     throw new NoRecordException("No records returned for {$name} (cached result)");
                 }
+
                 return $result;
             }
         }
 
-        $timeout = empty($options["timeout"]) ? $this->config["timeout"] : (int) $options["timeout"];
+        $timeout = empty($options["timeout"]) ? $config->getTimeout() : (int) $options["timeout"];
 
         if (empty($options["server"])) {
-            if (empty($this->config["nameservers"])) {
-                throw new ResolutionException("No nameserver specified in system config");
-            }
-
-            $uri = "udp://" . $this->config["nameservers"][0];
+            $uri = "udp://" . $config->getNameservers()[0];
         } else {
             $uri = $this->parseCustomServerUri($options["server"]);
         }
@@ -283,12 +306,13 @@ class DefaultResolver implements Resolver {
             foreach ($resultArr as $value) {
                 $result += $value;
             }
-        } catch (TimeoutException $e) {
-            if (\substr($uri, 0, 6) == "tcp://") {
+        } catch (Amp\TimeoutException $e) {
+            if (\substr($uri, 0, 6) === "tcp://") {
                 throw new TimeoutException(
                     "Name resolution timed out for {$name}"
                 );
             }
+
             $options["server"] = \preg_replace("#[a-z.]+://#", "tcp://", $uri);
             return yield from $this->doResolve($name, $types, $options);
         } catch (ResolutionException $e) {
@@ -307,154 +331,6 @@ class DefaultResolver implements Resolver {
         }
 
         return $result;
-    }
-
-    /** @link http://man7.org/linux/man-pages/man5/resolv.conf.5.html */
-    private function loadResolvConf($path = null) {
-        $result = [
-            "nameservers" => [
-                "8.8.8.8:53",
-                "8.8.4.4:53",
-            ],
-            "timeout" => 3000,
-            "attempts" => 2,
-        ];
-
-        if (\stripos(PHP_OS, "win") !== 0 || $path !== null) {
-            $path = $path ?: "/etc/resolv.conf";
-
-            try {
-                $lines = \explode("\n", yield \Amp\File\get($path));
-                $result["nameservers"] = [];
-
-                foreach ($lines as $line) {
-                    $line = \preg_split('#\s+#', $line, 2);
-                    if (\count($line) !== 2) {
-                        continue;
-                    }
-
-                    list($type, $value) = $line;
-                    if ($type === "nameserver") {
-                        $line[1] = \trim($line[1]);
-                        $ip = @\inet_pton($line[1]);
-
-                        if ($ip === false) {
-                            continue;
-                        }
-
-                        if (isset($ip[15])) {
-                            $result["nameservers"][] = "[" . $line[1] . "]:53";
-                        } else {
-                            $result["nameservers"][] = $line[1] . ":53";
-                        }
-                    } elseif ($type === "options") {
-                        $optline = \preg_split('#\s+#', $value, 2);
-                        if (\count($optline) !== 2) {
-                            continue;
-                        }
-
-                        // TODO: Respect the contents of the attempts setting during resolution
-
-                        list($option, $value) = $optline;
-                        if (\in_array($option, ["timeout", "attempts"])) {
-                            $result[$option] = (int) $value;
-                        }
-                    }
-                }
-            } catch (FilesystemException $e) {
-                // use default
-            }
-        } elseif (\stripos(PHP_OS, "win") === 0) {
-            $keys = [
-                "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters\\NameServer",
-                "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters\\DhcpNameServer",
-            ];
-
-            $reader = new WindowsRegistry;
-            $nameserver = "";
-
-            while ($nameserver === "" && ($key = \array_shift($keys))) {
-                try {
-                    $nameserver = yield $reader->read($key);
-                } catch (KeyNotFoundException $e) {
-                }
-            }
-
-            if ($nameserver === "") {
-                $subKeys = (yield $reader->listKeys("HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters\\Interfaces"));
-
-                foreach ($subKeys as $key) {
-                    foreach (["NameServer", "DhcpNameServer"] as $property) {
-                        try {
-                            $nameserver = (yield $reader->read("{$key}\\{$property}"));
-
-                            if ($nameserver !== "") {
-                                break 2;
-                            }
-                        } catch (KeyNotFoundException $e) {
-                        }
-                    }
-                }
-            }
-
-            if ($nameserver !== "") {
-                // Microsoft documents space as delimiter, AppVeyor uses comma.
-                $result["nameservers"] = \array_map(function ($ns) {
-                    return \trim($ns) . ":53";
-                }, \explode(" ", \strtr($nameserver, ",", " ")));
-            } else {
-                throw new ResolutionException("Could not find a nameserver in the Windows Registry.");
-            }
-        }
-
-        return $result;
-    }
-
-    private function loadHostsFile($path = null) {
-        $data = [];
-        if (empty($path)) {
-            $path = \stripos(PHP_OS, "win") === 0
-                ? 'C:\Windows\system32\drivers\etc\hosts'
-                : '/etc/hosts';
-        }
-        try {
-            $contents = yield \Amp\File\get($path);
-        } catch (\Exception $e) {
-            return $data;
-        }
-
-        $lines = \array_filter(\array_map("trim", \explode("\n", $contents)));
-        foreach ($lines as $line) {
-            if ($line[0] === "#") {
-                continue;
-            }
-            $parts = \preg_split('/\s+/', $line);
-            if (!($ip = @\inet_pton($parts[0]))) {
-                continue;
-            } elseif (isset($ip[4])) {
-                $key = Record::AAAA;
-            } else {
-                $key = Record::A;
-            }
-            for ($i = 1, $l = \count($parts); $i < $l; $i++) {
-                if ($this->isValidHostName($parts[$i])) {
-                    $data[$key][\strtolower($parts[$i])] = $parts[0];
-                }
-            }
-        }
-
-        // Windows does not include localhost in its host file. Fetch it from the system instead
-        if (!isset($data[Record::A]["localhost"]) && !isset($data[Record::AAAA]["localhost"])) {
-            // PHP currently provides no way to **resolve** IPv6 hostnames (not even with fallback)
-            $local = \gethostbyname("localhost");
-            if ($local !== "localhost") {
-                $data[Record::A]["localhost"] = $local;
-            } else {
-                $data[Record::AAAA]["localhost"] = "::1";
-            }
-        }
-
-        return $data;
     }
 
     private function parseCustomServerUri($uri) {
@@ -643,7 +519,8 @@ class DefaultResolver implements Resolver {
             $result[$record->getType()][] = [(string) $record->getData(), $record->getType(), $record->getTTL()];
         }
         if (empty($result)) {
-            $this->arrayCache->set("$name#$type", \json_encode([]), 300); // "it MUST NOT cache it for longer than five (5) minutes" per RFC 2308 section 7.1
+            // "it MUST NOT cache it for longer than five (5) minutes" per RFC 2308 section 7.1
+            $this->cache->set(self::CACHE_PREFIX . "$name#$type", \json_encode([]), 300);
             $this->finalizeResult($serverId, $requestId, new NoRecordException(
                 "No records returned for {$name}"
             ));
@@ -678,7 +555,7 @@ class DefaultResolver implements Resolver {
                         $minttl = $ttl;
                     }
                 }
-                $this->arrayCache->set("$name#$type", \json_encode($records), $minttl);
+                $this->cache->set(self::CACHE_PREFIX . "$name#$type", \json_encode($records), $minttl);
             }
             $deferred->resolve($result);
         }

@@ -11,6 +11,7 @@ const LOOP_STATE_IDENTIFIER = Resolver::class;
  * Retrieve the application-wide dns resolver instance.
  *
  * @param \Amp\Dns\Resolver $resolver Optionally specify a new default dns resolver instance
+ *
  * @return \Amp\Dns\Resolver Returns the application-wide dns resolver instance
  */
 function resolver(Resolver $resolver = null): Resolver {
@@ -58,7 +59,8 @@ function driver(): Resolver {
  *  - "reload_hosts" | bool     Reload the hosts file (Default: false), only active when no_hosts not true
  *  - "cache"        | bool     Use local DNS cache when querying (Default: true)
  *  - "types"        | array    Default: [Record::A, Record::AAAA] (only for resolve())
- *  - "recurse"      | bool     Check for DNAME and CNAME records (always active for resolve(), Default: false for query())
+ *  - "recurse"      | bool     Check for DNAME and CNAME records (always active for resolve(), Default: false for
+ * query())
  *
  * If the custom per-request "server" option is not present the resolver will
  * use the first nameserver in /etc/resolv.conf or default to Google's public
@@ -66,6 +68,7 @@ function driver(): Resolver {
  *
  * @param string $name The hostname to resolve
  * @param array  $options
+ *
  * @return \Amp\Promise
  * @TODO add boolean "clear_cache" option flag
  */
@@ -76,13 +79,27 @@ function resolve(string $name, array $options = []): Promise {
 /**
  * Query specific DNS records.
  *
- * @param string $name Unlike resolve(), query() allows for requesting _any_ name (as DNS RFC allows for arbitrary strings)
+ * @param string    $name Unlike resolve(), query() allows for requesting _any_ name (as DNS RFC allows for arbitrary
+ *     strings)
  * @param int|int[] $type Use constants of Amp\Dns\Record
- * @param array $options @see resolve documentation
+ * @param array     $options @see resolve documentation
+ *
  * @return \Amp\Promise
  */
 function query(string $name, $type, array $options = []): Promise {
     return resolver()->query($name, $type, $options);
+}
+
+/**
+ * Checks whether a string is a valid DNS name.
+ *
+ * @param string $name DNS name to check.
+ *
+ * @return bool
+ */
+function isValidHostName(string $name): bool {
+    static $pattern = '/^(?<name>[a-z0-9]([a-z0-9-]*[a-z0-9])?)(\.(?&name))*$/i';
+    return !isset($name[253]) && \preg_match($pattern, $name);
 }
 
 if (\function_exists('idn_to_ascii')) {
@@ -97,7 +114,7 @@ if (\function_exists('idn_to_ascii')) {
      */
     function normalizeName(string $label): string {
         if (false === $result = \idn_to_ascii($label, 0, INTL_IDNA_VARIANT_UTS46)) {
-            throw new \Error("Label '{$label}' could not be processed for IDN");
+            throw new InvalidNameError("Label '{$label}' could not be processed for IDN");
         }
 
         return $result;
@@ -105,7 +122,7 @@ if (\function_exists('idn_to_ascii')) {
 } else {
     function normalizeName(string $label): string {
         if (\preg_match('/[\x80-\xff]/', $label)) {
-            throw new \Error(
+            throw new InvalidNameError(
                 "Label '{$label}' contains non-ASCII characters and IDN support is not available."
                 . " Verify that ext/intl is installed for IDN support."
             );
