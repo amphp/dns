@@ -46,18 +46,12 @@ function driver(): Resolver {
  *
  * A null $ttl value indicates the DNS name was resolved from the cache or the local hosts file.
  *
- * If the custom per-request "server" option is not present the resolver will
- * use the first nameserver in /etc/resolv.conf or default to Google's public
- * DNS servers on Windows or if /etc/resolv.conf is not found.
- *
  * @param string $name The hostname to resolve
- * @param array  $options
  *
- * @return \Amp\Promise
- * @TODO add boolean "clear_cache" option flag
+ * @return Promise
  */
-function resolve(string $name, array $options = []): Promise {
-    return resolver()->resolve($name, $options);
+function resolve(string $name): Promise {
+    return resolver()->resolve($name);
 }
 
 /**
@@ -66,12 +60,11 @@ function resolve(string $name, array $options = []): Promise {
  * @param string    $name Unlike resolve(), query() allows for requesting _any_ name (as DNS RFC allows for arbitrary
  *     strings)
  * @param int|int[] $type Use constants of Amp\Dns\Record
- * @param array     $options @see resolve documentation
  *
- * @return \Amp\Promise
+ * @return Promise
  */
-function query(string $name, $type, array $options = []): Promise {
-    return resolver()->query($name, $type, $options);
+function query(string $name, $type): Promise {
+    return resolver()->query($name, $type);
 }
 
 /**
