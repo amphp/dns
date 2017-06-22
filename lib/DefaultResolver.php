@@ -23,6 +23,8 @@ use function Amp\call;
 class DefaultResolver implements Resolver {
     use CallableMaker;
 
+    const MAX_REQUEST_ID = 65536;
+    const IDLE_TIMEOUT = 15000;
     const CACHE_PREFIX = "amphp.dns.";
 
     private $cache;
@@ -83,9 +85,7 @@ class DefaultResolver implements Resolver {
 
                 return call(function () use ($name) {
                     $result = yield from $this->recurseWithHosts($name, [Record::A, Record::AAAA], []);
-                    return array_map(function ($record) {
-                        return new Record($record[0], $record[1], $record[2]);
-                    }, $this->flattenResult($result, [Record::A, Record::AAAA]));
+                    return $this->flattenResult($result, [Record::A, Record::AAAA]);
                 });
             } catch (InvalidNameError $e) {
                 return new Failure(new ResolutionException("Cannot resolve invalid host name ({$name})", 0, $e));
@@ -97,20 +97,17 @@ class DefaultResolver implements Resolver {
     }
 
     /** @inheritdoc */
-    public function query(string $name, $type, array $options = []): Promise {
+    public function query(string $name, $type): Promise {
         $types = (array) $type;
 
-        return call(function () use ($name, $types, $options) {
-            if (empty($options["recurse"])) {
-                $result = yield from $this->doResolve($name, $types, $options);
-            } else {
-                $result = yield from $this->doRecurse($name, $types, $options);
-            }
-
-            return array_map(function ($record) {
-                return new Record($record[0], $record[1], $record[2]);
-            }, $this->flattenResult($result, $types));
+        return call(function () use ($name, $types) {
+            $result = yield from $this->doResolve($name, $types);
+            return $this->flattenResult($result, $types);
         });
+    }
+
+    public function reloadConfig(): Promise {
+        return $this->loadConfig(true);
     }
 
     private function loadConfig(bool $forceReload = false): Promise {
@@ -131,54 +128,60 @@ class DefaultResolver implements Resolver {
     }
 
     // flatten $result while preserving order according to $types (append unspecified types for e.g. Record::ALL queries)
-    private function flattenResult(array $result, array $types) {
+    private function flattenResult(array $result, array $types): array {
         $retval = [];
+
         foreach ($types as $type) {
             if (isset($result[$type])) {
                 $retval = \array_merge($retval, $result[$type]);
                 unset($result[$type]);
             }
         }
-        return $result ? \array_merge($retval, \call_user_func_array("array_merge", $result)) : $retval;
+
+        $records = $result ? \array_merge($retval, \call_user_func_array("array_merge", $result)) : $retval;
+
+        return array_map(function ($record) {
+            return new Record($record[0], $record[1], $record[2]);
+        }, $records);
     }
 
-    private function recurseWithHosts($name, array $types, $options) {
-        // Check for hosts file matches
-        if (!isset($options["hosts"]) || $options["hosts"]) {
-            static $hosts = null;
-            if ($hosts === null || !empty($options["reload_hosts"])) {
-                /** @var Config $config */
-                $config = yield $this->loadConfig(!empty($options["reload_hosts"]));
-                $hosts = $config->getKnownHosts();
-            }
-            $result = [];
-            if (\in_array(Record::A, $types) && isset($hosts[Record::A][$name])) {
-                $result[Record::A] = [[$hosts[Record::A][$name], Record::A, $ttl = null]];
-            }
-            if (\in_array(Record::AAAA, $types) && isset($hosts[Record::AAAA][$name])) {
-                $result[Record::AAAA] = [[$hosts[Record::AAAA][$name], Record::AAAA, $ttl = null]];
-            }
-            if ($result) {
-                return $result;
-            }
+    private function recurseWithHosts($name, array $types) {
+        /** @var Config $config */
+        $config = yield $this->loadConfig();
+        $hosts = $config->getKnownHosts();
+        $result = [];
+
+        if (\in_array(Record::A, $types) && isset($hosts[Record::A][$name])) {
+            $result[Record::A] = [[$hosts[Record::A][$name], Record::A, $ttl = null]];
         }
 
-        return yield from $this->doRecurse($name, $types, $options);
+        if (\in_array(Record::AAAA, $types) && isset($hosts[Record::AAAA][$name])) {
+            $result[Record::AAAA] = [[$hosts[Record::AAAA][$name], Record::AAAA, $ttl = null]];
+        }
+
+        if ($result) {
+            return $result;
+        }
+
+        return yield from $this->doRecurse($name, $types);
     }
 
-    private function doRecurse($name, array $types, $options) {
+    private function doRecurse($name, array $types) {
         if (\array_intersect($types, [Record::CNAME, Record::DNAME])) {
-            throw new ResolutionException("Cannot use recursion for CNAME and DNAME records");
+            throw new \Error("Cannot use recursion for CNAME and DNAME records");
         }
 
         $types = \array_merge($types, [Record::CNAME, Record::DNAME]);
         $lookupName = $name;
+
         for ($i = 0; $i < 30; $i++) {
-            $result = yield from $this->doResolve($lookupName, $types, $options);
+            $result = yield from $this->doResolve($lookupName, $types);
+
             if (\count($result) > isset($result[Record::CNAME]) + isset($result[Record::DNAME])) {
                 unset($result[Record::CNAME], $result[Record::DNAME]);
                 return $result;
             }
+
             // @TODO check for potentially using recursion and iterate over *all* CNAME/DNAME
             // @FIXME check higher level for CNAME?
             foreach ([Record::CNAME, Record::DNAME] as $type) {
@@ -193,8 +196,8 @@ class DefaultResolver implements Resolver {
 
     private function doRequest($uri, $name, $type) {
         $server = $this->loadExistingServer($uri) ?: $this->loadNewServer($uri);
-
         $useTCP = \substr($uri, 0, 6) == "tcp://";
+
         if ($useTCP && isset($server->connect)) {
             return call(function () use ($server, $uri, $name, $type) {
                 yield $server->connect;
@@ -205,7 +208,7 @@ class DefaultResolver implements Resolver {
         // Get the next available request ID
         do {
             $requestId = $this->requestIdCounter++;
-            if ($this->requestIdCounter >= MAX_REQUEST_ID) {
+            if ($this->requestIdCounter >= self::MAX_REQUEST_ID) {
                 $this->requestIdCounter = 1;
             }
         } while (isset($this->pendingRequests[$requestId]));
@@ -228,6 +231,7 @@ class DefaultResolver implements Resolver {
         }
 
         // Send request
+        // FIXME: Fix might not write all bytes if TCP is used, as the buffer might be full
         $bytesWritten = @\fwrite($server->socket, $requestPacket);
         if ($bytesWritten === false || $bytesWritten === 0 && (!\is_resource($server->socket) || !\feof($server->socket))) {
             $exception = new ResolutionException("Request send failed");
@@ -242,7 +246,7 @@ class DefaultResolver implements Resolver {
         return $deferred->promise();
     }
 
-    private function doResolve($name, array $types, $options) {
+    private function doResolve($name, array $types) {
         /** @var Config $config */
         $config = yield $this->loadConfig();
 
@@ -269,95 +273,63 @@ class DefaultResolver implements Resolver {
         $result = [];
 
         // Check for cache hits
-        if (!isset($options["cache"]) || $options["cache"]) {
-            foreach ($types as $k => $type) {
-                $cacheKey = "$name#$type";
-                $cacheValue = yield $this->cache->get(self::CACHE_PREFIX . $cacheKey);
+        foreach ($types as $k => $type) {
+            $cacheValue = yield $this->cache->get($this->getCacheKey($name, $type));
 
-                if ($cacheValue !== null) {
-                    $result[$type] = \json_decode($cacheValue, true);
-                    unset($types[$k]);
+            if ($cacheValue !== null) {
+                $result[$type] = \json_decode($cacheValue, true);
+                unset($types[$k]);
+            }
+        }
+
+        if (empty($types)) {
+            // TODO: Why do we use array_filter here?
+            if (empty(array_filter($result))) {
+                throw new NoRecordException("No records returned for {$name} (cached result)");
+            }
+
+            return $result;
+        }
+
+        $nameservers = $config->getNameservers();
+        $attempts = $config->getAttempts();
+
+        for ($attempt = 0; $attempt < $attempts; $attempt++) {
+            $i = $attempt % \count($nameservers);
+            $uri = "udp://" . $nameservers[$i];
+
+            $promises = [];
+            foreach ($types as $type) {
+                $promises[] = $this->doRequest($uri, $name, $type);
+            }
+
+            try {
+                list(, $resultArr) = yield Promise\timeout(Promise\some($promises), $config->getTimeout());
+
+                foreach ($resultArr as $value) {
+                    $result += $value;
                 }
-            }
-
-            if (empty($types)) {
-                if (empty(array_filter($result))) {
-                    throw new NoRecordException("No records returned for {$name} (cached result)");
+            } catch (Amp\TimeoutException $e) {
+                continue;
+            } catch (ResolutionException $e) {
+                if (empty($result)) { // if we have no cached results
+                    throw $e;
                 }
-
-                return $result;
-            }
-        }
-
-        $timeout = empty($options["timeout"]) ? $config->getTimeout() : (int) $options["timeout"];
-
-        if (empty($options["server"])) {
-            $uri = "udp://" . $config->getNameservers()[0];
-        } else {
-            $uri = $this->parseCustomServerUri($options["server"]);
-        }
-
-        $promises = [];
-        foreach ($types as $type) {
-            $promises[] = $this->doRequest($uri, $name, $type);
-        }
-
-        try {
-            list(, $resultArr) = yield Promise\timeout(Promise\some($promises), $timeout);
-            foreach ($resultArr as $value) {
-                $result += $value;
-            }
-        } catch (Amp\TimeoutException $e) {
-            if (\substr($uri, 0, 6) === "tcp://") {
-                throw new TimeoutException(
-                    "Name resolution timed out for {$name}"
-                );
-            }
-
-            $options["server"] = \preg_replace("#[a-z.]+://#", "tcp://", $uri);
-            return yield from $this->doResolve($name, $types, $options);
-        } catch (ResolutionException $e) {
-            if (empty($result)) { // if we have no cached results
-                throw $e;
-            }
-        } catch (MultiReasonException $e) { // if all promises in Amp\some fail
-            if (empty($result)) { // if we have no cached results
-                foreach ($e->getReasons() as $ex) {
-                    if ($ex instanceof NoRecordException) {
-                        throw new NoRecordException("No records returned for {$name}", 0, $e);
+            } catch (MultiReasonException $e) { // if all promises in Amp\some fail
+                if (empty($result)) { // if we have no cached results
+                    foreach ($e->getReasons() as $ex) {
+                        if ($ex instanceof NoRecordException) {
+                            throw new NoRecordException("No records returned for {$name}", 0, $e);
+                        }
                     }
+                    throw new ResolutionException("All name resolution requests failed", 0, $e);
                 }
-                throw new ResolutionException("All name resolution requests failed", 0, $e);
             }
+
+            return $result;
         }
 
-        return $result;
-    }
-
-    private function parseCustomServerUri($uri) {
-        if (!\is_string($uri)) {
-            throw new ResolutionException(
-                'Invalid server address ($uri must be a string IP address, ' . \gettype($uri) . " given)"
-            );
-        }
-        if (\strpos($uri, "://") !== false) {
-            return $uri;
-        }
-        if (($colonPos = \strrpos($uri, ":")) !== false) {
-            $addr = \substr($uri, 0, $colonPos);
-            $port = \substr($uri, $colonPos + 1);
-        } else {
-            $addr = $uri;
-            $port = 53;
-        }
-        $addr = \trim($addr, "[]");
-        if (!$inAddr = @\inet_pton($addr)) {
-            throw new ResolutionException(
-                'Invalid server $uri; string IP address required'
-            );
-        }
-
-        return isset($inAddr[4]) ? "udp://[{$addr}]:{$port}" : "udp://{$addr}:{$port}";
+        throw $e;
     }
 
     private function loadExistingServer($uri) {
@@ -410,6 +382,7 @@ class DefaultResolver implements Resolver {
                 unset($server->connect);
                 $deferred->resolve();
             });
+            // TODO: Respect timeout
             $timer = Loop::delay(5000, function () use ($id, $deferred, $watcher, $uri) {
                 Loop::cancel($watcher);
                 $this->unloadServer($id);
@@ -521,7 +494,7 @@ class DefaultResolver implements Resolver {
         }
         if (empty($result)) {
             // "it MUST NOT cache it for longer than five (5) minutes" per RFC 2308 section 7.1
-            $this->cache->set(self::CACHE_PREFIX . "$name#$type", \json_encode([]), 300);
+            $this->cache->set($this->getCacheKey($name, $type), \json_encode([]), 300);
             $this->finalizeResult($serverId, $requestId, new NoRecordException(
                 "No records returned for {$name}"
             ));
@@ -542,7 +515,7 @@ class DefaultResolver implements Resolver {
             $server->pendingRequests[$requestId]
         );
         if (empty($server->pendingRequests)) {
-            $this->serverIdTimeoutMap[$server->id] = $this->now + IDLE_TIMEOUT;
+            $this->serverIdTimeoutMap[$server->id] = $this->now + self::IDLE_TIMEOUT;
             Loop::disable($server->watcherId);
             Loop::enable($this->serverTimeoutWatcher);
         }
@@ -560,5 +533,9 @@ class DefaultResolver implements Resolver {
             }
             $deferred->resolve($result);
         }
+    }
+
+    private function getCacheKey(string $name, int $type): string {
+        return self::CACHE_PREFIX . $name . "#" . $type;
     }
 }

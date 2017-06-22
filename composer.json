@@ -47,7 +47,6 @@
             "Amp\\Dns\\": "lib"
         },
         "files": [
-            "lib/constants.php",
             "lib/functions.php"
         ]
     }
