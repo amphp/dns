@@ -93,41 +93,49 @@ function query(string $name, $type, array $options = []): Promise {
 /**
  * Checks whether a string is a valid DNS name.
  *
- * @param string $name DNS name to check.
+ * @param string $name String to check.
  *
  * @return bool
  */
-function isValidHostName(string $name): bool {
-    static $pattern = '/^(?<name>[a-z0-9]([a-z0-9-]*[a-z0-9])?)(\.(?&name))*$/i';
-    return !isset($name[253]) && \preg_match($pattern, $name);
+function isValidDnsName(string $name) {
+    try {
+        normalizeName($name);
+        return true;
+    } catch (InvalidNameError $e) {
+        return false;
+    }
 }
 
-if (\function_exists('idn_to_ascii')) {
-    /**
-     * Normalizes a DNS name.
-     *
-     * @param string $label DNS name.
-     *
-     * @return string Normalized DNS name.
-     *
-     * @throws \Error If an invalid name or an IDN name without ext/intl being installed has been passed.
-     */
-    function normalizeName(string $label): string {
-        if (false === $result = \idn_to_ascii($label, 0, INTL_IDNA_VARIANT_UTS46)) {
-            throw new InvalidNameError("Label '{$label}' could not be processed for IDN");
+/**
+ * Normalizes a DNS name and automatically checks it for validity.
+ *
+ * @param string $name DNS name.
+ *
+ * @return string Normalized DNS name.
+ *
+ * @throws InvalidNameError If an invalid name or an IDN name without ext/intl being installed has been passed.
+ */
+function normalizeDnsName(string $name): string {
+    static $pattern = '/^(?<name>[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)(\.(?&name))*$/i';
+
+    if (\function_exists('idn_to_ascii')) {
+        if (false === $result = \idn_to_ascii($name, 0, INTL_IDNA_VARIANT_UTS46)) {
+            throw new InvalidNameError("Name '{$name}' could not be processed for IDN.");
         }
 
-        return $result;
-    }
-} else {
-    function normalizeName(string $label): string {
-        if (\preg_match('/[\x80-\xff]/', $label)) {
+        $name = $result;
+    } else {
+        if (\preg_match('/[\x80-\xff]/', $name)) {
             throw new InvalidNameError(
-                "Label '{$label}' contains non-ASCII characters and IDN support is not available."
-                . " Verify that ext/intl is installed for IDN support."
+                "Name '{$name}' contains non-ASCII characters and IDN support is not available. " .
+                "Verify that ext/intl is installed for IDN support."
             );
         }
-
-        return \strtolower($label);
     }
+
+    if (isset($name[253]) || !\preg_match($pattern, $name)) {
+        throw new InvalidNameError("Name '{$name}' is not a valid hostname.");
+    }
+
+    return $name;
 }
