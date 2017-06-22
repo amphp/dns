@@ -8,7 +8,7 @@ use Amp\Dns\UnixConfigLoader;
 use Amp\PHPUnit\TestCase;
 use function Amp\Promise\wait;
 
-class ResolvConfTest extends TestCase {
+class UnixConfigLoaderTest extends TestCase {
     public function test() {
         $loader = new UnixConfigLoader(__DIR__ . "/data/resolv.conf");
 
@@ -24,7 +24,7 @@ class ResolvConfTest extends TestCase {
         $this->assertSame(3, $result->getAttempts());
     }
 
-    public function testDefaultsOnConfNotFound() {
+    public function testNoDefaultsOnConfNotFound() {
         $this->expectException(ConfigException::class);
         wait((new UnixConfigLoader(__DIR__ . "/data/non-existent.conf"))->loadConfig());
     }
