@@ -8,7 +8,7 @@ interface Resolver {
     /**
      * @see \Amp\Dns\resolve
      */
-    public function resolve(string $name, array $options = []): Promise;
+    public function resolve(string $name): Promise;
 
     /**
      * @see \Amp\Dns\query

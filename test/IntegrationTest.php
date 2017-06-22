@@ -48,12 +48,12 @@ class IntegrationTest extends TestCase {
 
     public function testPtrLookup() {
         Loop::run(function () {
-            $result = yield Dns\query("8.8.4.4", Record::TYPE_PTR);
+            $result = yield Dns\query("8.8.4.4", Record::PTR);
 
             /** @var Record $record */
             $record = $result[0];
             $this->assertSame("google-public-dns-b.google.com", $record->getValue());
-            $this->assertSame(Record::TYPE_PTR, $record->getType());
+            $this->assertSame(Record::PTR, $record->getType());
         });
     }
 

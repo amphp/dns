@@ -22,11 +22,11 @@ require __DIR__ . '/vendor/autoload.php';
 use Amp\Loop;
 
 Loop::run(function () {
-    $githubIpv4 = (yield Amp\Dns\resolve("github.com", $options = ["types" => Amp\Dns\Record::TYPE_A]));
+    $githubIpv4 = (yield Amp\Dns\resolve("github.com", $options = ["types" => Amp\Dns\Record::A]));
     var_dump($githubIpv4);
 
-    $googleIpv4 = Amp\Dns\resolve("google.com", $options = ["types" => Amp\Dns\Record::TYPE_A]);
-    $googleIpv6 = Amp\Dns\resolve("google.com", $options = ["types" => Amp\Dns\Record::TYPE_AAAA]);
+    $googleIpv4 = Amp\Dns\resolve("google.com", $options = ["types" => Amp\Dns\Record::A]);
+    $googleIpv6 = Amp\Dns\resolve("google.com", $options = ["types" => Amp\Dns\Record::AAAA]);
 
     $firstGoogleResult = (yield Amp\Promise\first([$googleIpv4, $googleIpv6]));
     var_dump($firstGoogleResult);
@@ -34,7 +34,7 @@ Loop::run(function () {
     $combinedGoogleResult = (yield Amp\Dns\resolve("google.com"));
     var_dump($combinedGoogleResult);
     
-    $googleMx = (yield Amp\Dns\query("google.com", Amp\Dns\Record::TYPE_MX));
+    $googleMx = (yield Amp\Dns\query("google.com", Amp\Dns\Record::MX));
     var_dump($googleMx);
 });
 ```
