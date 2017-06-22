@@ -31,8 +31,8 @@ class Config {
         $this->attempts = $attempts;
     }
 
-    private function validateNameserver(string $nameserver) {
-        if (!$nameserver) {
+    private function validateNameserver($nameserver) {
+        if (!$nameserver || !\is_string($nameserver)) {
             throw new ConfigException("Invalid nameserver: {$nameserver}");
         }
 
