@@ -361,15 +361,27 @@ class DefaultResolver implements Resolver {
 
         \stream_set_blocking($socket, false);
         $id = (int) $socket;
-        $server = new \StdClass;
+
+        $server = new class {
+            use Amp\Struct;
+            public $id;
+            public $uri;
+            public $server;
+            public $socket;
+            public $buffer = "";
+            public $length = INF;
+            public $pendingRequests = [];
+            public $watcherId;
+            public $connect;
+        };
+
         $server->id = $id;
         $server->uri = $uri;
         $server->socket = $socket;
-        $server->buffer = "";
-        $server->length = INF;
         $server->pendingRequests = [];
         $server->watcherId = Loop::onReadable($socket, $this->callableFromInstanceMethod("onReadable"));
         Loop::disable($server->watcherId);
+
         $this->serverIdMap[$id] = $server;
         $this->serverUriMap[$uri] = $server;
 
@@ -379,7 +391,7 @@ class DefaultResolver implements Resolver {
             $watcher = Loop::onWritable($server->socket, static function ($watcher) use ($server, $deferred, &$timer) {
                 Loop::cancel($watcher);
                 Loop::cancel($timer);
-                unset($server->connect);
+                $server->connect = null;
                 $deferred->resolve();
             });
             // TODO: Respect timeout
