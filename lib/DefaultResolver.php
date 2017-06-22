@@ -79,12 +79,14 @@ class DefaultResolver implements Resolver {
     public function resolve(string $name, array $options = []): Promise {
         if (!$inAddr = @\inet_pton($name)) {
             try {
-                $name = normalizeName($name);
-                $types = empty($options["types"]) ? [Record::A, Record::AAAA] : (array) $options["types"];
+                $name = normalizeDnsName($name);
+                $types = empty($options["types"]) ? [Record::TYPE_A, Record::TYPE_AAAA] : (array) $options["types"];
 
                 return call(function () use ($name, $types, $options) {
                     $result = yield from $this->recurseWithHosts($name, $types, $options);
-                    return $this->flattenResult($result, $types);
+                    return array_map(function ($record) {
+                        return new Record($record[0], $record[1], $record[2]);
+                    }, $this->flattenResult($result, $types));
                 });
             } catch (InvalidNameError $e) {
                 return new Failure(new ResolutionException("Cannot resolve invalid host name ({$name})", 0, $e));
@@ -92,7 +94,7 @@ class DefaultResolver implements Resolver {
         }
 
         // It's already a valid IP, don't resolve, immediately return
-        return new Success([[$name, isset($inAddr[4]) ? Record::AAAA : Record::A, $ttl = null]]);
+        return new Success([new Record($name, isset($inAddr[4]) ? Record::TYPE_AAAA : Record::TYPE_A, $ttl = null)]);
     }
 
     /**
@@ -108,7 +110,9 @@ class DefaultResolver implements Resolver {
                 $result = yield from $this->doRecurse($name, $types, $options);
             }
 
-            return $this->flattenResult($result, $types);
+            return array_map(function ($record) {
+                return new Record($record[0], $record[1], $record[2]);
+            }, $this->flattenResult($result, $types));
         });
     }
 
@@ -129,7 +133,7 @@ class DefaultResolver implements Resolver {
         return $promise;
     }
 
-    // flatten $result while preserving order according to $types (append unspecified types for e.g. Record::ALL queries)
+    // flatten $result while preserving order according to $types (append unspecified types for e.g. Record::TYPE_ALL queries)
     private function flattenResult(array $result, array $types) {
         $retval = [];
         foreach ($types as $type) {
@@ -151,11 +155,11 @@ class DefaultResolver implements Resolver {
                 $hosts = $config->getKnownHosts();
             }
             $result = [];
-            if (\in_array(Record::A, $types) && isset($hosts[Record::A][$name])) {
-                $result[Record::A] = [[$hosts[Record::A][$name], Record::A, $ttl = null]];
+            if (\in_array(Record::TYPE_A, $types) && isset($hosts[Record::TYPE_A][$name])) {
+                $result[Record::TYPE_A] = [[$hosts[Record::TYPE_A][$name], Record::TYPE_A, $ttl = null]];
             }
-            if (\in_array(Record::AAAA, $types) && isset($hosts[Record::AAAA][$name])) {
-                $result[Record::AAAA] = [[$hosts[Record::AAAA][$name], Record::AAAA, $ttl = null]];
+            if (\in_array(Record::TYPE_AAAA, $types) && isset($hosts[Record::TYPE_AAAA][$name])) {
+                $result[Record::TYPE_AAAA] = [[$hosts[Record::TYPE_AAAA][$name], Record::TYPE_AAAA, $ttl = null]];
             }
             if ($result) {
                 return $result;
@@ -166,21 +170,21 @@ class DefaultResolver implements Resolver {
     }
 
     private function doRecurse($name, array $types, $options) {
-        if (\array_intersect($types, [Record::CNAME, Record::DNAME])) {
+        if (\array_intersect($types, [Record::TYPE_CNAME, Record::TYPE_DNAME])) {
             throw new ResolutionException("Cannot use recursion for CNAME and DNAME records");
         }
 
-        $types = \array_merge($types, [Record::CNAME, Record::DNAME]);
+        $types = \array_merge($types, [Record::TYPE_CNAME, Record::TYPE_DNAME]);
         $lookupName = $name;
         for ($i = 0; $i < 30; $i++) {
             $result = yield from $this->doResolve($lookupName, $types, $options);
-            if (\count($result) > isset($result[Record::CNAME]) + isset($result[Record::DNAME])) {
-                unset($result[Record::CNAME], $result[Record::DNAME]);
+            if (\count($result) > isset($result[Record::TYPE_CNAME]) + isset($result[Record::TYPE_DNAME])) {
+                unset($result[Record::TYPE_CNAME], $result[Record::TYPE_DNAME]);
                 return $result;
             }
             // @TODO check for potentially using recursion and iterate over *all* CNAME/DNAME
             // @FIXME check higher level for CNAME?
-            foreach ([Record::CNAME, Record::DNAME] as $type) {
+            foreach ([Record::TYPE_CNAME, Record::TYPE_DNAME] as $type) {
                 if (isset($result[$type])) {
                     list($lookupName) = $result[$type][0];
                 }
@@ -264,7 +268,7 @@ class DefaultResolver implements Resolver {
             }
         }
 
-        $name = normalizeName($name);
+        $name = normalizeDnsName($name);
         $result = [];
 
         // Check for cache hits

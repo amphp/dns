@@ -33,12 +33,10 @@
         "php": ">=7.0",
         "amphp/amp": "^2",
         "amphp/cache": "^1",
-        "amphp/file": "^0.2@dev",
+        "amphp/file": "^0.2",
         "amphp/windows-registry": "^0.3",
         "daverandom/libdns": "^1"
     },
-    "minimum-stability": "dev",
-    "prefer-stable": true,
     "require-dev": {
         "amphp/phpunit-util": "^1",
         "phpunit/phpunit": "^6",

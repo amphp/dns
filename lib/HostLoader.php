@@ -41,14 +41,14 @@ class HostLoader {
                 if (!($ip = @\inet_pton($parts[0]))) {
                     continue;
                 } elseif (isset($ip[4])) {
-                    $key = Record::AAAA;
+                    $key = Record::TYPE_AAAA;
                 } else {
-                    $key = Record::A;
+                    $key = Record::TYPE_A;
                 }
 
                 for ($i = 1, $l = \count($parts); $i < $l; $i++) {
                     try {
-                        $normalizedName = normalizeName($parts[$i]);
+                        $normalizedName = normalizeDnsName($parts[$i]);
                         $data[$key][$normalizedName] = $parts[0];
                     } catch (InvalidNameError $e) {
                         // ignore invalid entries
@@ -57,13 +57,13 @@ class HostLoader {
             }
 
             // Windows does not include localhost in its host file. Fetch it from the system instead
-            if (!isset($data[Record::A]["localhost"]) && !isset($data[Record::AAAA]["localhost"])) {
+            if (!isset($data[Record::TYPE_A]["localhost"]) && !isset($data[Record::TYPE_AAAA]["localhost"])) {
                 // PHP currently provides no way to **resolve** IPv6 hostnames (not even with fallback)
                 $local = \gethostbyname("localhost");
                 if ($local !== "localhost") {
-                    $data[Record::A]["localhost"] = $local;
+                    $data[Record::TYPE_A]["localhost"] = $local;
                 } else {
-                    $data[Record::AAAA]["localhost"] = "::1";
+                    $data[Record::TYPE_AAAA]["localhost"] = "::1";
                 }
             }
 

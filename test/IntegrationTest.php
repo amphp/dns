@@ -16,8 +16,9 @@ class IntegrationTest extends TestCase {
         Loop::run(function () use ($hostname) {
             $result = yield Dns\resolve($hostname);
 
-            list($addr, $type, $ttl) = $result[0];
-            $inAddr = @\inet_pton($addr);
+            /** @var Record $record */
+            $record = $result[0];
+            $inAddr = @\inet_pton($record->getValue());
             $this->assertNotFalse(
                 $inAddr,
                 "Server name $hostname did not resolve to a valid IP address"
@@ -35,8 +36,9 @@ class IntegrationTest extends TestCase {
                 "server" => $server,
             ]);
 
-            list($addr) = $result[0];
-            $inAddr = @\inet_pton($addr);
+            /** @var Record $record */
+            $record = $result[0];
+            $inAddr = @\inet_pton($record->getValue());
             $this->assertNotFalse(
                 $inAddr,
                 "Server name google.com did not resolve to a valid IP address via $server"
@@ -46,11 +48,12 @@ class IntegrationTest extends TestCase {
 
     public function testPtrLookup() {
         Loop::run(function () {
-            $result = yield Dns\query("8.8.4.4", Record::PTR);
+            $result = yield Dns\query("8.8.4.4", Record::TYPE_PTR);
 
-            list($addr, $type) = $result[0];
-            $this->assertSame("google-public-dns-b.google.com", $addr);
-            $this->assertSame(Record::PTR, $type);
+            /** @var Record $record */
+            $record = $result[0];
+            $this->assertSame("google-public-dns-b.google.com", $record->getValue());
+            $this->assertSame(Record::TYPE_PTR, $record->getType());
         });
     }
 

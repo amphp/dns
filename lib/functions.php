@@ -40,27 +40,11 @@ function driver(): Resolver {
 }
 
 /**
- * Resolve a hostname name to an IP address
- * [hostname as defined by RFC 3986].
+ * Resolve a hostname name to an IP address [hostname as defined by RFC 3986].
  *
- * Upon success the returned promise resolves to an indexed array of the form:
+ * Upon success the returned promise resolves to an array of Record objects.
  *
- *  [string $recordValue, int $type, int $ttl]
- *
- * A null $ttl value indicates the DNS name was resolved from the cache or the
- * local hosts file.
- * $type being one constant from Amp\Dns\Record
- *
- * Options:
- *
- *  - "server"       | string   Custom DNS server address in ip or ip:port format (Default: 8.8.8.8:53)
- *  - "timeout"      | int      DNS server query timeout (Default: 3000ms)
- *  - "hosts"        | bool     Use the hosts file (Default: true)
- *  - "reload_hosts" | bool     Reload the hosts file (Default: false), only active when no_hosts not true
- *  - "cache"        | bool     Use local DNS cache when querying (Default: true)
- *  - "types"        | array    Default: [Record::A, Record::AAAA] (only for resolve())
- *  - "recurse"      | bool     Check for DNAME and CNAME records (always active for resolve(), Default: false for
- * query())
+ * A null $ttl value indicates the DNS name was resolved from the cache or the local hosts file.
  *
  * If the custom per-request "server" option is not present the resolver will
  * use the first nameserver in /etc/resolv.conf or default to Google's public
@@ -99,7 +83,7 @@ function query(string $name, $type, array $options = []): Promise {
  */
 function isValidDnsName(string $name) {
     try {
-        normalizeName($name);
+        normalizeDnsName($name);
         return true;
     } catch (InvalidNameError $e) {
         return false;

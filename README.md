@@ -2,44 +2,39 @@
 
 [![Build Status](https://img.shields.io/travis/amphp/dns/master.svg?style=flat-square)](https://travis-ci.org/amphp/dns)
 [![CoverageStatus](https://img.shields.io/coveralls/amphp/dns/master.svg?style=flat-square)](https://coveralls.io/github/amphp/dns?branch=master)
-![Unstable](https://img.shields.io/badge/api-unstable-orange.svg?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)
 
+`amphp/dns` provides asynchronous DNS name resolution for [Amp](https://github.com/amphp/amp).
 
-`amphp/dns` provides asynchronous DNS name resolution based on the [`amp`](https://github.com/amphp/amp)
-concurrency framework.
-
-**Required PHP Version**
-
-- PHP 5.5+
-
-**Installation**
+## Installation
 
 ```bash
-$ composer require amphp/dns:dev-master
+composer require amphp/dns
 ```
 
-**Example**
+## Example
 
 ```php
 <?php
 
 require __DIR__ . '/vendor/autoload.php';
 
-Amp\run(function () {
-    $githubIpv4 = (yield Amp\Dns\resolve("github.com", $options = ["types" => Amp\Dns\Record::A]));
+use Amp\Loop;
+
+Loop::run(function () {
+    $githubIpv4 = (yield Amp\Dns\resolve("github.com", $options = ["types" => Amp\Dns\Record::TYPE_A]));
     var_dump($githubIpv4);
 
-    $googleIpv4 = Amp\Dns\resolve("google.com", $options = ["types" => Amp\Dns\Record::A]);
-    $googleIpv6 = Amp\Dns\resolve("google.com", $options = ["types" => Amp\Dns\Record::AAAA]);
+    $googleIpv4 = Amp\Dns\resolve("google.com", $options = ["types" => Amp\Dns\Record::TYPE_A]);
+    $googleIpv6 = Amp\Dns\resolve("google.com", $options = ["types" => Amp\Dns\Record::TYPE_AAAA]);
 
-    $firstGoogleResult = (yield Amp\first([$ipv4Result, $ipv6Result]));
+    $firstGoogleResult = (yield Amp\Promise\first([$googleIpv4, $googleIpv6]));
     var_dump($firstGoogleResult);
     
     $combinedGoogleResult = (yield Amp\Dns\resolve("google.com"));
     var_dump($combinedGoogleResult);
     
-    $googleMx = (yield Amp\Dns\query("google.com", Amp\Dns\Record::MX));
+    $googleMx = (yield Amp\Dns\query("google.com", Amp\Dns\Record::TYPE_MX));
     var_dump($googleMx);
 });
 ```
