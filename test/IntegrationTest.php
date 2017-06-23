@@ -9,6 +9,7 @@ use Amp\PHPUnit\TestCase;
 
 class IntegrationTest extends TestCase {
     /**
+     * @param string $hostname
      * @group internet
      * @dataProvider provideHostnames
      */

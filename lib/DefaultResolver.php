@@ -79,7 +79,7 @@ class DefaultResolver implements Resolver {
     }
 
     /** @inheritdoc */
-    public function resolve(string $name): Promise {
+    public function resolve(string $name, int $typeRestriction = null): Promise {
         if (!$inAddr = @\inet_pton($name)) {
             try {
                 $name = normalizeDnsName($name);
@@ -98,7 +98,7 @@ class DefaultResolver implements Resolver {
     }
 
     /** @inheritdoc */
-    public function query(string $name, $type): Promise {
+    public function query(string $name, int $type): Promise {
         $types = (array) $type;
 
         return call(function () use ($name, $types) {

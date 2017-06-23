@@ -5,11 +5,14 @@ namespace Amp\Dns;
 use Amp\Cache\ArrayCache;
 use Amp\Cache\Cache;
 use Amp\Coroutine;
+use Amp\MultiReasonException;
 use Amp\Promise;
+use Amp\Success;
 use LibDNS\Messages\Message;
 use LibDNS\Messages\MessageTypes;
 use LibDNS\Records\Question;
 use LibDNS\Records\QuestionFactory;
+use function Amp\call;
 
 class BasicResolver implements Resolver {
     const CACHE_PREFIX = "amphp.dns.";
@@ -39,8 +42,64 @@ class BasicResolver implements Resolver {
     }
 
     /** @inheritdoc */
-    public function resolve(string $name): Promise {
-        // TODO: Implement resolve() method.
+    public function resolve(string $name, int $typeRestriction = null): Promise {
+        if ($typeRestriction !== null && $typeRestriction !== Record::A && $typeRestriction !== Record::AAAA) {
+            throw new \Error("Invalid value for parameter 2: null|Record::A|Record::AAAA expected");
+        }
+
+        return call(function () use ($name, $typeRestriction) {
+            if (!$this->config) {
+                $this->config = yield $this->configLoader->loadConfig();
+            }
+
+            $inAddr = @\inet_pton($name);
+
+            if ($inAddr !== false) {
+                // It's already a valid IP, don't query, immediately return
+                return [
+                    new Record($name, isset($inAddr[4]) ? Record::AAAA : Record::A, null)
+                ];
+            }
+
+            $name = normalizeDnsName($name);
+
+            if ($records = $this->queryHosts($name, $typeRestriction)) {
+                return $records;
+            }
+
+            if ($typeRestriction) {
+                return $this->query($name, $typeRestriction);
+            }
+
+            try {
+                list(, $records) = yield Promise\some([
+                    $this->query($name, Record::A),
+                    $this->query($name, Record::AAAA),
+                ]);
+            } catch (MultiReasonException $e) {
+                throw new ResolutionException("All query attempts failed", 0, $e);
+            }
+
+            return array_merge(...$records);
+        });
+    }
+
+    private function queryHosts(string $name, int $typeRestriction = null): array {
+        $hosts = $this->config->getKnownHosts();
+        $records = [];
+
+        $returnIPv4 = $typeRestriction === null || $typeRestriction === Record::A;
+        $returnIPv6 = $typeRestriction === null || $typeRestriction === Record::AAAA;
+
+        if ($returnIPv4 && isset($hosts[Record::A][$name])) {
+            $records[] = new Record($hosts[Record::A][$name], Record::A, null);
+        }
+
+        if ($returnIPv6 && isset($hosts[Record::AAAA][$name])) {
+            $records[] = new Record($hosts[Record::AAAA][$name], Record::AAAA, null);
+        }
+
+        return $records;
     }
 
     /** @inheritdoc */

@@ -36,7 +36,7 @@ function resolver(Resolver $resolver = null): Resolver {
  * @return \Amp\Dns\Resolver
  */
 function driver(): Resolver {
-    return new DefaultResolver;
+    return new BasicResolver;
 }
 
 /**
