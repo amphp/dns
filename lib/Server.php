@@ -15,15 +15,16 @@ use LibDNS\Records\Question;
 use function Amp\call;
 
 abstract class Server {
-    /** @var \Amp\ByteStream\ResourceInputStream */
+    /** @var ResourceInputStream */
     private $input;
 
-    /** @var \Amp\ByteStream\ResourceOutputStream */
+    /** @var ResourceOutputStream */
     private $output;
 
-    /** @var \Amp\Deferred[] */
+    /** @var Deferred[] */
     private $questions = [];
 
+    /** @var MessageFactory */
     private $messageFactory;
 
     /** @var int */
@@ -32,22 +33,25 @@ abstract class Server {
     /** @var callable */
     private $onResolve;
 
+    /** @var int */
+    private $lastActivity;
+
     /**
      * @param string $uri
      *
-     * @return \Amp\Promise<\Amp\Dns\Server>
+     * @return Promise<\Amp\Dns\Server>
      */
     abstract public static function connect(string $uri): Promise;
 
     /**
-     * @param \LibDNS\Messages\Message $message
+     * @param Message $message
      *
-     * @return \Amp\Promise<int>
+     * @return Promise<int>
      */
     abstract protected function send(Message $message): Promise;
 
     /**
-     * @return \Amp\Promise<\LibDNS\Messages\Message>
+     * @return Promise<Message>
      */
     abstract protected function receive(): Promise;
 
@@ -56,12 +60,19 @@ abstract class Server {
      */
     abstract public function isAlive(): bool;
 
+    public function getLastActivity(): int {
+        return $this->lastActivity;
+    }
+
     protected function __construct($socket) {
         $this->input = new ResourceInputStream($socket);
         $this->output = new ResourceOutputStream($socket);
         $this->messageFactory = new MessageFactory;
+        $this->lastActivity = \time();
 
         $this->onResolve = function (\Throwable $exception = null, Message $message = null) {
+            $this->lastActivity = \time();
+
             if ($exception) {
                 $questions = $this->questions;
                 $this->questions = [];
@@ -98,6 +109,8 @@ abstract class Server {
      */
     public function ask(Question $question, int $timeout): Promise {
         return call(function () use ($question, $timeout) {
+            $this->lastActivity = \time();
+
             $id = $this->nextId++;
             if ($this->nextId > 0xffff) {
                 $this->nextId %= 0xffff;

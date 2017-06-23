@@ -4,8 +4,10 @@ namespace Amp\Dns;
 
 use Amp\Cache\ArrayCache;
 use Amp\Cache\Cache;
+use Amp\Loop;
 use Amp\MultiReasonException;
 use Amp\Promise;
+use Amp\Success;
 use LibDNS\Messages\Message;
 use LibDNS\Messages\MessageTypes;
 use LibDNS\Records\Question;
@@ -27,11 +29,17 @@ class BasicResolver implements Resolver {
     /** @var Cache */
     private $cache;
 
-    /** @var array */
+    /** @var Server[] */
     private $servers = [];
 
-    /** @var array */
+    /** @var Promise[] */
+    private $pendingServers = [];
+
+    /** @var Promise[] */
     private $pendingQueries = [];
+
+    /** @var string */
+    private $gcWatcher;
 
     public function __construct(Cache $cache = null, ConfigLoader $configLoader = null) {
         $this->cache = $cache ?? new ArrayCache;
@@ -40,6 +48,22 @@ class BasicResolver implements Resolver {
                 : new UnixConfigLoader;
 
         $this->questionFactory = new QuestionFactory;
+
+        $this->gcWatcher = Loop::repeat(5000, function () {
+            $now = \time();
+
+            foreach ($this->servers as $server) {
+                if ($server->getLastActivity() < $now - 60) {
+                    unset($this->servers);
+                }
+            }
+        });
+
+        Loop::unreference($this->gcWatcher);
+    }
+
+    public function __destruct() {
+        Loop::cancel($this->gcWatcher);
     }
 
     /** @inheritdoc */
@@ -296,7 +320,11 @@ class BasicResolver implements Resolver {
 
     private function getServer($uri): Promise {
         if (isset($this->servers[$uri])) {
-            return $this->servers[$uri];
+            return new Success($this->servers[$uri]);
+        }
+
+        if (isset($this->pendingServers[$uri])) {
+            return $this->pendingServers[$uri];
         }
 
         if (\substr($uri, 0, 3) === "udp") {
@@ -305,9 +333,11 @@ class BasicResolver implements Resolver {
             $server = TcpServer::connect($uri);
         }
 
-        $server->onResolve(function ($error) use ($uri) {
+        $server->onResolve(function ($error, $server) use ($uri) {
             if ($error) {
-                unset($this->servers[$uri]);
+                unset($this->pendingServers[$uri]);
+            } else {
+                $this->servers[$uri] = $server;
             }
         });
 
