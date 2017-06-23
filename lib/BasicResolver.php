@@ -76,17 +76,39 @@ class BasicResolver implements Resolver {
                 return $records;
             }
 
-            if ($typeRestriction) {
-                return $this->query($name, $typeRestriction);
-            }
+            for ($cnames = 0; $cnames < 5; $cnames++) {
+                try {
+                    if ($typeRestriction) {
+                        $records = yield $this->query($name, $typeRestriction);
+                    } else {
+                        try {
+                            list(, $records) = yield Promise\some([
+                                $this->query($name, Record::A),
+                                $this->query($name, Record::AAAA),
+                            ]);
+                        } catch (MultiReasonException $e) {
+                            foreach ($e->getReasons() as $reason) {
+                                if ($reason instanceof NoRecordException) {
+                                    throw $reason;
+                                }
+                            }
 
-            try {
-                list(, $records) = yield Promise\some([
-                    $this->query($name, Record::A),
-                    $this->query($name, Record::AAAA),
-                ]);
-            } catch (MultiReasonException $e) {
-                throw new ResolutionException("All query attempts failed", 0, $e);
+                            throw new ResolutionException("All query attempts failed", 0, $e);
+                        }
+                    }
+                } catch (NoRecordException $e) {
+                    try {
+                        /** @var Record[] $cnameRecords */
+                        $cnameRecords = yield $this->query($name, Record::CNAME);
+                        $name = $cnameRecords[0]->getValue();
+                        continue;
+                    } catch (NoRecordException $e) {
+                        /** @var Record[] $dnameRecords */
+                        $dnameRecords = yield $this->query($name, Record::DNAME);
+                        $name = $dnameRecords[0]->getValue();
+                        continue;
+                    }
+                }
             }
 
             return array_merge(...$records);
@@ -169,7 +191,7 @@ class BasicResolver implements Resolver {
             foreach ($answers as $record) {
                 $recordType = $record->getType();
 
-                $result[$recordType][] = $record->getData();
+                $result[$recordType][] = (string) $record->getData();
                 $ttls[$recordType] = \min($ttls[$recordType] ?? \PHP_INT_MAX, $record->getTTL());
             }
 
