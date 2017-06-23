@@ -2,6 +2,7 @@
 
 namespace Amp\Dns;
 
+use Amp;
 use Amp\ByteStream\ResourceInputStream;
 use Amp\ByteStream\ResourceOutputStream;
 use Amp\ByteStream\StreamException;
@@ -91,11 +92,12 @@ abstract class Server {
 
     /**
      * @param \LibDNS\Records\Question $question
+     * @param int $timeout
      *
      * @return \Amp\Promise<\LibDNS\Messages\Message>
      */
-    public function ask(Question $question): Promise {
-        return call(function () use ($question) {
+    public function ask(Question $question, int $timeout): Promise {
+        return call(function () use ($question, $timeout) {
             $id = $this->nextId++;
             if ($this->nextId > 0xffff) {
                 $this->nextId %= 0xffff;
@@ -123,7 +125,12 @@ abstract class Server {
 
             $this->questions[$id] = $deferred = new Deferred;
 
-            return yield $deferred->promise();
+            try {
+                return yield Promise\timeout($deferred->promise(), $timeout);
+            } catch (Amp\TimeoutException $e) {
+                unset($this->questions[$id]);
+                throw new TimeoutException("Didn't receive a response within {$timeout} milliseconds.");
+            }
         });
     }
 

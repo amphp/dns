@@ -174,7 +174,7 @@ class BasicResolver implements Resolver {
                 }
 
                 /** @var Message $response */
-                $response = yield $server->ask($question);
+                $response = yield $server->ask($question, $this->config->getTimeout());
                 $this->assertAcceptableResponse($response);
 
                 if ($response->isTruncated()) {
