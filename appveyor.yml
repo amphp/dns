@@ -18,6 +18,8 @@ init:
 
 install:
   - IF EXIST c:\tools\php (SET PHP=0)
+  - IF %PHP%==1 sc config wuauserv start= auto
+  - IF %PHP%==1 net start wuauserv
   - IF %PHP%==1 cinst -y OpenSSL.Light
   - IF %PHP%==1 cinst -y php
   - cd c:\tools\php
