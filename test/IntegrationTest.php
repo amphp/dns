@@ -43,6 +43,7 @@ class IntegrationTest extends TestCase {
             ["google.com"],
             ["github.com"],
             ["stackoverflow.com"],
+            ["blog.kelunik.com"], /* that's a CNAME to GH pages */
             ["localhost"],
             ["192.168.0.1"],
             ["::1"],
