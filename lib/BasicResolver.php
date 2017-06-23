@@ -76,7 +76,7 @@ class BasicResolver implements Resolver {
                 return $records;
             }
 
-            for ($cnames = 0; $cnames < 5; $cnames++) {
+            for ($redirects = 0; $redirects < 5; $redirects++) {
                 try {
                     if ($typeRestriction) {
                         $records = yield $this->query($name, $typeRestriction);
