@@ -74,11 +74,18 @@ abstract class Server {
             $this->lastActivity = \time();
 
             if ($exception) {
+                if (!$exception instanceof ResolutionException) {
+                    $message = "Unexpected error during resolution: " . $exception->getMessage();
+                    $exception = new ResolutionException($message, 0, $exception);
+                }
+
                 $questions = $this->questions;
                 $this->questions = [];
+
                 foreach ($questions as $deferred) {
                     $deferred->fail($exception);
                 }
+
                 return;
             }
 

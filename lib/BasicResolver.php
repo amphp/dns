@@ -187,60 +187,64 @@ class BasicResolver implements Resolver {
                 $i = $attempt % \count($nameservers);
                 $protocol = $receivedTruncatedResponse ? "tcp" : "udp";
 
-                /** @var \Amp\Dns\Server $server */
-                $server = yield $this->getServer($protocol . "://" . $nameservers[$i]);
-
-                if (!$server->isAlive()) {
-                    unset($this->servers[$protocol . "://" . $nameservers[$i]]);
-
+                try {
                     /** @var \Amp\Dns\Server $server */
                     $server = yield $this->getServer($protocol . "://" . $nameservers[$i]);
-                }
 
-                /** @var Message $response */
-                $response = yield $server->ask($question, $this->config->getTimeout());
-                $this->assertAcceptableResponse($response);
+                    if (!$server->isAlive()) {
+                        unset($this->servers[$protocol . "://" . $nameservers[$i]]);
 
-                if ($response->isTruncated()) {
-                    if (!$receivedTruncatedResponse) {
-                        // Retry with TCP, don't count attempt
-                        $receivedTruncatedResponse = true;
-                        $attempt--;
-                        continue;
+                        /** @var \Amp\Dns\Server $server */
+                        $server = yield $this->getServer($protocol . "://" . $nameservers[$i]);
                     }
 
-                    throw new ResolutionException("Server returned truncated response");
+                    /** @var Message $response */
+                    $response = yield $server->ask($question, $this->config->getTimeout());
+                    $this->assertAcceptableResponse($response);
+
+                    if ($response->isTruncated()) {
+                        if (!$receivedTruncatedResponse) {
+                            // Retry with TCP, don't count attempt
+                            $receivedTruncatedResponse = true;
+                            $attempt--;
+                            continue;
+                        }
+
+                        throw new ResolutionException("Server returned truncated response");
+                    }
+
+                    $answers = $response->getAnswerRecords();
+                    $result = [];
+                    $ttls = [];
+
+                    /** @var \LibDNS\Records\Resource $record */
+                    foreach ($answers as $record) {
+                        $recordType = $record->getType();
+
+                        $result[$recordType][] = (string) $record->getData();
+                        $ttls[$recordType] = \min($ttls[$recordType] ?? \PHP_INT_MAX, $record->getTTL());
+                    }
+
+                    foreach ($result as $recordType => $records) {
+                        // We don't care here whether storing in the cache fails
+                        $this->cache->set($this->getCacheKey($name, $recordType), \json_encode($records), $ttls[$recordType]);
+                    }
+
+                    if (!isset($result[$type])) {
+                        // "it MUST NOT cache it for longer than five (5) minutes" per RFC 2308 section 7.1
+                        $this->cache->set($this->getCacheKey($name, $type), \json_encode([]), 300);
+                        throw new NoRecordException("No records returned for {$name}");
+                    }
+
+                    return \array_map(function ($data) use ($type, $ttls) {
+                        return new Record($data, $type, $ttls[$type]);
+                    }, $result[$type]);
+                } catch (TimeoutException $e) {
+                    continue;
                 }
-
-                $answers = $response->getAnswerRecords();
-                $result = [];
-                $ttls = [];
-
-                /** @var \LibDNS\Records\Resource $record */
-                foreach ($answers as $record) {
-                    $recordType = $record->getType();
-
-                    $result[$recordType][] = (string) $record->getData();
-                    $ttls[$recordType] = \min($ttls[$recordType] ?? \PHP_INT_MAX, $record->getTTL());
-                }
-
-                foreach ($result as $recordType => $records) {
-                    // We don't care here whether storing in the cache fails
-                    $this->cache->set($this->getCacheKey($name, $recordType), \json_encode($records), $ttls[$recordType]);
-                }
-
-                if (!isset($result[$type])) {
-                    // "it MUST NOT cache it for longer than five (5) minutes" per RFC 2308 section 7.1
-                    $this->cache->set($this->getCacheKey($name, $type), \json_encode([]), 300);
-                    throw new NoRecordException("No records returned for {$name}");
-                }
-
-                return \array_map(function ($data) use ($type, $ttls) {
-                    return new Record($data, $type, $ttls[$type]);
-                }, $result[$type]);
             }
 
-            throw new ResolutionException("No response from any nameserver after {$attempts} attempts");
+            throw new TimeoutException("No response from any nameserver after {$attempts} attempts");
         });
 
         $this->pendingQueries[$type . " " . $name] = $promise;
