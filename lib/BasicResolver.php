@@ -88,6 +88,8 @@ class BasicResolver implements Resolver {
                                 $this->query($name, Record::A),
                                 $this->query($name, Record::AAAA),
                             ]);
+
+                            $records = \array_merge(...$records);
                         } catch (MultiReasonException $e) {
                             foreach ($e->getReasons() as $reason) {
                                 if ($reason instanceof NoRecordException) {
@@ -113,7 +115,7 @@ class BasicResolver implements Resolver {
                 }
             }
 
-            return \array_merge(...$records);
+            return $records;
         });
     }
 

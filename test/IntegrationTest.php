@@ -27,6 +27,38 @@ class IntegrationTest extends TestCase {
         });
     }
 
+    public function testResolveIPv4only() {
+        Loop::run(function () {
+            $records = yield Dns\resolve("google.com", Record::A);
+
+            /** @var Record $record */
+            foreach ($records as $record) {
+                $this->assertSame(Record::A, $record->getType());
+                $inAddr = @\inet_pton($record->getValue());
+                $this->assertNotFalse(
+                    $inAddr,
+                    "Server name google.com did not resolve to a valid IP address"
+                );
+            }
+        });
+    }
+
+    public function testResolveIPv6only() {
+        Loop::run(function () {
+            $records = yield Dns\resolve("google.com", Record::AAAA);
+
+            /** @var Record $record */
+            foreach ($records as $record) {
+                $this->assertSame(Record::AAAA, $record->getType());
+                $inAddr = @\inet_pton($record->getValue());
+                $this->assertNotFalse(
+                    $inAddr,
+                    "Server name google.com did not resolve to a valid IP address"
+                );
+            }
+        });
+    }
+
     public function testPtrLookup() {
         Loop::run(function () {
             $result = yield Dns\query("8.8.4.4", Record::PTR);
