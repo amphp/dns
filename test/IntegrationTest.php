@@ -20,6 +20,7 @@ class IntegrationTest extends TestCase {
             /** @var Record $record */
             $record = $result[0];
             $inAddr = @\inet_pton($record->getValue());
+            $this->assertNotNull($record->getTtl());
             $this->assertNotFalse(
                 $inAddr,
                 "Server name $hostname did not resolve to a valid IP address"
