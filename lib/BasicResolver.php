@@ -7,7 +7,6 @@ use Amp\Cache\Cache;
 use Amp\Coroutine;
 use Amp\MultiReasonException;
 use Amp\Promise;
-use Amp\Success;
 use LibDNS\Messages\Message;
 use LibDNS\Messages\MessageTypes;
 use LibDNS\Records\Question;
@@ -57,7 +56,7 @@ class BasicResolver implements Resolver {
             if ($inAddr !== false) {
                 // It's already a valid IP, don't query, immediately return
                 return [
-                    new Record($name, isset($inAddr[4]) ? Record::AAAA : Record::A, null)
+                    new Record($name, isset($inAddr[4]) ? Record::AAAA : Record::A, null),
                 ];
             }
 
@@ -181,6 +180,19 @@ class BasicResolver implements Resolver {
         }
 
         throw new ResolutionException("No response from any nameserver after {$attempts} attempts");
+    }
+
+    /**
+     * Reloads the configuration in the background.
+     *
+     * Once it's finished, the configuration will be used for new requests.
+     *
+     * @return Promise
+     */
+    public function reloadConfig(): Promise {
+        return call(function () {
+            $this->config = $this->configLoader->loadConfig();
+        });
     }
 
     /**

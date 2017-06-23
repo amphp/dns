@@ -40,30 +40,16 @@ function driver(): Resolver {
 }
 
 /**
- * Resolve a hostname name to an IP address [hostname as defined by RFC 3986].
- *
- * Upon success the returned promise resolves to an array of Record objects.
- *
- * A null $ttl value indicates the DNS name was resolved from the cache or the local hosts file.
- *
- * @param string $name The hostname to resolve
- *
- * @return Promise
+ * @see Resolver::resolve()
  */
-function resolve(string $name): Promise {
-    return resolver()->resolve($name);
+function resolve(string $name, int $typeRestriction = null): Promise {
+    return resolver()->resolve($name, $typeRestriction);
 }
 
 /**
- * Query specific DNS records.
- *
- * @param string    $name Unlike resolve(), query() allows for requesting _any_ name (as DNS RFC allows for arbitrary
- *     strings)
- * @param int|int[] $type Use constants of Amp\Dns\Record
- *
- * @return Promise
+ * @see Resolver::query()
  */
-function query(string $name, $type): Promise {
+function query(string $name, int $type): Promise {
     return resolver()->query($name, $type);
 }
 
