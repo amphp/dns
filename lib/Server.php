@@ -126,22 +126,24 @@ abstract class Server {
             try {
                 yield $this->send($message);
             } catch (StreamException $exception) {
+                $exception = new ResolutionException("Sending the request failed", 0, $exception);
                 $this->error($exception);
-                throw new ResolutionException("Sending the request failed", 0, $exception);
+                throw $exception;
             }
+
+            $this->questions[$id] = $deferred = new Deferred;
 
             if ($empty) {
                 $this->receive()->onResolve($this->onResolve);
             }
 
-            $this->questions[$id] = $deferred = new Deferred;
-
             try {
                 return yield Promise\timeout($deferred->promise(), $timeout);
             } catch (Amp\TimeoutException $exception) {
                 unset($this->questions[$id]);
+                $exception = new TimeoutException("Didn't receive a response within {$timeout} milliseconds.");
                 $this->error($exception);
-                throw new TimeoutException("Didn't receive a response within {$timeout} milliseconds.");
+                throw $exception;
             }
         });
     }
