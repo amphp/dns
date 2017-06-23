@@ -36,6 +36,7 @@
         "amphp/cache": "^1",
         "amphp/file": "^0.2",
         "amphp/parser": "^1",
+        "amphp/uri": "^0.1",
         "amphp/windows-registry": "^0.3",
         "daverandom/libdns": "^1"
     },

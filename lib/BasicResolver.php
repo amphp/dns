@@ -13,6 +13,7 @@ use LibDNS\Messages\MessageTypes;
 use LibDNS\Records\Question;
 use LibDNS\Records\QuestionFactory;
 use function Amp\call;
+use function Amp\Uri\normalizeDnsName;
 
 final class BasicResolver implements Resolver {
     const CACHE_PREFIX = "amphp.dns.";

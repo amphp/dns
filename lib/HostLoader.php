@@ -4,7 +4,9 @@ namespace Amp\Dns;
 
 use Amp\File;
 use Amp\Promise;
+use Amp\Uri\InvalidDnsNameException;
 use function Amp\call;
+use function Amp\Uri\normalizeDnsName;
 
 class HostLoader {
     private $path;
@@ -50,7 +52,7 @@ class HostLoader {
                     try {
                         $normalizedName = normalizeDnsName($parts[$i]);
                         $data[$key][$normalizedName] = $parts[0];
-                    } catch (InvalidNameError $e) {
+                    } catch (InvalidDnsNameException $e) {
                         // ignore invalid entries
                     }
                 }
