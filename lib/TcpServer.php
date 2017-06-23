@@ -23,6 +23,9 @@ class TcpServer extends Server {
     /** @var Parser */
     private $parser;
 
+    /** @var bool */
+    private $isAlive = true;
+
     public static function connect(string $uri, int $timeout = 5000): Promise {
         if (!$socket = @\stream_socket_client($uri, $errno, $errstr, 0, STREAM_CLIENT_ASYNC_CONNECT)) {
             throw new ResolutionException(\sprintf(
@@ -72,18 +75,26 @@ class TcpServer extends Server {
         $this->parser = new Parser(self::parser([$this->queue, 'push']));
     }
 
-    public function send(Message $message): Promise {
+    protected function send(Message $message): Promise {
         $data = $this->encoder->encode($message);
-        return $this->write(\pack("n", \strlen($data)) . $data);
+        $promise = $this->write(\pack("n", \strlen($data)) . $data);
+        $promise->onResolve(function ($error) {
+            if ($error) {
+                $this->isAlive = false;
+            }
+        });
+
+        return $promise;
     }
 
-    public function receive(): Promise {
+    protected function receive(): Promise {
         if ($this->queue->isEmpty()) {
             return call(function () {
                 do {
                     $chunk = $this->read();
 
                     if ($chunk === null) {
+                        $this->isAlive = false;
                         throw new ResolutionException("Reading from the server failed");
                     }
 
@@ -95,5 +106,9 @@ class TcpServer extends Server {
         }
 
         return new Success($this->queue->shift());
+    }
+
+    public function isAlive(): bool {
+        return $this->isAlive;
     }
 }

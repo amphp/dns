@@ -49,6 +49,11 @@ abstract class Server {
      */
     abstract protected function receive(): Promise;
 
+    /**
+     * @return bool
+     */
+    abstract public function isAlive(): bool;
+
     protected function __construct($socket) {
         $this->input = new ResourceInputStream($socket);
         $this->output = new ResourceOutputStream($socket);

@@ -52,4 +52,8 @@ class UdpServer extends Server {
             return $this->decoder->decode($data);
         });
     }
+
+    public function isAlive(): bool {
+        return true;
+    }
 }

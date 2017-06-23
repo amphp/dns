@@ -6,6 +6,7 @@ use Amp\Cache\ArrayCache;
 use Amp\Cache\Cache;
 use Amp\Coroutine;
 use Amp\Promise;
+use LibDNS\Messages\Message;
 use LibDNS\Messages\MessageTypes;
 use LibDNS\Records\Question;
 use LibDNS\Records\QuestionFactory;
@@ -24,6 +25,9 @@ class BasicResolver implements Resolver {
 
     /** @var Cache */
     private $cache;
+
+    /** @var array */
+    private $servers = [];
 
     public function __construct(Cache $cache = null, ConfigLoader $configLoader = null) {
         $this->cache = $cache ?? new ArrayCache;
@@ -58,27 +62,35 @@ class BasicResolver implements Resolver {
 
         $nameservers = $this->config->getNameservers();
         $attempts = $this->config->getAttempts();
+        $receivedTruncatedResponse = false;
 
         for ($attempt = 0; $attempt < $attempts; ++$attempt) {
             $i = $attempt % \count($nameservers);
-            $uri = "udp://" . $nameservers[$i];
+            $protocol = $receivedTruncatedResponse ? "tcp" : "udp";
 
             /** @var \Amp\Dns\Server $server */
-            $server = yield UdpServer::connect($uri);
+            $server = yield $this->getServer($protocol . "://" . $nameservers[$i]);
 
-            /** @var \LibDNS\Messages\Message $response */
+            if (!$server->isAlive()) {
+                unset($this->servers[$protocol . "://" . $nameservers[$i]]);
+
+                /** @var \Amp\Dns\Server $server */
+                $server = yield $this->getServer($protocol . "://" . $nameservers[$i]);
+            }
+
+            /** @var Message $response */
             $response = yield $server->ask($question);
-
-            if ($response->getResponseCode() !== 0) {
-                throw new ResolutionException(\sprintf("Server returned error code: %d", $response->getResponseCode()));
-            }
-
-            if ($response->getType() !== MessageTypes::RESPONSE) {
-                throw new ResolutionException("Invalid server reply; expected RESPONSE but received QUERY");
-            }
+            $this->assertAcceptableResponse($response);
 
             if ($response->isTruncated()) {
-                // TODO: Retry via TCP
+                if (!$receivedTruncatedResponse) {
+                    // Retry with TCP, don't count attempt
+                    $receivedTruncatedResponse = true;
+                    $attempt--;
+                    continue;
+                }
+
+                throw new ResolutionException("Server returned truncated response");
             }
 
             $answers = $response->getAnswerRecords();
@@ -164,5 +176,35 @@ class BasicResolver implements Resolver {
         }
 
         return $name;
+    }
+
+    private function getServer($uri): Promise {
+        if (isset($this->servers[$uri])) {
+            return $this->servers[$uri];
+        }
+
+        if (substr($uri, 0, 3) === "udp") {
+            $server = UdpServer::connect($uri);
+        } else {
+            $server = TcpServer::connect($uri);
+        }
+
+        $server->onResolve(function ($error) use ($uri) {
+            if ($error) {
+                unset($this->servers[$uri]);
+            }
+        });
+
+        return $server;
+    }
+
+    private function assertAcceptableResponse(Message $response) {
+        if ($response->getResponseCode() !== 0) {
+            throw new ResolutionException(\sprintf("Server returned error code: %d", $response->getResponseCode()));
+        }
+
+        if ($response->getType() !== MessageTypes::RESPONSE) {
+            throw new ResolutionException("Invalid server reply; expected RESPONSE but received QUERY");
+        }
     }
 }
