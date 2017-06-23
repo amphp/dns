@@ -20,7 +20,6 @@ class IntegrationTest extends TestCase {
             /** @var Record $record */
             $record = $result[0];
             $inAddr = @\inet_pton($record->getValue());
-            $this->assertNotNull($record->getTtl());
             $this->assertNotFalse(
                 $inAddr,
                 "Server name $hostname did not resolve to a valid IP address"
@@ -35,6 +34,7 @@ class IntegrationTest extends TestCase {
             /** @var Record $record */
             $record = $result[0];
             $this->assertSame("google-public-dns-b.google.com", $record->getValue());
+            $this->assertNotNull($record->getTtl());
             $this->assertSame(Record::PTR, $record->getType());
         });
     }
