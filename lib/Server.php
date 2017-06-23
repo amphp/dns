@@ -75,18 +75,7 @@ abstract class Server {
             $this->lastActivity = \time();
 
             if ($exception) {
-                if (!$exception instanceof ResolutionException) {
-                    $message = "Unexpected error during resolution: " . $exception->getMessage();
-                    $exception = new ResolutionException($message, 0, $exception);
-                }
-
-                $questions = $this->questions;
-                $this->questions = [];
-
-                foreach ($questions as $deferred) {
-                    $deferred->fail($exception);
-                }
-
+                $this->error($exception);
                 return;
             }
 
@@ -137,6 +126,7 @@ abstract class Server {
             try {
                 yield $this->send($message);
             } catch (StreamException $exception) {
+                $this->error($exception);
                 throw new ResolutionException("Sending the request failed", 0, $exception);
             }
 
@@ -148,8 +138,9 @@ abstract class Server {
 
             try {
                 return yield Promise\timeout($deferred->promise(), $timeout);
-            } catch (Amp\TimeoutException $e) {
+            } catch (Amp\TimeoutException $exception) {
                 unset($this->questions[$id]);
+                $this->error($exception);
                 throw new TimeoutException("Didn't receive a response within {$timeout} milliseconds.");
             }
         });
@@ -165,6 +156,26 @@ abstract class Server {
 
         $this->input = null;
         $this->output = null;
+    }
+
+    private function error(\Throwable $exception) {
+        $this->close();
+
+        if (empty($this->questions)) {
+            return;
+        }
+
+        if (!$exception instanceof ResolutionException) {
+            $message = "Unexpected error during resolution: " . $exception->getMessage();
+            $exception = new ResolutionException($message, 0, $exception);
+        }
+
+        $questions = $this->questions;
+        $this->questions = [];
+
+        foreach ($questions as $deferred) {
+            $deferred->fail($exception);
+        }
     }
 
     protected function read(): Promise {
