@@ -27,6 +27,18 @@ class IntegrationTest extends TestCase {
         });
     }
 
+    /**
+     * @param string $hostname
+     * @group internet
+     */
+    public function testWorksAfterConfigReload() {
+        Loop::run(function () {
+            yield Dns\query("google.com", Record::A);
+            $this->assertNull(yield Dns\resolver()->reloadConfig());
+            $this->assertInternalType("array", yield Dns\query("example.com", Record::A));
+        });
+    }
+
     public function testResolveIPv4only() {
         Loop::run(function () {
             $records = yield Dns\resolve("google.com", Record::A);

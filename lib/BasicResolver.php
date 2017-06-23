@@ -236,7 +236,7 @@ class BasicResolver implements Resolver {
      */
     public function reloadConfig(): Promise {
         return call(function () {
-            $this->config = $this->configLoader->loadConfig();
+            $this->config = yield $this->configLoader->loadConfig();
         });
     }
 
