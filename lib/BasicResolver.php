@@ -30,6 +30,9 @@ class BasicResolver implements Resolver {
     /** @var array */
     private $servers = [];
 
+    /** @var array */
+    private $pendingQueries = [];
+
     public function __construct(Cache $cache = null, ConfigLoader $configLoader = null) {
         $this->cache = $cache ?? new ArrayCache;
         $this->configLoader = $configLoader ?? \stripos(PHP_OS, "win") === 0
@@ -134,7 +137,11 @@ class BasicResolver implements Resolver {
 
     /** @inheritdoc */
     public function query(string $name, int $type): Promise {
-        return call(function () use ($name, $type) {
+        if (isset($this->pendingQueries[$type . " " . $name])) {
+            return $this->pendingQueries[$type . " " . $name];
+        }
+
+        $promise = call(function () use ($name, $type) {
             if (!$this->config) {
                 $this->config = yield $this->configLoader->loadConfig();
             }
@@ -209,6 +216,13 @@ class BasicResolver implements Resolver {
 
             throw new ResolutionException("No response from any nameserver after {$attempts} attempts");
         });
+
+        $this->pendingQueries[$type . " " . $name] = $promise;
+        $promise->onResolve(function () use ($name, $type) {
+            unset($this->pendingQueries[$type . " " . $name]);
+        });
+
+        return $promise;
     }
 
     /**

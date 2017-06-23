@@ -38,6 +38,20 @@ class IntegrationTest extends TestCase {
         });
     }
 
+    /**
+     * Test that two concurrent requests to the same resource share the same request and do not result in two requests
+     * being sent.
+     */
+    public function testRequestSharing() {
+        Loop::run(function () {
+            $promise1 = Dns\query("example.com", Record::A);
+            $promise2 = Dns\query("example.com", Record::A);
+
+            $this->assertSame($promise1, $promise2);
+            $this->assertSame(yield $promise1, yield $promise2);
+        });
+    }
+
     public function provideHostnames() {
         return [
             ["google.com"],
