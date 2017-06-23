@@ -28,7 +28,6 @@ class IntegrationTest extends TestCase {
     }
 
     /**
-     * @param string $hostname
      * @group internet
      */
     public function testWorksAfterConfigReload() {

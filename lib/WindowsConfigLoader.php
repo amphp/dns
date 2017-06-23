@@ -8,6 +8,12 @@ use Amp\WindowsRegistry\WindowsRegistry;
 use function Amp\call;
 
 final class WindowsConfigLoader implements ConfigLoader {
+    private $hostLoader;
+
+    public function __construct(HostLoader $hostLoader = null) {
+        $this->hostLoader = $hostLoader ?? new HostLoader;
+    }
+
     public function loadConfig(): Promise {
         return call(function () {
             $keys = [
@@ -67,7 +73,9 @@ final class WindowsConfigLoader implements ConfigLoader {
                 }
             }
 
-            return new Config($nameservers);
+            $hosts = yield $this->hostLoader->loadHosts();
+
+            return new Config($nameservers, $hosts);
         });
     }
 }
