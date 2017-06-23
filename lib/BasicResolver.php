@@ -4,7 +4,6 @@ namespace Amp\Dns;
 
 use Amp\Cache\ArrayCache;
 use Amp\Cache\Cache;
-use Amp\Coroutine;
 use Amp\MultiReasonException;
 use Amp\Promise;
 use LibDNS\Messages\Message;
@@ -111,7 +110,7 @@ class BasicResolver implements Resolver {
                 }
             }
 
-            return array_merge(...$records);
+            return \array_merge(...$records);
         });
     }
 
@@ -135,83 +134,81 @@ class BasicResolver implements Resolver {
 
     /** @inheritdoc */
     public function query(string $name, int $type): Promise {
-        return new Coroutine($this->doQuery($name, $type));
-    }
+        return call(function () use ($name, $type) {
+            if (!$this->config) {
+                $this->config = yield $this->configLoader->loadConfig();
+            }
 
-    public function doQuery(string $name, int $type): \Generator {
-        if (!$this->config) {
-            $this->config = yield $this->configLoader->loadConfig();
-        }
+            $name = $this->normalizeName($name, $type);
+            $question = $this->createQuestion($name, $type);
 
-        $name = $this->normalizeName($name, $type);
-        $question = $this->createQuestion($name, $type);
+            if (null !== $cachedValue = yield $this->cache->get($this->getCacheKey($name, $type))) {
+                return $this->decodeCachedResult($name, $type, $cachedValue);
+            }
 
-        if (null !== $cachedValue = yield $this->cache->get($this->getCacheKey($name, $type))) {
-            return $this->decodeCachedResult($name, $type, $cachedValue);
-        }
+            $nameservers = $this->config->getNameservers();
+            $attempts = $this->config->getAttempts();
+            $receivedTruncatedResponse = false;
 
-        $nameservers = $this->config->getNameservers();
-        $attempts = $this->config->getAttempts();
-        $receivedTruncatedResponse = false;
-
-        for ($attempt = 0; $attempt < $attempts; ++$attempt) {
-            $i = $attempt % \count($nameservers);
-            $protocol = $receivedTruncatedResponse ? "tcp" : "udp";
-
-            /** @var \Amp\Dns\Server $server */
-            $server = yield $this->getServer($protocol . "://" . $nameservers[$i]);
-
-            if (!$server->isAlive()) {
-                unset($this->servers[$protocol . "://" . $nameservers[$i]]);
+            for ($attempt = 0; $attempt < $attempts; ++$attempt) {
+                $i = $attempt % \count($nameservers);
+                $protocol = $receivedTruncatedResponse ? "tcp" : "udp";
 
                 /** @var \Amp\Dns\Server $server */
                 $server = yield $this->getServer($protocol . "://" . $nameservers[$i]);
-            }
 
-            /** @var Message $response */
-            $response = yield $server->ask($question);
-            $this->assertAcceptableResponse($response);
+                if (!$server->isAlive()) {
+                    unset($this->servers[$protocol . "://" . $nameservers[$i]]);
 
-            if ($response->isTruncated()) {
-                if (!$receivedTruncatedResponse) {
-                    // Retry with TCP, don't count attempt
-                    $receivedTruncatedResponse = true;
-                    $attempt--;
-                    continue;
+                    /** @var \Amp\Dns\Server $server */
+                    $server = yield $this->getServer($protocol . "://" . $nameservers[$i]);
                 }
 
-                throw new ResolutionException("Server returned truncated response");
+                /** @var Message $response */
+                $response = yield $server->ask($question);
+                $this->assertAcceptableResponse($response);
+
+                if ($response->isTruncated()) {
+                    if (!$receivedTruncatedResponse) {
+                        // Retry with TCP, don't count attempt
+                        $receivedTruncatedResponse = true;
+                        $attempt--;
+                        continue;
+                    }
+
+                    throw new ResolutionException("Server returned truncated response");
+                }
+
+                $answers = $response->getAnswerRecords();
+                $result = [];
+                $ttls = [];
+
+                /** @var \LibDNS\Records\Resource $record */
+                foreach ($answers as $record) {
+                    $recordType = $record->getType();
+
+                    $result[$recordType][] = (string) $record->getData();
+                    $ttls[$recordType] = \min($ttls[$recordType] ?? \PHP_INT_MAX, $record->getTTL());
+                }
+
+                foreach ($result as $recordType => $records) {
+                    // We don't care here whether storing in the cache fails
+                    $this->cache->set($this->getCacheKey($name, $recordType), \json_encode($records), $ttls[$recordType]);
+                }
+
+                if (!isset($result[$type])) {
+                    // "it MUST NOT cache it for longer than five (5) minutes" per RFC 2308 section 7.1
+                    $this->cache->set($this->getCacheKey($name, $type), \json_encode([]), 300);
+                    throw new NoRecordException("No records returned for {$name}");
+                }
+
+                return \array_map(function ($data) use ($type, $ttls) {
+                    return new Record($data, $type, $ttls[$type]);
+                }, $result[$type]);
             }
 
-            $answers = $response->getAnswerRecords();
-            $result = [];
-            $ttls = [];
-
-            /** @var \LibDNS\Records\Resource $record */
-            foreach ($answers as $record) {
-                $recordType = $record->getType();
-
-                $result[$recordType][] = (string) $record->getData();
-                $ttls[$recordType] = \min($ttls[$recordType] ?? \PHP_INT_MAX, $record->getTTL());
-            }
-
-            foreach ($result as $recordType => $records) {
-                // We don't care here whether storing in the cache fails
-                $this->cache->set($this->getCacheKey($name, $recordType), \json_encode($records), $ttls[$recordType]);
-            }
-
-            if (!isset($result[$type])) {
-                // "it MUST NOT cache it for longer than five (5) minutes" per RFC 2308 section 7.1
-                $this->cache->set($this->getCacheKey($name, $type), \json_encode([]), 300);
-                throw new NoRecordException("No records returned for {$name}");
-            }
-
-            return array_map(function ($data) use ($type, $ttls) {
-                return new Record($data, $type, $ttls[$type]);
-            }, $result[$type]);
-        }
-
-        throw new ResolutionException("No response from any nameserver after {$attempts} attempts");
+            throw new ResolutionException("No response from any nameserver after {$attempts} attempts");
+        });
     }
 
     /**
@@ -269,9 +266,9 @@ class BasicResolver implements Resolver {
         if ($type === Record::PTR) {
             if (($packedIp = @inet_pton($name)) !== false) {
                 if (isset($packedIp[4])) { // IPv6
-                    $name = wordwrap(strrev(bin2hex($packedIp)), 1, ".", true) . ".ip6.arpa";
+                    $name = \wordwrap(\strrev(\bin2hex($packedIp)), 1, ".", true) . ".ip6.arpa";
                 } else { // IPv4
-                    $name = inet_ntop(strrev($packedIp)) . ".in-addr.arpa";
+                    $name = \inet_ntop(\strrev($packedIp)) . ".in-addr.arpa";
                 }
             }
         } else if (\in_array($type, [Record::A, Record::AAAA])) {
@@ -286,7 +283,7 @@ class BasicResolver implements Resolver {
             return $this->servers[$uri];
         }
 
-        if (substr($uri, 0, 3) === "udp") {
+        if (\substr($uri, 0, 3) === "udp") {
             $server = UdpServer::connect($uri);
         } else {
             $server = TcpServer::connect($uri);

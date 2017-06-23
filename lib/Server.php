@@ -4,13 +4,14 @@ namespace Amp\Dns;
 
 use Amp\ByteStream\ResourceInputStream;
 use Amp\ByteStream\ResourceOutputStream;
-use Amp\Coroutine;
+use Amp\ByteStream\StreamException;
 use Amp\Deferred;
 use Amp\Promise;
 use LibDNS\Messages\Message;
 use LibDNS\Messages\MessageFactory;
 use LibDNS\Messages\MessageTypes;
 use LibDNS\Records\Question;
+use function Amp\call;
 
 abstract class Server {
     /** @var \Amp\ByteStream\ResourceInputStream */
@@ -61,44 +62,69 @@ abstract class Server {
 
         $this->onResolve = function (\Throwable $exception = null, Message $message = null) {
             if ($exception) {
+                $questions = $this->questions;
+                $this->questions = [];
+                foreach ($questions as $deferred) {
+                    $deferred->fail($exception);
+                }
                 return;
             }
 
             $id = $message->getId();
 
             if (!isset($this->questions[$id])) {
-                return;
+                return; // Ignore duplicate response.
             }
 
             $deferred = $this->questions[$id];
             unset($this->questions[$id]);
+
+            $empty = empty($this->questions);
+
             $deferred->resolve($message);
+
+            if (!$empty) {
+                $this->receive()->onResolve($this->onResolve);
+            }
         };
     }
 
+    /**
+     * @param \LibDNS\Records\Question $question
+     *
+     * @return \Amp\Promise<\LibDNS\Messages\Message>
+     */
     public function ask(Question $question): Promise {
-        return new Coroutine($this->doAsk($question));
-    }
+        return call(function () use ($question) {
+            $id = $this->nextId++;
+            if ($this->nextId > 0xffff) {
+                $this->nextId %= 0xffff;
+            }
 
-    private function doAsk(Question $question): \Generator {
-        $id = $this->nextId++;
-        if ($this->nextId > 0xffff) {
-            $this->nextId %= 0xffff;
-        }
+            $empty = empty($this->questions);
 
-        if (isset($this->questions[$id])) {
-            $deferred = $this->questions[$id];
-            unset($this->questions[$id]);
-            $deferred->fail(new ResolutionException("Request hasn't been answered with 65k requests in between"));
-        }
+            if (isset($this->questions[$id])) {
+                $deferred = $this->questions[$id];
+                unset($this->questions[$id]);
+                $deferred->fail(new ResolutionException("Request hasn't been answered with 65k requests in between"));
+            }
 
-        $message = $this->createMessage($question, $id);
-        $this->questions[$id] = $deferred = new Deferred;
+            $message = $this->createMessage($question, $id);
 
-        yield $this->send($message);
-        $this->receive()->onResolve($this->onResolve);
+            try {
+                yield $this->send($message);
+            } catch (StreamException $exception) {
+                throw new ResolutionException("Sending the request failed", 0, $exception);
+            }
 
-        return yield $deferred->promise();
+            if ($empty) {
+                $this->receive()->onResolve($this->onResolve);
+            }
+
+            $this->questions[$id] = $deferred = new Deferred;
+
+            return yield $deferred->promise();
+        });
     }
 
     protected function read(): Promise {
