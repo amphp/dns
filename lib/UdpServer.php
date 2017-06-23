@@ -10,8 +10,10 @@ use LibDNS\Messages\Message;
 use function Amp\call;
 
 class UdpServer extends Server {
+    /** @var \LibDNS\Encoder\Encoder */
     private $encoder;
 
+    /** @var \LibDNS\Decoder\Decoder */
     private $decoder;
 
     public static function connect(string $uri): Promise {
@@ -26,7 +28,6 @@ class UdpServer extends Server {
 
         return new Success(new self($socket));
     }
-
 
     protected function __construct($socket) {
         parent::__construct($socket);

@@ -13,5 +13,5 @@ interface Resolver {
     /**
      * @see \Amp\Dns\query
      */
-    public function query(string $name, $type): Promise;
+    public function query(string $name, int $type): Promise;
 }
