@@ -271,7 +271,7 @@ class BasicResolver implements Resolver {
                     $name = \inet_ntop(\strrev($packedIp)) . ".in-addr.arpa";
                 }
             }
-        } else if (\in_array($type, [Record::A, Record::AAAA])) {
+        } elseif (\in_array($type, [Record::A, Record::AAAA])) {
             $name = normalizeDnsName($name);
         }
 
