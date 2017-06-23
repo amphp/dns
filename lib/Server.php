@@ -71,7 +71,7 @@ abstract class Server {
             }
 
             $deferred = $this->questions[$id];
-
+            unset($this->questions[$id]);
             $deferred->resolve($message);
         };
     }
@@ -86,12 +86,16 @@ abstract class Server {
             $this->nextId %= 0xffff;
         }
 
-        $message = $this->createMessage($question, $id);
+        if (isset($this->questions[$id])) {
+            $deferred = $this->questions[$id];
+            unset($this->questions[$id]);
+            $deferred->fail(new ResolutionException("Request hasn't been answered with 65k requests in between"));
+        }
 
+        $message = $this->createMessage($question, $id);
         $this->questions[$id] = $deferred = new Deferred;
 
         yield $this->send($message);
-
         $this->receive()->onResolve($this->onResolve);
 
         return yield $deferred->promise();
