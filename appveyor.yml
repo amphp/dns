@@ -29,10 +29,9 @@ install:
   - IF %PHP%==1 echo extension=php_openssl.dll >> php.ini
   - IF %PHP%==1 echo extension=php_mbstring.dll >> php.ini
   - IF %PHP%==1 echo extension=php_fileinfo.dll >> php.ini
-  - IF %PHP%==1 echo @php %%~dp0composer.phar %%* > composer.bat
   - appveyor DownloadFile https://getcomposer.org/composer.phar
   - cd c:\projects\amphp
-  - composer install --prefer-dist --no-progress
+  - php composer.phar install --prefer-dist --no-progress
 
 test_script:
   - cd c:\projects\amphp
