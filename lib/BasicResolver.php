@@ -55,6 +55,16 @@ class BasicResolver implements Resolver {
 
             if ($inAddr !== false) {
                 // It's already a valid IP, don't query, immediately return
+                if ($typeRestriction) {
+                    if ($typeRestriction === Record::A && isset($inAddr[4])) {
+                        throw new ResolutionException("Got an IPv6 address, but type is restricted to IPv4");
+                    }
+
+                    if ($typeRestriction === Record::AAAA && !isset($inAddr[4])) {
+                        throw new ResolutionException("Got an IPv4 address, but type is restricted to IPv6");
+                    }
+                }
+
                 return [
                     new Record($name, isset($inAddr[4]) ? Record::AAAA : Record::A, null),
                 ];
