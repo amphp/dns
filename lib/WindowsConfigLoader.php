@@ -7,7 +7,7 @@ use Amp\WindowsRegistry\KeyNotFoundException;
 use Amp\WindowsRegistry\WindowsRegistry;
 use function Amp\call;
 
-class WindowsConfigLoader implements ConfigLoader {
+final class WindowsConfigLoader implements ConfigLoader {
     public function loadConfig(): Promise {
         return call(function () {
             $keys = [

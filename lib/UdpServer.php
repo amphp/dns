@@ -9,6 +9,7 @@ use LibDNS\Encoder\EncoderFactory;
 use LibDNS\Messages\Message;
 use function Amp\call;
 
+/** @internal */
 class UdpServer extends Server {
     /** @var \LibDNS\Encoder\Encoder */
     private $encoder;

@@ -7,7 +7,7 @@ use Amp\File\FilesystemException;
 use Amp\Promise;
 use function Amp\call;
 
-class UnixConfigLoader implements ConfigLoader {
+final class UnixConfigLoader implements ConfigLoader {
     private $path;
     private $hostLoader;
 

@@ -2,7 +2,7 @@
 
 namespace Amp\Dns;
 
-class Config {
+final class Config {
     private $nameservers;
     private $knownHosts;
     private $timeout;

@@ -14,6 +14,7 @@ use LibDNS\Messages\MessageTypes;
 use LibDNS\Records\Question;
 use function Amp\call;
 
+/** @internal */
 abstract class Server {
     /** @var ResourceInputStream */
     private $input;
@@ -152,6 +153,18 @@ abstract class Server {
                 throw new TimeoutException("Didn't receive a response within {$timeout} milliseconds.");
             }
         });
+    }
+
+    public function close() {
+        if ($this->input === null) {
+            return;
+        }
+
+        $this->input->close();
+        $this->output->close();
+
+        $this->input = null;
+        $this->output = null;
     }
 
     protected function read(): Promise {

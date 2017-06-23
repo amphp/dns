@@ -14,7 +14,7 @@ use LibDNS\Records\Question;
 use LibDNS\Records\QuestionFactory;
 use function Amp\call;
 
-class BasicResolver implements Resolver {
+final class BasicResolver implements Resolver {
     const CACHE_PREFIX = "amphp.dns.";
 
     /** @var \Amp\Dns\ConfigLoader */
@@ -52,9 +52,10 @@ class BasicResolver implements Resolver {
         $this->gcWatcher = Loop::repeat(5000, function () {
             $now = \time();
 
-            foreach ($this->servers as $server) {
+            foreach ($this->servers as $key => $server) {
                 if ($server->getLastActivity() < $now - 60) {
-                    unset($this->servers);
+                    $server->close();
+                    unset($this->servers[$key]);
                 }
             }
         });
@@ -192,6 +193,7 @@ class BasicResolver implements Resolver {
                     $server = yield $this->getServer($protocol . "://" . $nameservers[$i]);
 
                     if (!$server->isAlive()) {
+                        $this->servers[$protocol . "://" . $nameservers[$i]]->close();
                         unset($this->servers[$protocol . "://" . $nameservers[$i]]);
 
                         /** @var \Amp\Dns\Server $server */
