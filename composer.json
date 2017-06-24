@@ -27,12 +27,16 @@
         {
             "name": "Niklas Keller",
             "email": "me@kelunik.com"
+        },
+        {
+            "name": "Aaron Piotrowski",
+            "email": "aaron@trowski.com"
         }
     ],
     "require": {
         "php": ">=7.0",
         "amphp/amp": "^2",
-        "amphp/byte-stream": "^1",
+        "amphp/byte-stream": "^1.1",
         "amphp/cache": "^1",
         "amphp/file": "^0.2",
         "amphp/parser": "^1",
