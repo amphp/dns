@@ -223,9 +223,10 @@ final class BasicResolver implements Resolver {
                     /** @var \LibDNS\Records\Resource $record */
                     foreach ($answers as $record) {
                         $recordType = $record->getType();
-
                         $result[$recordType][] = (string) $record->getData();
-                        $ttls[$recordType] = \min($ttls[$recordType] ?? \PHP_INT_MAX, $record->getTTL());
+
+                        // Cache for max one day
+                        $ttls[$recordType] = \min($ttls[$recordType] ?? 86400, $record->getTTL());
                     }
 
                     foreach ($result as $recordType => $records) {
