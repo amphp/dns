@@ -26,7 +26,7 @@ abstract class Socket {
     /** @var ResourceOutputStream */
     private $output;
 
-    /** @var array */
+    /** @var array Contains already sent queries with no response yet. For UDP this is exactly zero or one item. */
     private $pending = [];
 
     /** @var MessageFactory */
@@ -35,13 +35,13 @@ abstract class Socket {
     /** @var callable */
     private $onResolve;
 
-    /** @var int */
+    /** @var int Used for determining whether the socket can be garbage collected, because it's inactive. */
     private $lastActivity;
 
     /** @var bool */
     private $receiving = false;
 
-    /** @var array */
+    /** @var array Queued requests if the number of concurrent requests is too large. */
     private $queue = [];
 
     /**

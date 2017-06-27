@@ -337,10 +337,13 @@ final class BasicResolver implements Resolver {
     }
 
     private function getSocket($uri): Promise {
+        // We use a new socket for each UDP request, as that increases the entropy and mitigates response forgery.
         if (\substr($uri, 0, 3) === "udp") {
             return UdpSocket::connect($uri);
         }
 
+        // Over TCP we might reuse sockets if the server allows to keep them open. Sequence IDs in TCP are already
+        // better than a random port. Additionally, a TCP connection is more expensive.
         if (isset($this->sockets[$uri])) {
             return new Success($this->sockets[$uri]);
         }
