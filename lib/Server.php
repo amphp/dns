@@ -22,8 +22,8 @@ abstract class Server {
     /** @var ResourceOutputStream */
     private $output;
 
-    /** @var Deferred[] */
-    private $questions = [];
+    /** @var array */
+    private $pending = [];
 
     /** @var MessageFactory */
     private $messageFactory;
@@ -85,13 +85,15 @@ abstract class Server {
 
             $id = $message->getId();
 
-            if (isset($this->questions[$id])) { // Ignore duplicate response.
-                $deferred = $this->questions[$id];
-                unset($this->questions[$id]);
+            // Ignore duplicate and invalid responses.
+            if (isset($this->pending[$id]) && $this->matchesQuestion($message, $this->pending[$id]->question)) {
+                /** @var Deferred $deferred */
+                $deferred = $this->pending[$id]->deferred;
+                unset($this->pending[$id]);
                 $deferred->resolve($message);
             }
 
-            if (empty($this->questions)) {
+            if (empty($this->pending)) {
                 $this->input->unreference();
             } elseif (!$this->receiving) {
                 $this->input->reference();
@@ -116,9 +118,10 @@ abstract class Server {
                 $this->nextId %= 0xffff;
             }
 
-            if (isset($this->questions[$id])) {
-                $deferred = $this->questions[$id];
-                unset($this->questions[$id]);
+            if (isset($this->pending[$id])) {
+                /** @var Deferred $deferred */
+                $deferred = $this->pending[$id]->deferred;
+                unset($this->pending[$id]);
                 $deferred->fail(new ResolutionException("Request hasn't been answered with 65k requests in between"));
             }
 
@@ -132,7 +135,17 @@ abstract class Server {
                 throw $exception;
             }
 
-            $this->questions[$id] = $deferred = new Deferred;
+            $deferred = new Deferred;
+            $pending = new class {
+                use Amp\Struct;
+
+                public $deferred;
+                public $question;
+            };
+
+            $pending->deferred = $deferred;
+            $pending->question = $question;
+            $this->pending[$id] = $pending;
 
             $this->input->reference();
 
@@ -144,8 +157,8 @@ abstract class Server {
             try {
                 return yield Promise\timeout($deferred->promise(), $timeout);
             } catch (Amp\TimeoutException $exception) {
-                unset($this->questions[$id]);
-                if (empty($this->questions)) {
+                unset($this->pending[$id]);
+                if (empty($this->pending)) {
                     $this->input->unreference();
                 }
                 throw new TimeoutException("Didn't receive a response within {$timeout} milliseconds.");
@@ -161,7 +174,7 @@ abstract class Server {
     private function error(\Throwable $exception) {
         $this->close();
 
-        if (empty($this->questions)) {
+        if (empty($this->pending)) {
             return;
         }
 
@@ -170,10 +183,12 @@ abstract class Server {
             $exception = new ResolutionException($message, 0, $exception);
         }
 
-        $questions = $this->questions;
-        $this->questions = [];
+        $pending = $this->pending;
+        $this->pending = [];
 
-        foreach ($questions as $deferred) {
+        foreach ($pending as $pendingQuestion) {
+            /** @var Deferred $deferred */
+            $deferred = $pendingQuestion->deferred;
             $deferred->fail($exception);
         }
     }
@@ -192,5 +207,34 @@ abstract class Server {
         $request->isRecursionDesired(true);
         $request->setID($id);
         return $request;
+    }
+
+    private function matchesQuestion(Message $message, Question $question): bool {
+        if ($message->getType() !== MessageTypes::RESPONSE) {
+            return false;
+        }
+
+        $questionRecords = $message->getQuestionRecords();
+
+        // We only ever ask one question at a time
+        if (\count($questionRecords) !== 1) {
+            return false;
+        }
+
+        $questionRecord = $questionRecords->current();
+
+        if ($questionRecord->getClass() !== $question->getClass()) {
+            return false;
+        }
+
+        if ($questionRecord->getType() !== $question->getType()) {
+            return false;
+        }
+
+        if ($questionRecord->getName()->getValue() !== $question->getName()->getValue()) {
+            return false;
+        }
+
+        return true;
     }
 }

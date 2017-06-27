@@ -356,9 +356,5 @@ final class BasicResolver implements Resolver {
         if ($response->getResponseCode() !== 0) {
             throw new ResolutionException(\sprintf("Server returned error code: %d", $response->getResponseCode()));
         }
-
-        if ($response->getType() !== MessageTypes::RESPONSE) {
-            throw new ResolutionException("Invalid server reply; expected RESPONSE but received QUERY");
-        }
     }
 }
