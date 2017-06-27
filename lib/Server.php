@@ -16,6 +16,8 @@ use function Amp\call;
 
 /** @internal */
 abstract class Server {
+    const MAX_CONCURRENT_REQUESTS = 500;
+
     /** @var ResourceInputStream */
     private $input;
 
@@ -28,9 +30,6 @@ abstract class Server {
     /** @var MessageFactory */
     private $messageFactory;
 
-    /** @var int */
-    private $nextId = 0;
-
     /** @var callable */
     private $onResolve;
 
@@ -39,6 +38,9 @@ abstract class Server {
 
     /** @var bool */
     private $receiving = false;
+
+    /** @var array */
+    private $queue = [];
 
     /**
      * @param string $uri
@@ -113,17 +115,15 @@ abstract class Server {
         return call(function () use ($question, $timeout) {
             $this->lastActivity = \time();
 
-            $id = $this->nextId++;
-            if ($this->nextId > 0xffff) {
-                $this->nextId %= 0xffff;
+            if (\count($this->pending) > self::MAX_CONCURRENT_REQUESTS) {
+                $deferred = new Deferred;
+                $this->queue[] = $deferred;
+                yield $deferred->promise();
             }
 
-            if (isset($this->pending[$id])) {
-                /** @var Deferred $deferred */
-                $deferred = $this->pending[$id]->deferred;
-                unset($this->pending[$id]);
-                $deferred->fail(new ResolutionException("Request hasn't been answered with 65k requests in between"));
-            }
+            do {
+                $id = \random_int(0, 0xffff);
+            } while (isset($this->pending[$id]));
 
             $message = $this->createMessage($question, $id);
 
@@ -158,10 +158,17 @@ abstract class Server {
                 return yield Promise\timeout($deferred->promise(), $timeout);
             } catch (Amp\TimeoutException $exception) {
                 unset($this->pending[$id]);
+
                 if (empty($this->pending)) {
                     $this->input->unreference();
                 }
+
                 throw new TimeoutException("Didn't receive a response within {$timeout} milliseconds.");
+            } finally {
+                if ($this->queue) {
+                    $deferred = array_shift($this->queue);
+                    $deferred->resolve();
+                }
             }
         });
     }

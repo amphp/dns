@@ -9,7 +9,6 @@ use Amp\MultiReasonException;
 use Amp\Promise;
 use Amp\Success;
 use LibDNS\Messages\Message;
-use LibDNS\Messages\MessageTypes;
 use LibDNS\Records\Question;
 use LibDNS\Records\QuestionFactory;
 use function Amp\call;
@@ -51,6 +50,10 @@ final class BasicResolver implements Resolver {
         $this->questionFactory = new QuestionFactory;
 
         $this->gcWatcher = Loop::repeat(5000, function () {
+            if (empty($this->servers)) {
+                return;
+            }
+
             $now = \time();
 
             foreach ($this->servers as $key => $server) {
@@ -183,21 +186,21 @@ final class BasicResolver implements Resolver {
 
             $nameservers = $this->config->getNameservers();
             $attempts = $this->config->getAttempts();
-            $receivedTruncatedResponse = false;
+            $protocol = "udp";
+            $attempt = 0;
 
-            for ($attempt = 0; $attempt < $attempts; ++$attempt) {
-                $i = $attempt % \count($nameservers);
-                $protocol = $receivedTruncatedResponse ? "tcp" : "udp";
+            /** @var Server $server */
+            $uri = $protocol . "://" . $nameservers[0];
+            $server = yield $this->getServer($uri);
 
+            while ($attempt < $attempts) {
                 try {
-                    /** @var \Amp\Dns\Server $server */
-                    $server = yield $this->getServer($protocol . "://" . $nameservers[$i]);
-
                     if (!$server->isAlive()) {
-                        $this->servers[$protocol . "://" . $nameservers[$i]]->close();
-                        unset($this->servers[$protocol . "://" . $nameservers[$i]]);
+                        unset($this->servers[$uri]);
+                        $server->close();
 
                         /** @var \Amp\Dns\Server $server */
+                        $i = $attempt % \count($nameservers);
                         $server = yield $this->getServer($protocol . "://" . $nameservers[$i]);
                     }
 
@@ -206,10 +209,11 @@ final class BasicResolver implements Resolver {
                     $this->assertAcceptableResponse($response);
 
                     if ($response->isTruncated()) {
-                        if (!$receivedTruncatedResponse) {
+                        if ($protocol !== "tcp") {
                             // Retry with TCP, don't count attempt
-                            $receivedTruncatedResponse = true;
-                            $attempt--;
+                            $protocol = "tcp";
+                            $i = $attempt % \count($nameservers);
+                            $server = yield $this->getServer($protocol . "://" . $nameservers[$i]);
                             continue;
                         }
 
@@ -244,6 +248,9 @@ final class BasicResolver implements Resolver {
                         return new Record($data, $type, $ttls[$type]);
                     }, $result[$type]);
                 } catch (TimeoutException $e) {
+                    $i = ++$attempt % \count($nameservers);
+                    $server = yield $this->getServer($protocol . "://" . $nameservers[$i]);
+
                     continue;
                 }
             }
@@ -327,6 +334,10 @@ final class BasicResolver implements Resolver {
     }
 
     private function getServer($uri): Promise {
+        if (\substr($uri, 0, 3) === "udp") {
+            return UdpServer::connect($uri);
+        }
+
         if (isset($this->servers[$uri])) {
             return new Success($this->servers[$uri]);
         }
@@ -335,16 +346,12 @@ final class BasicResolver implements Resolver {
             return $this->pendingServers[$uri];
         }
 
-        if (\substr($uri, 0, 3) === "udp") {
-            $server = UdpServer::connect($uri);
-        } else {
-            $server = TcpServer::connect($uri);
-        }
+        $server = TcpServer::connect($uri);
 
         $server->onResolve(function ($error, $server) use ($uri) {
-            if ($error) {
-                unset($this->pendingServers[$uri]);
-            } else {
+            unset($this->pendingServers[$uri]);
+
+            if (!$error) {
                 $this->servers[$uri] = $server;
             }
         });
