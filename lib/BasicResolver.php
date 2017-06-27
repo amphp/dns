@@ -29,11 +29,11 @@ final class BasicResolver implements Resolver {
     /** @var Cache */
     private $cache;
 
-    /** @var Server[] */
-    private $servers = [];
+    /** @var Socket[] */
+    private $sockets = [];
 
     /** @var Promise[] */
-    private $pendingServers = [];
+    private $pendingSockets = [];
 
     /** @var Promise[] */
     private $pendingQueries = [];
@@ -50,16 +50,16 @@ final class BasicResolver implements Resolver {
         $this->questionFactory = new QuestionFactory;
 
         $this->gcWatcher = Loop::repeat(5000, function () {
-            if (empty($this->servers)) {
+            if (empty($this->sockets)) {
                 return;
             }
 
             $now = \time();
 
-            foreach ($this->servers as $key => $server) {
+            foreach ($this->sockets as $key => $server) {
                 if ($server->getLastActivity() < $now - 60) {
                     $server->close();
-                    unset($this->servers[$key]);
+                    unset($this->sockets[$key]);
                 }
             }
         });
@@ -189,23 +189,23 @@ final class BasicResolver implements Resolver {
             $protocol = "udp";
             $attempt = 0;
 
-            /** @var Server $server */
+            /** @var Socket $socket */
             $uri = $protocol . "://" . $nameservers[0];
-            $server = yield $this->getServer($uri);
+            $socket = yield $this->getSocket($uri);
 
             while ($attempt < $attempts) {
                 try {
-                    if (!$server->isAlive()) {
-                        unset($this->servers[$uri]);
-                        $server->close();
+                    if (!$socket->isAlive()) {
+                        unset($this->sockets[$uri]);
+                        $socket->close();
 
-                        /** @var \Amp\Dns\Server $server */
+                        /** @var \Amp\Dns\Socket $server */
                         $i = $attempt % \count($nameservers);
-                        $server = yield $this->getServer($protocol . "://" . $nameservers[$i]);
+                        $socket = yield $this->getSocket($protocol . "://" . $nameservers[$i]);
                     }
 
                     /** @var Message $response */
-                    $response = yield $server->ask($question, $this->config->getTimeout());
+                    $response = yield $socket->ask($question, $this->config->getTimeout());
                     $this->assertAcceptableResponse($response);
 
                     if ($response->isTruncated()) {
@@ -213,7 +213,7 @@ final class BasicResolver implements Resolver {
                             // Retry with TCP, don't count attempt
                             $protocol = "tcp";
                             $i = $attempt % \count($nameservers);
-                            $server = yield $this->getServer($protocol . "://" . $nameservers[$i]);
+                            $socket = yield $this->getSocket($protocol . "://" . $nameservers[$i]);
                             continue;
                         }
 
@@ -249,7 +249,7 @@ final class BasicResolver implements Resolver {
                     }, $result[$type]);
                 } catch (TimeoutException $e) {
                     $i = ++$attempt % \count($nameservers);
-                    $server = yield $this->getServer($protocol . "://" . $nameservers[$i]);
+                    $socket = yield $this->getSocket($protocol . "://" . $nameservers[$i]);
 
                     continue;
                 }
@@ -333,26 +333,26 @@ final class BasicResolver implements Resolver {
         return $name;
     }
 
-    private function getServer($uri): Promise {
+    private function getSocket($uri): Promise {
         if (\substr($uri, 0, 3) === "udp") {
-            return UdpServer::connect($uri);
+            return UdpSocket::connect($uri);
         }
 
-        if (isset($this->servers[$uri])) {
-            return new Success($this->servers[$uri]);
+        if (isset($this->sockets[$uri])) {
+            return new Success($this->sockets[$uri]);
         }
 
-        if (isset($this->pendingServers[$uri])) {
-            return $this->pendingServers[$uri];
+        if (isset($this->pendingSockets[$uri])) {
+            return $this->pendingSockets[$uri];
         }
 
-        $server = TcpServer::connect($uri);
+        $server = TcpSocket::connect($uri);
 
         $server->onResolve(function ($error, $server) use ($uri) {
-            unset($this->pendingServers[$uri]);
+            unset($this->pendingSockets[$uri]);
 
             if (!$error) {
-                $this->servers[$uri] = $server;
+                $this->sockets[$uri] = $server;
             }
         });
 

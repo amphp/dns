@@ -10,7 +10,7 @@ use LibDNS\Messages\Message;
 use function Amp\call;
 
 /** @internal */
-class UdpServer extends Server {
+class UdpSocket extends Socket {
     /** @var \LibDNS\Encoder\Encoder */
     private $encoder;
 

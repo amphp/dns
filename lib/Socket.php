@@ -15,7 +15,7 @@ use LibDNS\Records\Question;
 use function Amp\call;
 
 /** @internal */
-abstract class Server {
+abstract class Socket {
     const MAX_CONCURRENT_REQUESTS = 500;
 
     /** @var ResourceInputStream */
