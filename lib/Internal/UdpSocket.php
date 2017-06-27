@@ -1,7 +1,8 @@
 <?php
 
-namespace Amp\Dns;
+namespace Amp\Dns\Internal;
 
+use Amp\Dns\ResolutionException;
 use Amp\Promise;
 use Amp\Success;
 use LibDNS\Decoder\DecoderFactory;

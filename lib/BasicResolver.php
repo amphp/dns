@@ -4,6 +4,9 @@ namespace Amp\Dns;
 
 use Amp\Cache\ArrayCache;
 use Amp\Cache\Cache;
+use Amp\Dns\Internal\Socket;
+use Amp\Dns\Internal\TcpSocket;
+use Amp\Dns\Internal\UdpSocket;
 use Amp\Loop;
 use Amp\MultiReasonException;
 use Amp\Promise;
@@ -199,7 +202,7 @@ final class BasicResolver implements Resolver {
                         unset($this->sockets[$uri]);
                         $socket->close();
 
-                        /** @var \Amp\Dns\Socket $server */
+                        /** @var Socket $server */
                         $i = $attempt % \count($nameservers);
                         $socket = yield $this->getSocket($protocol . "://" . $nameservers[$i]);
                     }

@@ -1,12 +1,14 @@
 <?php
 
-namespace Amp\Dns;
+namespace Amp\Dns\Internal;
 
 use Amp;
 use Amp\ByteStream\ResourceInputStream;
 use Amp\ByteStream\ResourceOutputStream;
 use Amp\ByteStream\StreamException;
 use Amp\Deferred;
+use Amp\Dns\ResolutionException;
+use Amp\Dns\TimeoutException;
 use Amp\Promise;
 use LibDNS\Messages\Message;
 use LibDNS\Messages\MessageFactory;

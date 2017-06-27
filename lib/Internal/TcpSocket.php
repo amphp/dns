@@ -1,9 +1,11 @@
 <?php
 
-namespace Amp\Dns;
+namespace Amp\Dns\Internal;
 
 use Amp;
 use Amp\Deferred;
+use Amp\Dns\ResolutionException;
+use Amp\Dns\TimeoutException;
 use Amp\Loop;
 use Amp\Parser\Parser;
 use Amp\Promise;
