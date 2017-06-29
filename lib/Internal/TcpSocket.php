@@ -94,7 +94,7 @@ class TcpSocket extends Socket {
         if ($this->queue->isEmpty()) {
             return call(function () {
                 do {
-                    $chunk = $this->read();
+                    $chunk = yield $this->read();
 
                     if ($chunk === null) {
                         $this->isAlive = false;

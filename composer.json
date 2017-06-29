@@ -56,5 +56,10 @@
         "files": [
             "lib/functions.php"
         ]
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Amp\\Dns\\Test\\": "test"
+        }
     }
 }
