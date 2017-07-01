@@ -158,12 +158,11 @@ abstract class Socket {
 
             try {
                 // Work around an OPCache issue that returns an empty array with "return yield ...",
-                // so assign to a variable first.
+                // so assign to a variable first and return after the try block.
                 //
                 // See https://github.com/amphp/dns/issues/58.
                 // See https://bugs.php.net/bug.php?id=74840.
                 $result = yield Promise\timeout($deferred->promise(), $timeout);
-                return $result;
             } catch (Amp\TimeoutException $exception) {
                 unset($this->pending[$id]);
 
@@ -178,6 +177,8 @@ abstract class Socket {
                     $deferred->resolve();
                 }
             }
+
+            return $result;
         });
     }
 
