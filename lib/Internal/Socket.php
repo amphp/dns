@@ -157,7 +157,10 @@ abstract class Socket {
             }
 
             try {
-                return yield Promise\timeout($deferred->promise(), $timeout);
+                // Work around an OPCache issue that returns an empty array with "return yield ...", so assign to a variable first.
+                // See https://github.com/amphp/dns/issues/58.
+                $result = yield Promise\timeout($deferred->promise(), $timeout);
+                return $result;
             } catch (Amp\TimeoutException $exception) {
                 unset($this->pending[$id]);
 
