@@ -24,7 +24,7 @@ Usually you don't have to change the resolver. If you want to use a custom confi
 
 ### Address Resolution
 
-`Amp\Dns\resolve` provides hostname to IP address resolution. It returns an array of IPv4 and IPv6 addresses by default. The type of IP addresses returned can be restricted by passing a second argument with the respective time.
+`Amp\Dns\resolve` provides hostname to IP address resolution. It returns an array of IPv4 and IPv6 addresses by default. The type of IP addresses returned can be restricted by passing a second argument with the respective type.
 
 ```php
 // Example without type restriction. Will return IPv4 and / or IPv6 addresses.
