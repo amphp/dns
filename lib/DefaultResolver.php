@@ -673,7 +673,7 @@ REGEX;
                         $minttl = $ttl;
                     }
                 }
-                $this->arrayCache->set("$name#$type", $records, $minttl);
+                $this->arrayCache->set("$name#$type", $records, \min($minttl, 86400));
             }
             $promisor->succeed($result);
         }
