@@ -159,13 +159,13 @@ REGEX;
         throw new ResolutionException("CNAME or DNAME chain too long (possible recursion?)");
     }
 
-    private function doRequest($uri, $name, $type) {
+    private function doRequest($uri, $name, $type, $timeout) {
         $server = $this->loadExistingServer($uri) ?: $this->loadNewServer($uri);
 
         $useTCP = substr($uri, 0, 6) == "tcp://";
         if ($useTCP && isset($server->connect)) {
-            return \Amp\pipe($server->connect, function() use ($uri, $name, $type) {
-                return $this->doRequest($uri, $name, $type);
+            return \Amp\pipe($server->connect, function() use ($uri, $name, $type, $timeout) {
+                return $this->doRequest($uri, $name, $type, $timeout);
             });
         }
 
@@ -204,7 +204,18 @@ REGEX;
 
         $promisor = new Deferred;
         $server->pendingRequests[$requestId] = true;
-        $this->pendingRequests[$requestId] = [$promisor, $name, $type, $uri];
+        $this->pendingRequests[$requestId] = [$promisor, $name, $type, $uri, $timeout];
+
+        $timeoutWatcher = \Amp\once(function () use ($server, $requestId, $name, $timeout) {
+            /** @var Deferred $deferred */
+            $deferred = $this->pendingRequests[$requestId][0];
+            unset($this->pendingRequests[$requestId], $server->pendingRequests[$requestId]);
+            $deferred->fail(new TimeoutException("No response from the server for {$name} within {$timeout} milliseconds"));
+        }, $timeout);
+
+        $promisor->promise()->when(function () use ($timeoutWatcher) {
+            \Amp\cancel($timeoutWatcher);
+        });
 
         return $promisor->promise();
     }
@@ -267,7 +278,7 @@ REGEX;
 
         $promises = [];
         foreach ($types as $type) {
-            $promises[] = $this->doRequest($uri, $name, $type);
+            $promises[] = $this->doRequest($uri, $name, $type, $timeout);
         }
 
         try {
@@ -618,13 +629,13 @@ REGEX;
     }
 
     private function processDecodedResponse($serverId, $requestId, $response) {
-        list($promisor, $name, $type, $uri) = $this->pendingRequests[$requestId];
+        list($promisor, $name, $type, $uri, $timeout) = $this->pendingRequests[$requestId];
 
         // Retry via tcp if message has been truncated
         if ($response->isTruncated()) {
             if (\substr($uri, 0, 6) != "tcp://") {
                 $uri = \preg_replace("#[a-z.]+://#", "tcp://", $uri);
-                $promisor->succeed($this->doRequest($uri, $name, $type));
+                $promisor->succeed($this->doRequest($uri, $name, $type, $timeout));
             } else {
                 $this->finalizeResult($serverId, $requestId, new ResolutionException(
                     "Server returned truncated response"
