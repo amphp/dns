@@ -288,6 +288,8 @@ final class BasicResolver implements Resolver {
             $this->config = yield $this->configLoader->loadConfig();
         });
 
+        $this->pendingConfig = $promise;
+
         $promise->onResolve(function () {
             $this->pendingConfig = null;
         });
