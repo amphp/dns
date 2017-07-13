@@ -29,6 +29,9 @@ final class BasicResolver implements Resolver {
     /** @var \Amp\Dns\Config|null */
     private $config;
 
+    /** @var Promise|null */
+    private $pendingConfig;
+
     /** @var Cache */
     private $cache;
 
@@ -82,7 +85,7 @@ final class BasicResolver implements Resolver {
 
         return call(function () use ($name, $typeRestriction) {
             if (!$this->config) {
-                $this->config = yield $this->configLoader->loadConfig();
+                yield $this->reloadConfig();
             }
 
             $inAddr = @\inet_pton($name);
@@ -177,7 +180,7 @@ final class BasicResolver implements Resolver {
 
         $promise = call(function () use ($name, $type) {
             if (!$this->config) {
-                $this->config = yield $this->configLoader->loadConfig();
+                yield $this->reloadConfig();
             }
 
             $name = $this->normalizeName($name, $type);
@@ -277,9 +280,19 @@ final class BasicResolver implements Resolver {
      * @return Promise
      */
     public function reloadConfig(): Promise {
-        return call(function () {
+        if ($this->pendingConfig) {
+            return $this->pendingConfig;
+        }
+
+        $promise = call(function () {
             $this->config = yield $this->configLoader->loadConfig();
         });
+
+        $promise->onResolve(function () {
+            $this->pendingConfig = null;
+        });
+
+        return $promise;
     }
 
     /**
