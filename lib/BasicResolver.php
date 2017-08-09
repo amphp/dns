@@ -49,9 +49,9 @@ final class BasicResolver implements Resolver {
 
     public function __construct(Cache $cache = null, ConfigLoader $configLoader = null) {
         $this->cache = $cache ?? new ArrayCache;
-        $this->configLoader = $configLoader ?? \stripos(PHP_OS, "win") === 0
+        $this->configLoader = $configLoader ?? (\stripos(PHP_OS, "win") === 0
                 ? new WindowsConfigLoader
-                : new UnixConfigLoader;
+                : new UnixConfigLoader);
 
         $this->questionFactory = new QuestionFactory;
 
