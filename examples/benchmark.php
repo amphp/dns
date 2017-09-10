@@ -12,6 +12,9 @@ $domains = array_map(function ($line) {
     return trim(explode(",", $line)[1], '"/');
 }, array_filter(explode("\n", $domains)));
 
+// Remove "URL" header
+array_shift($domains);
+
 Loop::run(function () use ($domains) {
     print "Starting sequential queries..." . PHP_EOL;
 
