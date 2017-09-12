@@ -16,7 +16,7 @@ $customConfigLoader = new class implements Dns\ConfigLoader {
                 "[2001:4860:4860::8888]:53",
             ], $hosts, $timeout = 5000, $attempts = 3);
         });
-	}
+    }
 };
 
 Dns\resolver(new Dns\BasicResolver(null, $customConfigLoader));
