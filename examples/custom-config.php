@@ -1,6 +1,6 @@
 <?php
 
-require __DIR__ . "/../vendor/autoload.php";
+require __DIR__ . "/_bootstrap.php";
 
 use Amp\Dns;
 use Amp\Loop;
@@ -22,5 +22,11 @@ $customConfigLoader = new class implements Dns\ConfigLoader {
 Dns\resolver(new Dns\BasicResolver(null, $customConfigLoader));
 
 Loop::run(function () {
-    var_dump(yield Dns\resolve("google.com"));
+    $hostname = "amphp.org";
+
+    try {
+        pretty_print_records($hostname, yield Dns\resolve($hostname));
+    } catch (Dns\ResolutionException $e) {
+        pretty_print_error($hostname, $e);
+    }
 });

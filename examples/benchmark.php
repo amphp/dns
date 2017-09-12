@@ -1,6 +1,6 @@
 <?php
 
-require __DIR__ . "/../vendor/autoload.php";
+require __DIR__ . "/_bootstrap.php";
 
 use Amp\Dns;
 use Amp\Loop;
@@ -16,33 +16,27 @@ $domains = array_map(function ($line) {
 array_shift($domains);
 
 Loop::run(function () use ($domains) {
-    print "Starting sequential queries..." . PHP_EOL;
+    print "Starting sequential queries...\r\n\r\n";
 
     $timings = [];
 
     for ($i = 0; $i < 10; $i++) {
         $start = microtime(1);
-        $domain = $domains[mt_rand(0, count($domains) - 1)];
-
-        print $domain . ": ";
+        $domain = $domains[random_int(0, count($domains) - 1)];
 
         try {
-            $records = yield Dns\resolve($domain);
-            $records = array_map(function ($record) {
-                return $record->getValue();
-            }, $records);
-
-            print implode(", ", $records);
+            pretty_print_records($domain, yield Dns\resolve($domain));
         } catch (Dns\ResolutionException $e) {
-            print get_class($e);
+            pretty_print_error($domain, $e);
         }
 
         $time = round(microtime(1) - $start, 2);
         $timings[] = $time;
 
-        print " in " . $time . " ms" . PHP_EOL;
+        printf("%'-74s\r\n\r\n", " in " . $time . " ms");
     }
 
-    print PHP_EOL;
-    print (array_sum($timings) / count($timings)) . " ms for an average query." . PHP_EOL;
+    $averageTime = array_sum($timings) / count($timings);
+
+    print "{$averageTime} ms for an average query." . PHP_EOL;
 });

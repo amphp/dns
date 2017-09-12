@@ -174,8 +174,10 @@ final class BasicResolver implements Resolver {
 
     /** @inheritdoc */
     public function query(string $name, int $type): Promise {
-        if (isset($this->pendingQueries[$type . " " . $name])) {
-            return $this->pendingQueries[$type . " " . $name];
+        $pendingQueryKey = $type . " " . $name;
+
+        if (isset($this->pendingQueries[$pendingQueryKey])) {
+            return $this->pendingQueries[$pendingQueryKey];
         }
 
         $promise = call(function () use ($name, $type) {
