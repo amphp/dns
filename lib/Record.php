@@ -76,4 +76,31 @@ final class Record {
     public function getTtl() {
         return $this->ttl;
     }
+
+    /**
+     * Converts an record type integer back into its name as defined in this class.
+     *
+     * Returns "unknown (<type>)" in case a name for this record is not known.
+     *
+     * @param int $type Record type as integer.
+     *
+     * @return string Name of the constant for this record in this class.
+     */
+    public static function getName(int $type): string {
+        static $types;
+
+        if (0 > $type || 0xffff < $type) {
+            $message = \sprintf('%d does not correspond to a valid record type (must be between 0 and 65535).', $type);
+            throw new \Error($message);
+        }
+
+        if ($types === null) {
+            $types = \array_flip(
+                (new \ReflectionClass(self::class))
+                    ->getConstants()
+            );
+        }
+
+        return $types[$type] ?? "unknown ({$type})";
+    }
 }
