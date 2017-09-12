@@ -125,6 +125,8 @@ final class BasicResolver implements Resolver {
                             ]);
 
                             $records = \array_merge(...$records);
+
+                            break; // Break redirect loop, otherwise we query the same records 5 times
                         } catch (MultiReasonException $e) {
                             foreach ($e->getReasons() as $reason) {
                                 if ($reason instanceof NoRecordException) {
