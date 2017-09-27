@@ -4,9 +4,10 @@ kramdown:
 
 baseurl: "/dns"
 layouts_dir: ".shared/layout"
+includes_dir: ".shared/includes"
 
 exclude: ["Gemfile", "Gemfile.lock", "README.md", "vendor"]
-include: [".shared"]
+safe: true
 
 repository: amphp/dns
 gems:
@@ -19,5 +20,7 @@ defaults:
      type: "pages"
    values:
      layout: "docs"
+     description: "amphp/dns provides asynchronous DNS resolution for Amp."
+     keywords: ["amphp", "amp", "dns", "name resolution", "async", "php"]
 
-asset_path: "/dns/.shared/asset"
+shared_asset_path: "/dns/asset"
