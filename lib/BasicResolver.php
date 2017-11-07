@@ -47,6 +47,9 @@ final class BasicResolver implements Resolver {
     /** @var string */
     private $gcWatcher;
 
+    /** @var int */
+    private $typeRestriction = null;
+
     public function __construct(Cache $cache = null, ConfigLoader $configLoader = null) {
         $this->cache = $cache ?? new ArrayCache;
         $this->configLoader = $configLoader ?? (\stripos(PHP_OS, "win") === 0
@@ -79,6 +82,7 @@ final class BasicResolver implements Resolver {
 
     /** @inheritdoc */
     public function resolve(string $name, int $typeRestriction = null): Promise {
+        $typeRestriction = $typeRestriction ?? $this->typeRestriction;
         if ($typeRestriction !== null && $typeRestriction !== Record::A && $typeRestriction !== Record::AAAA) {
             throw new \Error("Invalid value for parameter 2: null|Record::A|Record::AAAA expected");
         }
