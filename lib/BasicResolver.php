@@ -55,17 +55,18 @@ final class BasicResolver implements Resolver {
 
         $this->questionFactory = new QuestionFactory;
 
-        $this->gcWatcher = Loop::repeat(5000, function () {
-            if (empty($this->sockets)) {
+        $sockets = &$this->sockets;
+        $this->gcWatcher = Loop::repeat(5000, static function () use (&$sockets) {
+            if (!$sockets) {
                 return;
             }
 
             $now = \time();
 
-            foreach ($this->sockets as $key => $server) {
+            foreach ($sockets as $key => $server) {
                 if ($server->getLastActivity() < $now - 60) {
                     $server->close();
-                    unset($this->sockets[$key]);
+                    unset($sockets[$key]);
                 }
             }
         });
