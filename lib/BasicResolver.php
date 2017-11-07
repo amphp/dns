@@ -80,6 +80,13 @@ final class BasicResolver implements Resolver {
         Loop::cancel($this->gcWatcher);
     }
 
+    /**
+     * @param int $typeRestriction
+     */
+    public function setTypeRestriction(int $typeRestriction) {
+        $this->typeRestriction = $typeRestriction;
+    }
+
     /** @inheritdoc */
     public function resolve(string $name, int $typeRestriction = null): Promise {
         $typeRestriction = $typeRestriction ?? $this->typeRestriction;
