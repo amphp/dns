@@ -50,11 +50,12 @@ final class BasicResolver implements Resolver {
     /** @var int */
     private $typeRestriction = null;
 
-    public function __construct(Cache $cache = null, ConfigLoader $configLoader = null) {
+    public function __construct(Cache $cache = null, ConfigLoader $configLoader = null, int $typeRestriction = null) {
         $this->cache = $cache ?? new ArrayCache;
         $this->configLoader = $configLoader ?? (\stripos(PHP_OS, "win") === 0
                 ? new WindowsConfigLoader
                 : new UnixConfigLoader);
+        $this->typeRestriction = $typeRestriction;
 
         $this->questionFactory = new QuestionFactory;
 
@@ -78,13 +79,6 @@ final class BasicResolver implements Resolver {
 
     public function __destruct() {
         Loop::cancel($this->gcWatcher);
-    }
-
-    /**
-     * @param int $typeRestriction
-     */
-    public function setTypeRestriction(int $typeRestriction) {
-        $this->typeRestriction = $typeRestriction;
     }
 
     /** @inheritdoc */
