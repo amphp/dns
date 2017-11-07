@@ -218,6 +218,14 @@ final class BasicResolver implements Resolver {
                     $response = yield $socket->ask($question, $this->config->getTimeout());
                     $this->assertAcceptableResponse($response);
 
+                    // UDP sockets are never reused, they're not in the $this->sockets map
+                    if ($protocol === "udp") {
+                        // Defer call, because it interferes with the unreference() call in Internal\Socket otherwise
+                        Loop::defer(function () use ($socket) {
+                            $socket->close();
+                        });
+                    }
+
                     if ($response->isTruncated()) {
                         if ($protocol !== "tcp") {
                             // Retry with TCP, don't count attempt
@@ -258,6 +266,12 @@ final class BasicResolver implements Resolver {
                         return new Record($data, $type, $ttls[$type]);
                     }, $result[$type]);
                 } catch (TimeoutException $e) {
+                    // Defer call, because it might interfere with the unreference() call in Internal\Socket otherwise
+                    Loop::defer(function () use ($socket, $uri) {
+                        unset($this->sockets[$uri]);
+                        $socket->close();
+                    });
+
                     $i = ++$attempt % \count($nameservers);
                     $socket = yield $this->getSocket($protocol . "://" . $nameservers[$i]);
 
