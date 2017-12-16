@@ -48,7 +48,7 @@ final class BasicResolver implements Resolver {
     private $gcWatcher;
 
     public function __construct(Cache $cache = null, ConfigLoader $configLoader = null) {
-        $this->cache = $cache ?? new ArrayCache;
+        $this->cache = $cache ?? new ArrayCache(5000 /* default gc interval */, 256 /* size */);
         $this->configLoader = $configLoader ?? (\stripos(PHP_OS, "win") === 0
                 ? new WindowsConfigLoader
                 : new UnixConfigLoader);

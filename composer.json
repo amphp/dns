@@ -37,7 +37,7 @@
         "php": ">=7.0",
         "amphp/amp": "^2",
         "amphp/byte-stream": "^1.1",
-        "amphp/cache": "^1",
+        "amphp/cache": "^1.2",
         "amphp/file": "^0.2 || ^0.3",
         "amphp/parser": "^1",
         "amphp/uri": "^0.1",
