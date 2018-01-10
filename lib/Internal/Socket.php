@@ -237,7 +237,7 @@ abstract class Socket {
             return false;
         }
 
-        $questionRecord = $questionRecords->current();
+        $questionRecord = $questionRecords->getIterator()->current();
 
         if ($questionRecord->getClass() !== $question->getClass()) {
             return false;
