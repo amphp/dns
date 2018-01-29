@@ -6,34 +6,20 @@ use Amp\Dns\HostLoader;
 use Amp\Dns\Record;
 use Amp\Loop;
 use Amp\PHPUnit\TestCase;
+use DaveRandom\LibDNS\HostsFile\HostsFile;
 
 class HostLoaderTest extends TestCase {
-    public function testIgnoresCommentsAndParsesBasicEntry() {
+    public function testReturnsHostsFileInstanceOnExistingFile() {
         Loop::run(function () {
             $loader = new HostLoader(__DIR__ . "/data/hosts");
-            $this->assertSame([
-                Record::A => [
-                    "localhost" => "127.0.0.1",
-                ],
-            ], yield $loader->loadHosts());
+            $this->assertInstanceOf(HostsFile::class, yield $loader->loadHosts());
         });
     }
 
     public function testReturnsEmptyErrorOnFileNotFound() {
         Loop::run(function () {
             $loader = new HostLoader(__DIR__ . "/data/hosts.not.found");
-            $this->assertSame([], yield $loader->loadHosts());
-        });
-    }
-
-    public function testIgnoresInvalidNames() {
-        Loop::run(function () {
-            $loader = new HostLoader(__DIR__ . "/data/hosts.invalid.name");
-            $this->assertSame([
-                Record::A => [
-                    "localhost" => "127.0.0.1",
-                ],
-            ], yield $loader->loadHosts());
+            $this->assertSame(null, yield $loader->loadHosts());
         });
     }
 }

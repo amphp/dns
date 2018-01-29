@@ -2,6 +2,8 @@
     "name": "amphp/dns",
     "homepage": "https://github.com/amphp/dns",
     "description": "Async DNS resolution for Amp.",
+    "minimum-stability": "dev",
+    "prefer-stable": true,
     "keywords": [
         "dns",
         "resolve",
@@ -42,7 +44,7 @@
         "amphp/parser": "^1",
         "amphp/uri": "^0.1",
         "amphp/windows-registry": "^0.3",
-        "daverandom/libdns": "^2.0.1"
+        "daverandom/libdns": "dev-master"
     },
     "require-dev": {
         "amphp/phpunit-util": "^1",

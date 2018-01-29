@@ -6,9 +6,10 @@ use Amp\Delayed;
 use Amp\Dns;
 use Amp\Loop;
 use Amp\Promise;
-use LibDNS\Messages\Message;
-use LibDNS\Messages\MessageTypes;
-use LibDNS\Records\QuestionFactory;
+use DaveRandom\LibDNS\Protocol\Messages\Message;
+use DaveRandom\LibDNS\Protocol\Messages\Response;
+use DaveRandom\LibDNS\Records\QuestionRecord;
+use DaveRandom\Network\DomainName;
 use function Amp\Promise\wait;
 
 class TcpSocketTest extends SocketTest {
@@ -28,8 +29,7 @@ class TcpSocketTest extends SocketTest {
 
     public function testAfterConnectionTimedOut() {
         Loop::run(function () {
-            $question = (new QuestionFactory)->create(Dns\Record::A);
-            $question->setName("google.com");
+            $question = new QuestionRecord(DomainName::createFromString("google.com"), Dns\Record::A);
 
             /** @var Dns\Internal\Socket $socket */
             $socket = yield $this->connect();
@@ -37,8 +37,7 @@ class TcpSocketTest extends SocketTest {
             /** @var Message $result */
             $result = yield $socket->ask($question, 3000);
 
-            $this->assertInstanceOf(Message::class, $result);
-            $this->assertSame(MessageTypes::RESPONSE, $result->getType());
+            $this->assertInstanceOf(Response::class, $result);
 
             // Google's DNS times out really fast
             yield new Delayed(3000);

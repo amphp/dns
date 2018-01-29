@@ -10,14 +10,15 @@ use Amp\Loop;
 use Amp\Parser\Parser;
 use Amp\Promise;
 use Amp\Success;
-use LibDNS\Decoder\DecoderFactory;
-use LibDNS\Encoder\EncoderFactory;
-use LibDNS\Messages\Message;
+use DaveRandom\LibDNS\Protocol\Decoding\Decoder;
+use DaveRandom\LibDNS\Protocol\Encoding\Encoder;
+use DaveRandom\LibDNS\Protocol\Encoding\EncodingOptions;
+use DaveRandom\LibDNS\Protocol\Messages\Message;
 use function Amp\call;
 
 /** @internal */
 class TcpSocket extends Socket {
-    /** @var \LibDNS\Encoder\Encoder */
+    /** @var \DaveRandom\LibDNS\Protocol\Encoding\Encoder */
     private $encoder;
 
     /** @var \SplQueue */
@@ -59,7 +60,7 @@ class TcpSocket extends Socket {
     }
 
     public static function parser(callable $callback): \Generator {
-        $decoder = (new DecoderFactory)->create();
+        $decoder = new Decoder();
 
         while (true) {
             $length = yield 2;
@@ -73,14 +74,14 @@ class TcpSocket extends Socket {
     protected function __construct($socket) {
         parent::__construct($socket);
 
-        $this->encoder = (new EncoderFactory)->create();
+        $this->encoder = new Encoder();
         $this->queue = new \SplQueue;
         $this->parser = new Parser(self::parser([$this->queue, 'push']));
     }
 
     protected function send(Message $message): Promise {
-        $data = $this->encoder->encode($message);
-        $promise = $this->write(\pack("n", \strlen($data)) . $data);
+        $data = $this->encoder->encode($message, EncodingOptions::FORMAT_TCP);
+        $promise = $this->write($data);
         $promise->onResolve(function ($error) {
             if ($error) {
                 $this->isAlive = false;

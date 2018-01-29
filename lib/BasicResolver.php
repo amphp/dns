@@ -11,20 +11,38 @@ use Amp\Loop;
 use Amp\MultiReasonException;
 use Amp\Promise;
 use Amp\Success;
-use LibDNS\Messages\Message;
-use LibDNS\Records\Question;
-use LibDNS\Records\QuestionFactory;
+use Amp\Uri\InvalidDnsNameException;
+use DaveRandom\LibDNS\Protocol\Messages\Message;
+use DaveRandom\LibDNS\Protocol\Messages\MessageResponseCodes;
+use DaveRandom\LibDNS\Records\QuestionRecord;
+use DaveRandom\LibDNS\Records\ResourceData;
+use DaveRandom\Network\DomainName;
+use DaveRandom\Network\IPAddress;
+use DaveRandom\Network\IPv4Address;
+use DaveRandom\Network\IPv6Address;
 use function Amp\call;
-use function Amp\Uri\normalizeDnsName;
 
 final class BasicResolver implements Resolver {
     const CACHE_PREFIX = "amphp.dns.";
+    const CACHE_UNSERIALIZE_ALLOWED_CLASSES = [
+        IPv4Address::class, IPv6Address::class, DomainName::class,
+        ResourceData\UnknownResourceData::class,
+        ResourceData\A::class,
+        ResourceData\AAAA::class,
+        ResourceData\CNAME::class,
+        ResourceData\DNAME::class,
+        ResourceData\MX::class,
+        ResourceData\NAPTR::class,
+        ResourceData\NS::class,
+        ResourceData\PTR::class,
+        ResourceData\RP::class,
+        ResourceData\SOA::class,
+        ResourceData\SRV::class,
+        ResourceData\TXT::class,
+    ];
 
     /** @var \Amp\Dns\ConfigLoader */
     private $configLoader;
-
-    /** @var \LibDNS\Records\QuestionFactory */
-    private $questionFactory;
 
     /** @var \Amp\Dns\Config|null */
     private $config;
@@ -53,8 +71,6 @@ final class BasicResolver implements Resolver {
                 ? new WindowsConfigLoader
                 : new UnixConfigLoader);
 
-        $this->questionFactory = new QuestionFactory;
-
         $sockets = &$this->sockets;
         $this->gcWatcher = Loop::repeat(5000, static function () use (&$sockets) {
             if (!$sockets) {
@@ -78,8 +94,32 @@ final class BasicResolver implements Resolver {
         Loop::cancel($this->gcWatcher);
     }
 
+    private function createRecordFromIpAddress($address, int $typeRestriction = null): Record {
+        if (!$address instanceof IPAddress) {
+            $address = IPAddress::parse($address);
+        }
+
+        if ($address instanceof IPv4Address) {
+            if ($typeRestriction === Record::AAAA) {
+                throw new ResolutionException("Got an IPv4 address, but type is restricted to IPv6");
+            }
+
+            return new Record(new ResourceData\A($address), Record::A);
+        }
+
+        if ($address instanceof IPv6Address) {
+            if ($typeRestriction === Record::A) {
+                throw new ResolutionException("Got an IPv6 address, but type is restricted to IPv4");
+            }
+
+            return new Record(new ResourceData\AAAA($address), Record::AAAA);
+        }
+
+        throw new ResolutionException("Got a valid IP address, but no known record type is associated with it");
+    }
+
     /** @inheritdoc */
-    public function resolve(string $name, int $typeRestriction = null): Promise {
+    public function resolve($name, int $typeRestriction = null): Promise {
         if ($typeRestriction !== null && $typeRestriction !== Record::A && $typeRestriction !== Record::AAAA) {
             throw new \Error("Invalid value for parameter 2: null|Record::A|Record::AAAA expected");
         }
@@ -89,26 +129,20 @@ final class BasicResolver implements Resolver {
                 yield $this->reloadConfig();
             }
 
-            $inAddr = @\inet_pton($name);
-
-            if ($inAddr !== false) {
-                // It's already a valid IP, don't query, immediately return
-                if ($typeRestriction) {
-                    if ($typeRestriction === Record::A && isset($inAddr[4])) {
-                        throw new ResolutionException("Got an IPv6 address, but type is restricted to IPv4");
-                    }
-
-                    if ($typeRestriction === Record::AAAA && !isset($inAddr[4])) {
-                        throw new ResolutionException("Got an IPv4 address, but type is restricted to IPv6");
-                    }
+            if (!$name instanceof DomainName) {
+                try {
+                    // If it's already a valid IP, don't query, immediately return
+                    return [$this->createRecordFromIpAddress($name, $typeRestriction)];
+                } catch (\InvalidArgumentException $e) {
+                    // Ignore failure and continue to query server
                 }
-
-                return [
-                    new Record($name, isset($inAddr[4]) ? Record::AAAA : Record::A, null),
-                ];
             }
 
-            $name = normalizeDnsName($name);
+            try {
+                $name = DomainName::createFromString($name, true);
+            } catch (\InvalidArgumentException $e) {
+                throw new InvalidDnsNameException($e->getMessage(), 0, $e);
+            }
 
             if ($records = $this->queryHosts($name, $typeRestriction)) {
                 return $records;
@@ -142,7 +176,9 @@ final class BasicResolver implements Resolver {
                     try {
                         /** @var Record[] $cnameRecords */
                         $cnameRecords = yield $this->query($name, Record::CNAME);
-                        $name = $cnameRecords[0]->getValue();
+                        /** @var ResourceData\CNAME $cname */
+                        $cname = $cnameRecords[0]->getValue();
+                        $name = $cname->getCanonicalName();
                         continue;
                     } catch (NoRecordException $e) {
                         /** @var Record[] $dnameRecords */
@@ -157,26 +193,28 @@ final class BasicResolver implements Resolver {
         });
     }
 
-    private function queryHosts(string $name, int $typeRestriction = null): array {
+    private function queryHosts(DomainName $name, int $typeRestriction = null): array {
         $hosts = $this->config->getKnownHosts();
         $records = [];
 
         $returnIPv4 = $typeRestriction === null || $typeRestriction === Record::A;
         $returnIPv6 = $typeRestriction === null || $typeRestriction === Record::AAAA;
 
-        if ($returnIPv4 && isset($hosts[Record::A][$name])) {
-            $records[] = new Record($hosts[Record::A][$name], Record::A, null);
+        if ($returnIPv4 && null !== $address = $hosts->getAddressForName($name, Record::A)) {
+            /** @var IPv4Address $address */
+            $records[] = new Record(new ResourceData\A($address), Record::A);
         }
 
-        if ($returnIPv6 && isset($hosts[Record::AAAA][$name])) {
-            $records[] = new Record($hosts[Record::AAAA][$name], Record::AAAA, null);
+        if ($returnIPv6 && null !== $address = $hosts->getAddressForName($name, Record::AAAA)) {
+            /** @var IPv6Address $address */
+            $records[] = new Record(new ResourceData\AAAA($address), Record::AAAA);
         }
 
         return $records;
     }
 
     /** @inheritdoc */
-    public function query(string $name, int $type): Promise {
+    public function query($name, int $type): Promise {
         $pendingQueryKey = $type . " " . $name;
 
         if (isset($this->pendingQueries[$pendingQueryKey])) {
@@ -188,7 +226,9 @@ final class BasicResolver implements Resolver {
                 yield $this->reloadConfig();
             }
 
-            $name = $this->normalizeName($name, $type);
+            if (!$name instanceof DomainName) {
+                $name = $this->normalizeNameString($name, $type);
+            }
             $question = $this->createQuestion($name, $type);
 
             if (null !== $cachedValue = yield $this->cache->get($this->getCacheKey($name, $type))) {
@@ -243,10 +283,9 @@ final class BasicResolver implements Resolver {
                     $result = [];
                     $ttls = [];
 
-                    /** @var \LibDNS\Records\Resource $record */
                     foreach ($answers as $record) {
                         $recordType = $record->getType();
-                        $result[$recordType][] = (string) $record->getData();
+                        $result[$recordType][] = $record->getData();
 
                         // Cache for max one day
                         $ttls[$recordType] = \min($ttls[$recordType] ?? 86400, $record->getTTL());
@@ -254,7 +293,7 @@ final class BasicResolver implements Resolver {
 
                     foreach ($result as $recordType => $records) {
                         // We don't care here whether storing in the cache fails
-                        $this->cache->set($this->getCacheKey($name, $recordType), \json_encode($records), $ttls[$recordType]);
+                        $this->cache->set($this->getCacheKey($name, $recordType), \serialize($records), $ttls[$recordType]);
                     }
 
                     if (!isset($result[$type])) {
@@ -317,29 +356,26 @@ final class BasicResolver implements Resolver {
     }
 
     /**
-     * @param string $name
-     * @param int    $type
+     * @param DomainName $name
+     * @param int        $type
      *
-     * @return \LibDNS\Records\Question
+     * @return \DaveRandom\LibDNS\Records\QuestionRecord
      */
-    private function createQuestion(string $name, int $type): Question {
+    private function createQuestion(DomainName $name, int $type): QuestionRecord {
         if (0 > $type || 0xffff < $type) {
             $message = \sprintf('%d does not correspond to a valid record type (must be between 0 and 65535).', $type);
             throw new \Error($message);
         }
 
-        $question = $this->questionFactory->create($type);
-        $question->setName($name);
-
-        return $question;
+        return new QuestionRecord($name, $type);
     }
 
-    private function getCacheKey(string $name, int $type): string {
+    private function getCacheKey(DomainName $name, int $type): string {
         return self::CACHE_PREFIX . $name . "#" . $type;
     }
 
-    private function decodeCachedResult(string $name, string $type, string $encoded) {
-        $decoded = \json_decode($encoded, true);
+    private function decodeCachedResult(DomainName $name, string $type, string $encoded) {
+        $decoded = \unserialize($encoded, ['allowed_classes' => self::CACHE_UNSERIALIZE_ALLOWED_CLASSES]);
 
         if (!$decoded) {
             throw new NoRecordException("No records returned for {$name} (cached result)");
@@ -354,20 +390,22 @@ final class BasicResolver implements Resolver {
         return $result;
     }
 
-    private function normalizeName(string $name, int $type) {
-        if ($type === Record::PTR) {
-            if (($packedIp = @inet_pton($name)) !== false) {
-                if (isset($packedIp[4])) { // IPv6
-                    $name = \wordwrap(\strrev(\bin2hex($packedIp)), 1, ".", true) . ".ip6.arpa";
-                } else { // IPv4
-                    $name = \inet_ntop(\strrev($packedIp)) . ".in-addr.arpa";
-                }
+    private function normalizeNameString(string $name, int $type): DomainName {
+        try {
+            if ($type !== Record::PTR) {
+                $strict = \in_array($type, [Record::A, Record::AAAA, Record::CNAME, Record::DNAME]);
+                return DomainName::createFromString($name, $strict);
             }
-        } elseif (\in_array($type, [Record::A, Record::AAAA])) {
-            $name = normalizeDnsName($name);
-        }
 
-        return $name;
+            if (!$name instanceof IPAddress) {
+                $name = IPAddress::parse($name);
+            }
+
+            return \DaveRandom\LibDNS\ipaddress_to_ptr_name($name);
+        } catch (\InvalidArgumentException $e) {
+            $type = Record::getName($type);
+            throw new InvalidDnsNameException("Invalid name for lookup of type {$type}: {$name}");
+        }
     }
 
     private function getSocket($uri): Promise {
@@ -400,8 +438,18 @@ final class BasicResolver implements Resolver {
     }
 
     private function assertAcceptableResponse(Message $response) {
-        if ($response->getResponseCode() !== 0) {
-            throw new ResolutionException(\sprintf("Server returned error code: %d", $response->getResponseCode()));
+        if ($response->getResponseCode() !== MessageResponseCodes::NO_ERROR) {
+            try {
+                $errorDescription = MessageResponseCodes::parseValue($response->getResponseCode());
+            } catch (\InvalidArgumentException $e) {
+                $errorDescription = 'Unknown error';
+            }
+
+            throw new ResolutionException(\sprintf(
+                "Server returned error code: %d: %s",
+                $response->getResponseCode(),
+                $errorDescription
+            ));
         }
     }
 }

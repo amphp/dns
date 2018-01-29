@@ -5,17 +5,17 @@ namespace Amp\Dns\Internal;
 use Amp\Dns\ResolutionException;
 use Amp\Promise;
 use Amp\Success;
-use LibDNS\Decoder\DecoderFactory;
-use LibDNS\Encoder\EncoderFactory;
-use LibDNS\Messages\Message;
+use DaveRandom\LibDNS\Protocol\Decoding\Decoder;
+use DaveRandom\LibDNS\Protocol\Encoding\Encoder;
+use DaveRandom\LibDNS\Protocol\Messages\Message;
 use function Amp\call;
 
 /** @internal */
 class UdpSocket extends Socket {
-    /** @var \LibDNS\Encoder\Encoder */
+    /** @var \DaveRandom\LibDNS\Protocol\Encoding\Encoder */
     private $encoder;
 
-    /** @var \LibDNS\Decoder\Decoder */
+    /** @var \DaveRandom\LibDNS\Protocol\Decoding\Decoder */
     private $decoder;
 
     public static function connect(string $uri): Promise {
@@ -34,8 +34,8 @@ class UdpSocket extends Socket {
     protected function __construct($socket) {
         parent::__construct($socket);
 
-        $this->encoder = (new EncoderFactory)->create();
-        $this->decoder = (new DecoderFactory)->create();
+        $this->encoder = new Encoder();
+        $this->decoder = new Decoder();
     }
 
     protected function send(Message $message): Promise {

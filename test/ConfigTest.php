@@ -60,11 +60,11 @@ class ConfigTest extends TestCase {
 
     public function testInvalidTimeout() {
         $this->expectException(ConfigException::class);
-        new Config(["127.0.0.1"], [], -1);
+        new Config(["127.0.0.1"], null, -1);
     }
 
     public function testInvalidAttempts() {
         $this->expectException(ConfigException::class);
-        new Config(["127.0.0.1"], [], 500, 0);
+        new Config(["127.0.0.1"], null, 500, 0);
     }
 }

@@ -10,10 +10,10 @@ use Amp\Deferred;
 use Amp\Dns\ResolutionException;
 use Amp\Dns\TimeoutException;
 use Amp\Promise;
-use LibDNS\Messages\Message;
-use LibDNS\Messages\MessageFactory;
-use LibDNS\Messages\MessageTypes;
-use LibDNS\Records\Question;
+use DaveRandom\LibDNS\Protocol\Messages\MessageFlags;
+use DaveRandom\LibDNS\Protocol\Messages\Query;
+use DaveRandom\LibDNS\Records\QuestionRecord;
+use DaveRandom\LibDNS\Protocol\Messages\Message;
 use function Amp\call;
 
 /** @internal */
@@ -28,9 +28,6 @@ abstract class Socket {
 
     /** @var array Contains already sent queries with no response yet. For UDP this is exactly zero or one item. */
     private $pending = [];
-
-    /** @var MessageFactory */
-    private $messageFactory;
 
     /** @var callable */
     private $onResolve;
@@ -75,7 +72,6 @@ abstract class Socket {
     protected function __construct($socket) {
         $this->input = new ResourceInputStream($socket);
         $this->output = new ResourceOutputStream($socket);
-        $this->messageFactory = new MessageFactory;
         $this->lastActivity = \time();
 
         $this->onResolve = function (\Throwable $exception = null, Message $message = null) {
@@ -108,12 +104,12 @@ abstract class Socket {
     }
 
     /**
-     * @param \LibDNS\Records\Question $question
+     * @param \DaveRandom\LibDNS\Records\QuestionRecord $question
      * @param int $timeout
      *
      * @return \Amp\Promise<\LibDNS\Messages\Message>
      */
-    public function ask(Question $question, int $timeout): Promise {
+    public function ask(QuestionRecord $question, int $timeout): Promise {
         return call(function () use ($question, $timeout) {
             $this->lastActivity = \time();
 
@@ -127,7 +123,7 @@ abstract class Socket {
                 $id = \random_int(0, 0xffff);
             } while (isset($this->pending[$id]));
 
-            $message = $this->createMessage($question, $id);
+            $message = new Query([$question], $id, MessageFlags::IS_RECURSION_DESIRED);
 
             try {
                 yield $this->send($message);
@@ -217,16 +213,8 @@ abstract class Socket {
         return $this->output->write($data);
     }
 
-    protected function createMessage(Question $question, int $id): Message {
-        $request = $this->messageFactory->create(MessageTypes::QUERY);
-        $request->getQuestionRecords()->add($question);
-        $request->isRecursionDesired(true);
-        $request->setID($id);
-        return $request;
-    }
-
-    private function matchesQuestion(Message $message, Question $question): bool {
-        if ($message->getType() !== MessageTypes::RESPONSE) {
+    private function matchesQuestion(Message $message, QuestionRecord $question): bool {
+        if (!$message->isResponse()) {
             return false;
         }
 
@@ -237,7 +225,7 @@ abstract class Socket {
             return false;
         }
 
-        $questionRecord = $questionRecords->getIterator()->current();
+        $questionRecord = $questionRecords[0];
 
         if ($questionRecord->getClass() !== $question->getClass()) {
             return false;
@@ -247,7 +235,7 @@ abstract class Socket {
             return false;
         }
 
-        if ($questionRecord->getName()->getValue() !== $question->getName()->getValue()) {
+        if (!$questionRecord->getName()->equals($question->getName())) {
             return false;
         }
 

@@ -6,6 +6,9 @@ use Amp\Dns;
 use Amp\Dns\Record;
 use Amp\Loop;
 use Amp\PHPUnit\TestCase;
+use DaveRandom\Network\IPAddress;
+use DaveRandom\Network\IPv4Address;
+use DaveRandom\Network\IPv6Address;
 
 class IntegrationTest extends TestCase {
     /**
@@ -17,11 +20,8 @@ class IntegrationTest extends TestCase {
         Loop::run(function () use ($hostname) {
             $result = yield Dns\resolve($hostname);
 
-            /** @var Record $record */
-            $record = $result[0];
-            $inAddr = @\inet_pton($record->getValue());
-            $this->assertNotFalse(
-                $inAddr,
+            $this->assertInstanceOf(
+                IPAddress::class, $result[0]->getValue()->getAddress(),
                 "Server name $hostname did not resolve to a valid IP address"
             );
         });
@@ -45,10 +45,9 @@ class IntegrationTest extends TestCase {
             /** @var Record $record */
             foreach ($records as $record) {
                 $this->assertSame(Record::A, $record->getType());
-                $inAddr = @\inet_pton($record->getValue());
-                $this->assertNotFalse(
-                    $inAddr,
-                    "Server name google.com did not resolve to a valid IP address"
+                $this->assertInstanceOf(
+                    IPv4Address::class, $record->getValue()->getAddress(),
+                    "Server name google.com did not resolve to a valid IPv4 address"
                 );
             }
         });
@@ -61,10 +60,9 @@ class IntegrationTest extends TestCase {
             /** @var Record $record */
             foreach ($records as $record) {
                 $this->assertSame(Record::AAAA, $record->getType());
-                $inAddr = @\inet_pton($record->getValue());
-                $this->assertNotFalse(
-                    $inAddr,
-                    "Server name google.com did not resolve to a valid IP address"
+                $this->assertInstanceOf(
+                    IPv6Address::class, $record->getValue()->getAddress(),
+                    "Server name google.com did not resolve to a valid IPv6 address"
                 );
             }
         });
@@ -76,9 +74,9 @@ class IntegrationTest extends TestCase {
 
             /** @var Record $record */
             $record = $result[0];
-            $this->assertSame("google-public-dns-b.google.com", $record->getValue());
-            $this->assertNotNull($record->getTtl());
             $this->assertSame(Record::PTR, $record->getType());
+            $this->assertSame("google-public-dns-b.google.com", (string)$record->getValue()->getName());
+            $this->assertNotNull($record->getTtl());
         });
     }
 

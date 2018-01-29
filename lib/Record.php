@@ -2,8 +2,9 @@
 
 namespace Amp\Dns;
 
-use LibDNS\Records\ResourceQTypes;
-use LibDNS\Records\ResourceTypes;
+use DaveRandom\LibDNS\Records\ResourceData;
+use DaveRandom\LibDNS\Records\ResourceQTypes;
+use DaveRandom\LibDNS\Records\ResourceTypes;
 
 final class Record {
     const A = ResourceTypes::A;
@@ -59,13 +60,13 @@ final class Record {
     private $type;
     private $ttl;
 
-    public function __construct(string $value, int $type, int $ttl = null) {
+    public function __construct(ResourceData $value, int $type, int $ttl = null) {
         $this->value = $value;
         $this->type = $type;
         $this->ttl = $ttl;
     }
 
-    public function getValue(): string {
+    public function getValue(): ResourceData {
         return $this->value;
     }
 
@@ -87,20 +88,10 @@ final class Record {
      * @return string Name of the constant for this record in this class.
      */
     public static function getName(int $type): string {
-        static $types;
-
-        if (0 > $type || 0xffff < $type) {
-            $message = \sprintf('%d does not correspond to a valid record type (must be between 0 and 65535).', $type);
-            throw new \Error($message);
+        try {
+            return ResourceQTypes::parseValue($type);
+        } catch (\InvalidArgumentException $e) {
+            return "unknown ({$type})";
         }
-
-        if ($types === null) {
-            $types = \array_flip(
-                (new \ReflectionClass(self::class))
-                    ->getConstants()
-            );
-        }
-
-        return $types[$type] ?? "unknown ({$type})";
     }
 }

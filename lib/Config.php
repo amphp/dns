@@ -2,13 +2,15 @@
 
 namespace Amp\Dns;
 
+use DaveRandom\LibDNS\HostsFile\HostsFile;
+
 final class Config {
     private $nameservers;
     private $knownHosts;
     private $timeout;
     private $attempts;
 
-    public function __construct(array $nameservers, array $knownHosts = [], int $timeout = 3000, int $attempts = 2) {
+    public function __construct(array $nameservers, HostsFile $knownHosts = null, int $timeout = 3000, int $attempts = 2) {
         if (\count($nameservers) < 1) {
             throw new ConfigException("At least one nameserver is required for a valid config");
         }
@@ -26,7 +28,7 @@ final class Config {
         }
 
         $this->nameservers = $nameservers;
-        $this->knownHosts = $knownHosts;
+        $this->knownHosts = $knownHosts ?? new HostsFile([]);
         $this->timeout = $timeout;
         $this->attempts = $attempts;
     }
@@ -72,7 +74,7 @@ final class Config {
         return $this->nameservers;
     }
 
-    public function getKnownHosts(): array {
+    public function getKnownHosts(): HostsFile {
         return $this->knownHosts;
     }
 
