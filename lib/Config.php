@@ -9,8 +9,9 @@ final class Config {
     private $knownHosts;
     private $timeout;
     private $attempts;
+    private $recursionDepth;
 
-    public function __construct(array $nameservers, HostsFile $knownHosts = null, int $timeout = 3000, int $attempts = 2) {
+    public function __construct(array $nameservers, HostsFile $knownHosts = null, int $timeout = 3000, int $attempts = 2, int $recursionDepth = 5) {
         if (\count($nameservers) < 1) {
             throw new ConfigException("At least one nameserver is required for a valid config");
         }
@@ -27,10 +28,15 @@ final class Config {
             throw new ConfigException("Invalid attempt count ({$attempts}), must be 1 or greater");
         }
 
+        if ($recursionDepth < 1) {
+            throw new ConfigException("Invalid recursion depth ({$recursionDepth}), must be 1 or greater");
+        }
+
         $this->nameservers = $nameservers;
         $this->knownHosts = $knownHosts ?? new HostsFile([]);
         $this->timeout = $timeout;
         $this->attempts = $attempts;
+        $this->recursionDepth = $recursionDepth;
     }
 
     private function validateNameserver($nameserver) {
@@ -84,5 +90,9 @@ final class Config {
 
     public function getAttempts(): int {
         return $this->attempts;
+    }
+
+    public function getRecursionDepth(): int {
+        return $this->recursionDepth;
     }
 }

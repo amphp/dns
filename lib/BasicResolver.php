@@ -148,7 +148,7 @@ final class BasicResolver implements Resolver {
                 return $records;
             }
 
-            for ($redirects = 0; $redirects < 5; $redirects++) {
+            for ($redirects = 0; $redirects < $this->config->getRecursionDepth(); $redirects++) {
                 try {
                     if ($typeRestriction) {
                         $records = yield $this->query($name, $typeRestriction);
@@ -173,24 +173,76 @@ final class BasicResolver implements Resolver {
                         }
                     }
                 } catch (NoRecordException $e) {
-                    try {
-                        /** @var Record[] $cnameRecords */
-                        $cnameRecords = yield $this->query($name, Record::CNAME);
-                        /** @var ResourceData\CNAME $cname */
-                        $cname = $cnameRecords[0]->getValue();
-                        $name = $cname->getCanonicalName();
-                        continue;
-                    } catch (NoRecordException $e) {
-                        /** @var Record[] $dnameRecords */
-                        $dnameRecords = yield $this->query($name, Record::DNAME);
-                        $name = $dnameRecords[0]->getValue();
-                        continue;
+                    // If the query was recursive on the server side, there's no point in trying to recurse ourselves
+                    if ($e->wasRecursiveQuery()) {
+                        break;
                     }
+
+                    $name = yield from $this->getCanonicalName($name);
+                    continue;
                 }
             }
 
             return $records;
         });
+    }
+
+    private function resolveCname(DomainName $name) {
+        /** @var Record[] $records */
+        $records = yield $this->query($name, Record::CNAME);
+
+        /** @var ResourceData\CNAME $cname */
+        $cname = $records[0]->getValue();
+
+        return $cname->getCanonicalName();
+    }
+
+    private function resolveDname(DomainName $name) {
+        $labels = $name->getLabels();
+        $queries = [];
+        $prefixes = [];
+        $prefix = [];
+
+        // Generate a set of DNAME queries for each portion of the name up to (but not including) root
+        do {
+            $key = \implode('.', $labels);
+
+            $queries[$key] = $this->query(new DomainName($labels, false), Record::DNAME);
+            $prefixes[$key] = $prefix;
+
+            $prefix[] = \array_shift($labels);
+        } while (!empty($labels));
+
+        try {
+            /** @var Record[] $records */
+            list(, $records) = yield Promise\some($queries);
+
+            \reset($records);
+            $key = \key($records);
+
+            /** @var ResourceData\DNAME $dname */
+            $dname = $records[0]->getValue();
+            $dnameLabels = $dname->getCanonicalName()->getLabels();
+
+            // Prepend the labels that are not included in the DNAME
+            return new DomainName(\array_merge($prefixes[$key], $dnameLabels), false);
+        } catch (MultiReasonException $e) {
+            foreach ($e->getReasons() as $reason) {
+                if ($reason instanceof NoRecordException) {
+                    throw $reason;
+                }
+            }
+
+            throw new ResolutionException("All query attempts failed", 0, $e);
+        }
+    }
+
+    private function getCanonicalName(DomainName $name) {
+        try {
+            return yield from $this->resolveCname($name);
+        } catch (NoRecordException $e) {
+            return yield from $this->resolveDname($name);
+        }
     }
 
     private function queryHosts(DomainName $name, int $typeRestriction = null): array {
@@ -299,7 +351,7 @@ final class BasicResolver implements Resolver {
                     if (!isset($result[$type])) {
                         // "it MUST NOT cache it for longer than five (5) minutes" per RFC 2308 section 7.1
                         $this->cache->set($this->getCacheKey($name, $type), \json_encode([]), 300);
-                        throw new NoRecordException("No records returned for {$name}");
+                        throw new NoRecordException("No records returned for {$name}", $response->isRecursionAvailable());
                     }
 
                     return \array_map(function ($data) use ($type, $ttls) {
@@ -378,7 +430,7 @@ final class BasicResolver implements Resolver {
         $decoded = \unserialize($encoded, ['allowed_classes' => self::CACHE_UNSERIALIZE_ALLOWED_CLASSES]);
 
         if (!$decoded) {
-            throw new NoRecordException("No records returned for {$name} (cached result)");
+            throw new NoRecordException("No records returned for {$name} (cached result)", false);
         }
 
         $result = [];
