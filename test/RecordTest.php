@@ -3,12 +3,11 @@
 namespace Amp\Dns\Test;
 
 use Amp\Dns\Record;
-use LibDNS\Records\ResourceTypes;
 use Amp\PHPUnit\TestCase;
 
 class RecordTest extends TestCase {
     public function testGetName() {
-        $this->assertSame("A", Record::getName(ResourceTypes::A));
+        $this->assertSame("A", Record::getName(Record::A));
     }
 
     public function testGetNameOnInvalidRecordType() {
