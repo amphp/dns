@@ -37,7 +37,7 @@ abstract class SocketTest extends TestCase {
             /** @var Dns\Internal\Socket $socket */
             $socket = yield $this->connect();
 
-            $this->assertRegExp("/152061[0-9][0-9][0-9][0-9]/", (string) $socket->getLastActivity());
+            $this->assertTrue($socket->getLastActivity() < time() + 1);
         });
     }
 }
