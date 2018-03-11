@@ -28,4 +28,16 @@ abstract class SocketTest extends TestCase {
             $this->assertSame(MessageTypes::RESPONSE, $result->getType());
         });
     }
+
+    public function testGetLastActivity() {
+        Loop::run(function () {
+            $question = (new QuestionFactory)->create(Dns\Record::A);
+            $question->setName("google.com");
+
+            /** @var Dns\Internal\Socket $socket */
+            $socket = yield $this->connect();
+
+            $this->assertTrue($socket->getLastActivity() < time() + 1);
+        });
+    }
 }
