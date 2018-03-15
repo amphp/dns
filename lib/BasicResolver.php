@@ -89,23 +89,28 @@ final class BasicResolver implements Resolver {
                 yield $this->reloadConfig();
             }
 
-            $inAddr = @\inet_pton($name);
-
-            if ($inAddr !== false) {
-                // It's already a valid IP, don't query, immediately return
-                if ($typeRestriction) {
-                    if ($typeRestriction === Record::A && isset($inAddr[4])) {
+            switch ($typeRestriction) {
+                case Record::A:
+                    if (filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+                        return new Record($name, Record::A, null);
+                    } else if (filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
                         throw new ResolutionException("Got an IPv6 address, but type is restricted to IPv4");
                     }
-
-                    if ($typeRestriction === Record::AAAA && !isset($inAddr[4])) {
+                    break;
+                case Record::AAAA:
+                    if (filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+                        return new Record($name, Record::AAAA, null);
+                    } else if (filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
                         throw new ResolutionException("Got an IPv4 address, but type is restricted to IPv6");
                     }
-                }
-
-                return [
-                    new Record($name, isset($inAddr[4]) ? Record::AAAA : Record::A, null),
-                ];
+                    break;
+                default:
+                    if (filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+                        return new Record($name, Record::A, null);
+                    } else if (filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+                        return new Record($name, Record::AAAA, null);
+                    }
+                    break;
             }
 
             $name = normalizeDnsName($name);
