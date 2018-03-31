@@ -37,7 +37,7 @@ abstract class SocketTest extends TestCase {
             /** @var Dns\Internal\Socket $socket */
             $socket = yield $this->connect();
 
-            $this->assertTrue($socket->getLastActivity() < time() + 1);
+            $this->assertLessThan(time() + 1, $socket->getLastActivity());
         });
     }
 }
