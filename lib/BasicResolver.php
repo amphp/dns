@@ -134,13 +134,17 @@ final class BasicResolver implements Resolver {
 
                             break; // Break redirect loop, otherwise we query the same records 5 times
                         } catch (MultiReasonException $e) {
+                            $errors = [];
+
                             foreach ($e->getReasons() as $reason) {
                                 if ($reason instanceof NoRecordException) {
                                     throw $reason;
                                 }
+
+                                $errors[] = $reason->getMessage();
                             }
 
-                            throw new ResolutionException("All query attempts failed", 0, $e);
+                            throw new ResolutionException("All query attempts failed for {$name}: " . \implode(", ", $errors), 0, $e);
                         }
                     }
                 } catch (NoRecordException $e) {
@@ -209,6 +213,8 @@ final class BasicResolver implements Resolver {
             $uri = $protocol . "://" . $nameservers[0];
             $socket = yield $this->getSocket($uri);
 
+            $attemptDescription = [];
+
             while ($attempt < $attempts) {
                 try {
                     if (!$socket->isAlive()) {
@@ -217,8 +223,11 @@ final class BasicResolver implements Resolver {
 
                         /** @var Socket $server */
                         $i = $attempt % \count($nameservers);
-                        $socket = yield $this->getSocket($protocol . "://" . $nameservers[$i]);
+                        $uri = $protocol . "://" . $nameservers[$i];
+                        $socket = yield $this->getSocket($uri);
                     }
+
+                    $attemptDescription[] = $uri;
 
                     /** @var Message $response */
                     $response = yield $socket->ask($question, $this->config->getTimeout());
@@ -237,11 +246,12 @@ final class BasicResolver implements Resolver {
                             // Retry with TCP, don't count attempt
                             $protocol = "tcp";
                             $i = $attempt % \count($nameservers);
-                            $socket = yield $this->getSocket($protocol . "://" . $nameservers[$i]);
+                            $uri = $protocol . "://" . $nameservers[$i];
+                            $socket = yield $this->getSocket($uri);
                             continue;
                         }
 
-                        throw new ResolutionException("Server returned truncated response");
+                        throw new ResolutionException("Server returned a truncated response for '{$name}' (" . Record::getName($type) . ")");
                     }
 
                     $answers = $response->getAnswerRecords();
@@ -265,7 +275,7 @@ final class BasicResolver implements Resolver {
                     if (!isset($result[$type])) {
                         // "it MUST NOT cache it for longer than five (5) minutes" per RFC 2308 section 7.1
                         $this->cache->set($this->getCacheKey($name, $type), \json_encode([]), 300);
-                        throw new NoRecordException("No records returned for {$name}");
+                        throw new NoRecordException("No records returned for '{$name}' (" . Record::getName($type) . ")");
                     }
 
                     return \array_map(function ($data) use ($type, $ttls) {
@@ -279,13 +289,20 @@ final class BasicResolver implements Resolver {
                     });
 
                     $i = ++$attempt % \count($nameservers);
-                    $socket = yield $this->getSocket($protocol . "://" . $nameservers[$i]);
+                    $uri = $protocol . "://" . $nameservers[$i];
+                    $socket = yield $this->getSocket($uri);
 
                     continue;
                 }
             }
 
-            throw new TimeoutException("No response from any nameserver after {$attempts} attempts");
+            throw new TimeoutException(\sprintf(
+                "No response for '%s' (%s) from any nameserver after %d attempts, tried %s",
+                $name,
+                Record::getName($type),
+                $attempts,
+                \implode(", ", $attemptDescription)
+            ));
         });
 
         $this->pendingQueries[$type . " " . $name] = $promise;
