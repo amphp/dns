@@ -7,3 +7,4 @@
 /.php_cs            export-ignore
 /.travis.yml        export-ignore
 /phpunit.xml        export-ignore
+docs/asset          export-ignore
