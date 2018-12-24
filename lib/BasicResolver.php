@@ -326,7 +326,11 @@ final class BasicResolver implements Resolver {
         }
 
         $promise = call(function () {
-            $this->config = yield $this->configLoader->loadConfig();
+            try {
+                $this->config = yield $this->configLoader->loadConfig();
+            } catch (\Exception $e) {
+                $this->config = new Config(['8.8.8.8:53', '8.8.4.4:53', '[2001:4860:4860::8888]:53', '[2001:4860:4860::8844]:53']);
+            }
         });
 
         $this->pendingConfig = $promise;
