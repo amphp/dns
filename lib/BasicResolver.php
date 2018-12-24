@@ -115,6 +115,17 @@ final class BasicResolver implements Resolver {
 
             $name = normalizeDnsName($name);
 
+            if (in_array($name, ['localhost', 'localhost.'])) {
+                switch ($typeRestriction) {
+                    case Record::A:
+                        return [new Record('127.0.0.1', Record::A, null)];
+                    case Record::AAAA:
+                        return [new Record('::1', Record::AAAA, null)];
+                    default:
+                        return [new Record('127.0.0.1', Record::A, null), new Record('::1', Record::AAAA, null)];
+                }
+            }
+
             if ($records = $this->queryHosts($name, $typeRestriction)) {
                 return $records;
             }
