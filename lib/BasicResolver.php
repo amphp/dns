@@ -115,17 +115,6 @@ final class BasicResolver implements Resolver {
 
             $name = normalizeDnsName($name);
 
-            if (in_array($name, ['localhost', 'localhost.'])) {
-                switch ($typeRestriction) {
-                    case Record::A:
-                        return [new Record('127.0.0.1', Record::A, null)];
-                    case Record::AAAA:
-                        return [new Record('::1', Record::AAAA, null)];
-                    default:
-                        return [new Record('127.0.0.1', Record::A, null), new Record('::1', Record::AAAA, null)];
-                }
-            }
-
             if ($records = $this->queryHosts($name, $typeRestriction)) {
                 return $records;
             }
@@ -340,7 +329,7 @@ final class BasicResolver implements Resolver {
             try {
                 $this->config = yield $this->configLoader->loadConfig();
             } catch (\Exception $e) {
-                $this->config = new Config(['8.8.8.8:53', '8.8.4.4:53', '[2001:4860:4860::8888]:53', '[2001:4860:4860::8844]:53']);
+                $this->config = new Config(['1.1.1.1:53', '1.0.0.1:53', '[2606:4700:4700::1111]:53', '[2606:4700:4700::1001]:53']);
             }
         });
 
