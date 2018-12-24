@@ -79,17 +79,6 @@ class HostLoader
                 }
             }
 
-            // Windows does not include localhost in its host file. Fetch it from the system instead
-            if (!isset($data[Record::A]["localhost"]) && !isset($data[Record::AAAA]["localhost"])) {
-                // PHP currently provides no way to **resolve** IPv6 hostnames (not even with fallback)
-                $local = \gethostbyname("localhost");
-                if ($local !== "localhost") {
-                    $data[Record::A]["localhost"] = $local;
-                } else {
-                    $data[Record::AAAA]["localhost"] = "::1";
-                }
-            }
-
             return $data;
         });
     }
