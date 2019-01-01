@@ -2,6 +2,7 @@
 
 namespace Amp\Dns;
 
+use Amp\File;
 use Amp\Promise;
 use function Amp\call;
 
@@ -11,7 +12,7 @@ class DefaultHostLoader implements HostLoader {
 
     public function __construct(string $path = null, ConfigFileReader $reader = null) {
         $this->path = $path ?? $this->getDefaultPath();
-        $this->reader = $reader ?? new DefaultConfigFileReader;
+        $this->reader = $reader ?? (\class_exists(File\Driver::class, true) ? new AsyncConfigFileReader : new SyncConfigFileReader);
     }
 
     private function getDefaultPath(): string {

@@ -2,6 +2,7 @@
 
 namespace Amp\Dns;
 
+use Amp\File;
 use Amp\Promise;
 use function Amp\call;
 
@@ -13,7 +14,7 @@ final class UnixConfigLoader implements ConfigLoader {
     public function __construct(string $path = "/etc/resolv.conf", HostLoader $hostLoader = null, ConfigFileReader $reader = null) {
         $this->path = $path;
         $this->hostLoader = $hostLoader ?? new DefaultHostLoader;
-        $this->reader = $reader ?? new DefaultConfigFileReader;
+        $this->reader = $reader ?? (\class_exists(File\Driver::class, true) ? new AsyncConfigFileReader : new SyncConfigFileReader);
     }
 
     public function loadConfig(): Promise {

@@ -5,7 +5,7 @@ namespace Amp\Dns;
 use Amp\Promise;
 use Amp\Success;
 
-class DefaultConfigFileReader implements ConfigFileReader {
+class SyncConfigFileReader implements ConfigFileReader {
     public function read(string $path): Promise {
         \set_error_handler(function (int $errno, string $message) use ($path) {
             throw new ConfigException("Could not read configuration file '{$path}' ({$errno}) $message");
