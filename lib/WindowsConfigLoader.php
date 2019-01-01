@@ -11,7 +11,7 @@ final class WindowsConfigLoader implements ConfigLoader {
     private $hostLoader;
 
     public function __construct(HostLoader $hostLoader = null) {
-        $this->hostLoader = $hostLoader ?? new HostLoader;
+        $this->hostLoader = $hostLoader ?? new DefaultHostLoader;
     }
 
     public function loadConfig(): Promise {
