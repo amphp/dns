@@ -12,7 +12,7 @@ class DefaultHostLoader implements HostLoader {
 
     public function __construct(string $path = null, ConfigFileReader $reader = null) {
         $this->path = $path ?? $this->getDefaultPath();
-        $this->reader = $reader ?? (\class_exists(File\Driver::class, true) ? new AsyncConfigFileReader : new SyncConfigFileReader);
+        $this->reader = $reader ?? (\class_exists(File\Driver::class, true) ? new AsyncConfigFileReader : new BlockingConfigFileReader);
     }
 
     private function getDefaultPath(): string {
