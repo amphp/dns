@@ -2,6 +2,7 @@
 
 namespace Amp\Dns;
 
+use Amp\Failure;
 use Amp\Promise;
 use Amp\Success;
 
@@ -14,6 +15,8 @@ class BlockingConfigFileReader implements ConfigFileReader {
         try {
             // Blocking file access, but this file should be local and usually loaded only once.
             $fileContent = \file_get_contents($path);
+        } catch (ConfigException $exception) {
+            return new Failure($exception);
         } finally {
             \restore_error_handler();
         }
