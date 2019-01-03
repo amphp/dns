@@ -33,7 +33,7 @@ class UnixConfigLoader implements ConfigLoader {
         return new Success($fileContent);
     }
 
-    public function loadConfig(): Promise {
+    final public function loadConfig(): Promise {
         return call(function () {
             $nameservers = [];
             $timeout = 3000;
