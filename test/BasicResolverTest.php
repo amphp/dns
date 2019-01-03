@@ -3,7 +3,7 @@
 namespace Amp\Dns\Test;
 
 use Amp\Dns\BasicResolver;
-use Amp\Dns\InvalidDnsNameException;
+use Amp\Dns\InvalidNameException;
 use Amp\Dns\Record;
 use Amp\Dns\ResolutionException;
 use Amp\Loop;
@@ -33,7 +33,7 @@ class BasicResolverTest extends TestCase {
 
     public function testInvalidName() {
         Loop::run(function () {
-            $this->expectException(InvalidDnsNameException::class);
+            $this->expectException(InvalidNameException::class);
             yield (new BasicResolver)->resolve("go@gle.com", Record::A);
         });
     }

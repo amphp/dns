@@ -2,19 +2,35 @@
 
 namespace Amp\Dns;
 
-use Amp\File;
+use Amp\Failure;
 use Amp\Promise;
+use Amp\Success;
 use function Amp\call;
 
-final class UnixConfigLoader implements ConfigLoader {
+class UnixConfigLoader implements ConfigLoader {
     private $path;
     private $hostLoader;
-    private $reader;
 
-    public function __construct(string $path = "/etc/resolv.conf", HostLoader $hostLoader = null, ConfigFileReader $reader = null) {
+    public function __construct(string $path = "/etc/resolv.conf", HostLoader $hostLoader = null) {
         $this->path = $path;
         $this->hostLoader = $hostLoader ?? new HostLoader;
-        $this->reader = $reader ?? (\class_exists(File\Driver::class, true) ? new AsyncConfigFileReader : new BlockingConfigFileReader);
+    }
+
+    protected function readFile(string $path): Promise {
+        \set_error_handler(function (int $errno, string $message) use ($path) {
+            throw new ConfigException("Could not read configuration file '{$path}' ({$errno}) $message");
+        });
+
+        try {
+            // Blocking file access, but this file should be local and usually loaded only once.
+            $fileContent = \file_get_contents($path);
+        } catch (ConfigException $exception) {
+            return new Failure($exception);
+        } finally {
+            \restore_error_handler();
+        }
+
+        return new Success($fileContent);
     }
 
     public function loadConfig(): Promise {
@@ -23,7 +39,7 @@ final class UnixConfigLoader implements ConfigLoader {
             $timeout = 3000;
             $attempts = 2;
 
-            $fileContent = yield $this->reader->read($this->path);
+            $fileContent = yield $this->readFile($this->path);
 
             $lines = \explode("\n", $fileContent);
 
