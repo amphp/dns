@@ -8,6 +8,7 @@ use Amp\ByteStream\ResourceOutputStream;
 use Amp\ByteStream\StreamException;
 use Amp\Deferred;
 use Amp\Dns\DnsException;
+use Amp\Dns\ResolutionException;
 use Amp\Dns\TimeoutException;
 use Amp\Promise;
 use LibDNS\Messages\Message;
@@ -194,7 +195,7 @@ abstract class Socket {
             return;
         }
 
-        if (!$exception instanceof DnsException) {
+        if (!$exception instanceof ResolutionException) {
             $message = "Unexpected error during resolution: " . $exception->getMessage();
             $exception = new DnsException($message, 0, $exception);
         }
