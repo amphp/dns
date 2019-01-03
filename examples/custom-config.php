@@ -26,7 +26,7 @@ Loop::run(function () {
 
     try {
         pretty_print_records($hostname, yield Dns\resolve($hostname));
-    } catch (Dns\ResolutionException $e) {
+    } catch (Dns\DnsException $e) {
         pretty_print_error($hostname, $e);
     }
 });

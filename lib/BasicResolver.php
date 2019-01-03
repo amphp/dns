@@ -93,14 +93,14 @@ final class BasicResolver implements Resolver {
                     if (filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
                         return [new Record($name, Record::A, null)];
                     } elseif (filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
-                        throw new ResolutionException("Got an IPv6 address, but type is restricted to IPv4");
+                        throw new DnsException("Got an IPv6 address, but type is restricted to IPv4");
                     }
                     break;
                 case Record::AAAA:
                     if (filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
                         return [new Record($name, Record::AAAA, null)];
                     } elseif (filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
-                        throw new ResolutionException("Got an IPv4 address, but type is restricted to IPv6");
+                        throw new DnsException("Got an IPv4 address, but type is restricted to IPv6");
                     }
                     break;
                 default:
@@ -143,7 +143,7 @@ final class BasicResolver implements Resolver {
                                 $errors[] = $reason->getMessage();
                             }
 
-                            throw new ResolutionException("All query attempts failed for {$name}: " . \implode(", ", $errors), 0, $e);
+                            throw new DnsException("All query attempts failed for {$name}: " . \implode(", ", $errors), 0, $e);
                         }
                     }
                 } catch (NoRecordException $e) {
@@ -250,7 +250,7 @@ final class BasicResolver implements Resolver {
                             continue;
                         }
 
-                        throw new ResolutionException("Server returned a truncated response for '{$name}' (" . Record::getName($type) . ")");
+                        throw new DnsException("Server returned a truncated response for '{$name}' (" . Record::getName($type) . ")");
                     }
 
                     $answers = $response->getAnswerRecords();
@@ -422,7 +422,7 @@ final class BasicResolver implements Resolver {
 
     private function assertAcceptableResponse(Message $response) {
         if ($response->getResponseCode() !== 0) {
-            throw new ResolutionException(\sprintf("Server returned error code: %d", $response->getResponseCode()));
+            throw new DnsException(\sprintf("Server returned error code: %d", $response->getResponseCode()));
         }
     }
 }
