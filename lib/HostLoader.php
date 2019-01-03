@@ -66,7 +66,7 @@ class HostLoader {
 
                 for ($i = 1, $l = \count($parts); $i < $l; $i++) {
                     try {
-                        $normalizedName = normalizeDnsName($parts[$i]);
+                        $normalizedName = normalizeName($parts[$i]);
                         $data[$key][$normalizedName] = $parts[0];
                     } catch (InvalidNameException $e) {
                         // ignore invalid entries

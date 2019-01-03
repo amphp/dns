@@ -112,7 +112,7 @@ final class BasicResolver implements Resolver {
                     break;
             }
 
-            $name = normalizeDnsName($name);
+            $name = normalizeName($name);
 
             if ($records = $this->queryHosts($name, $typeRestriction)) {
                 return $records;
@@ -385,7 +385,7 @@ final class BasicResolver implements Resolver {
                 }
             }
         } elseif (\in_array($type, [Record::A, Record::AAAA])) {
-            $name = normalizeDnsName($name);
+            $name = normalizeName($name);
         }
 
         return $name;

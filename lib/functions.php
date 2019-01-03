@@ -60,9 +60,9 @@ function query(string $name, int $type): Promise {
  *
  * @return bool
  */
-function isValidDnsName(string $name) {
+function isValidName(string $name) {
     try {
-        normalizeDnsName($name);
+        normalizeName($name);
         return true;
     } catch (InvalidNameException $e) {
         return false;
@@ -77,7 +77,7 @@ function isValidDnsName(string $name) {
  * @return string Normalized DNS name.
  * @throws InvalidNameException If an invalid name or an IDN name without ext/intl being installed has been passed.
  */
-function normalizeDnsName(string $name): string {
+function normalizeName(string $name): string {
     static $pattern = '/^(?<name>[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)(\.(?&name))*$/i';
 
     if (\function_exists('idn_to_ascii') && \defined('INTL_IDNA_VARIANT_UTS46')) {
