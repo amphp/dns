@@ -44,7 +44,6 @@
         "ext-filter": "*"
     },
     "require-dev": {
-        "amphp/file": "^0.3",
         "amphp/phpunit-util": "^1",
         "phpunit/phpunit": "^6",
         "friendsofphp/php-cs-fixer": "^2.3"
