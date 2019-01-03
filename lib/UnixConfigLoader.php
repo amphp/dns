@@ -13,7 +13,7 @@ final class UnixConfigLoader implements ConfigLoader {
 
     public function __construct(string $path = "/etc/resolv.conf", HostLoader $hostLoader = null, ConfigFileReader $reader = null) {
         $this->path = $path;
-        $this->hostLoader = $hostLoader ?? new DefaultHostLoader;
+        $this->hostLoader = $hostLoader ?? new HostLoader;
         $this->reader = $reader ?? (\class_exists(File\Driver::class, true) ? new AsyncConfigFileReader : new BlockingConfigFileReader);
     }
 
