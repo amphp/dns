@@ -87,13 +87,11 @@ function normalizeDnsName(string $name): string {
         }
 
         $name = $result;
-    } else {
-        if (\preg_match('/[\x80-\xff]/', $name)) {
-            throw new InvalidDnsNameException(
-                "Name '{$name}' contains non-ASCII characters and IDN support is not available. " .
-                "Verify that ext/intl is installed for IDN support and that ICU is at least version 4.6."
-            );
-        }
+    } elseif (\preg_match('/[\x80-\xff]/', $name)) {
+        throw new InvalidDnsNameException(
+            "Name '{$name}' contains non-ASCII characters and IDN support is not available. " .
+            "Verify that ext/intl is installed for IDN support and that ICU is at least version 4.6."
+        );
     }
 
     if (isset($name[253]) || !\preg_match($pattern, $name)) {
