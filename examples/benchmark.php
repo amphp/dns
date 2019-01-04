@@ -26,7 +26,7 @@ Loop::run(function () use ($domains) {
 
         try {
             pretty_print_records($domain, yield Dns\resolve($domain));
-        } catch (Dns\ResolutionException $e) {
+        } catch (Dns\DnsException $e) {
             pretty_print_error($domain, $e);
         }
 

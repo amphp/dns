@@ -2,11 +2,10 @@
 
 namespace Amp\Dns;
 
-use Amp\File;
+use Amp\Failure;
 use Amp\Promise;
-use Amp\Uri\InvalidDnsNameException;
+use Amp\Success;
 use function Amp\call;
-use function Amp\Uri\normalizeDnsName;
 
 class HostLoader {
     private $path;
@@ -21,15 +20,32 @@ class HostLoader {
             : '/etc/hosts';
     }
 
+    protected function readFile(string $path): Promise {
+        \set_error_handler(function (int $errno, string $message) use ($path) {
+            throw new ConfigException("Could not read configuration file '{$path}' ({$errno}) $message");
+        });
+
+        try {
+            // Blocking file access, but this file should be local and usually loaded only once.
+            $fileContent = \file_get_contents($path);
+        } catch (ConfigException $exception) {
+            return new Failure($exception);
+        } finally {
+            \restore_error_handler();
+        }
+
+        return new Success($fileContent);
+    }
+
     public function loadHosts(): Promise {
         return call(function () {
-            $data = [];
-
             try {
-                $contents = yield File\get($this->path);
-            } catch (File\FilesystemException $e) {
+                $contents = yield $this->readFile($this->path);
+            } catch (ConfigException $exception) {
                 return [];
             }
+
+            $data = [];
 
             $lines = \array_filter(\array_map("trim", \explode("\n", $contents)));
 
@@ -50,9 +66,9 @@ class HostLoader {
 
                 for ($i = 1, $l = \count($parts); $i < $l; $i++) {
                     try {
-                        $normalizedName = normalizeDnsName($parts[$i]);
+                        $normalizedName = normalizeName($parts[$i]);
                         $data[$key][$normalizedName] = $parts[0];
-                    } catch (InvalidDnsNameException $e) {
+                    } catch (InvalidNameException $e) {
                         // ignore invalid entries
                     }
                 }

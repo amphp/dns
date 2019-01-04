@@ -12,7 +12,7 @@ class UdpSocketTest extends SocketTest {
     }
 
     public function testInvalidUri() {
-        $this->expectException(Dns\ResolutionException::class);
+        $this->expectException(Dns\DnsException::class);
         wait(Dns\Internal\UdpSocket::connect("udp://8.8.8.8"));
     }
 }

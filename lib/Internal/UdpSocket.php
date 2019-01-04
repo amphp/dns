@@ -2,7 +2,7 @@
 
 namespace Amp\Dns\Internal;
 
-use Amp\Dns\ResolutionException;
+use Amp\Dns\DnsException;
 use Amp\Promise;
 use Amp\Success;
 use LibDNS\Decoder\DecoderFactory;
@@ -20,7 +20,7 @@ class UdpSocket extends Socket {
 
     public static function connect(string $uri): Promise {
         if (!$socket = @\stream_socket_client($uri, $errno, $errstr, 0, STREAM_CLIENT_ASYNC_CONNECT)) {
-            throw new ResolutionException(\sprintf(
+            throw new DnsException(\sprintf(
                 "Connection to %s failed: [Error #%d] %s",
                 $uri,
                 $errno,
@@ -48,7 +48,7 @@ class UdpSocket extends Socket {
             $data = yield $this->read();
 
             if ($data === null) {
-                throw new ResolutionException("Reading from the server failed");
+                throw new DnsException("Reading from the server failed");
             }
 
             return $this->decoder->decode($data);

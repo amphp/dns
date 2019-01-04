@@ -2,12 +2,12 @@
 
 namespace Amp\Dns;
 
-use Amp\File;
-use Amp\File\FilesystemException;
+use Amp\Failure;
 use Amp\Promise;
+use Amp\Success;
 use function Amp\call;
 
-final class UnixConfigLoader implements ConfigLoader {
+class UnixConfigLoader implements ConfigLoader {
     private $path;
     private $hostLoader;
 
@@ -16,60 +16,73 @@ final class UnixConfigLoader implements ConfigLoader {
         $this->hostLoader = $hostLoader ?? new HostLoader;
     }
 
-    public function loadConfig(): Promise {
+    protected function readFile(string $path): Promise {
+        \set_error_handler(function (int $errno, string $message) use ($path) {
+            throw new ConfigException("Could not read configuration file '{$path}' ({$errno}) $message");
+        });
+
+        try {
+            // Blocking file access, but this file should be local and usually loaded only once.
+            $fileContent = \file_get_contents($path);
+        } catch (ConfigException $exception) {
+            return new Failure($exception);
+        } finally {
+            \restore_error_handler();
+        }
+
+        return new Success($fileContent);
+    }
+
+    final public function loadConfig(): Promise {
         return call(function () {
-            $path = $this->path;
             $nameservers = [];
             $timeout = 3000;
             $attempts = 2;
 
-            try {
-                $fileContent = yield File\get($path);
-                $lines = \explode("\n", $fileContent);
+            $fileContent = yield $this->readFile($this->path);
 
-                foreach ($lines as $line) {
-                    $line = \preg_split('#\s+#', $line, 2);
+            $lines = \explode("\n", $fileContent);
 
-                    if (\count($line) !== 2) {
+            foreach ($lines as $line) {
+                $line = \preg_split('#\s+#', $line, 2);
+
+                if (\count($line) !== 2) {
+                    continue;
+                }
+
+                list($type, $value) = $line;
+
+                if ($type === "nameserver") {
+                    $value = \trim($value);
+                    $ip = @\inet_pton($value);
+
+                    if ($ip === false) {
                         continue;
                     }
 
-                    list($type, $value) = $line;
+                    if (isset($ip[15])) { // IPv6
+                        $nameservers[] = "[" . $value . "]:53";
+                    } else { // IPv4
+                        $nameservers[] = $value . ":53";
+                    }
+                } elseif ($type === "options") {
+                    $optline = \preg_split('#\s+#', $value, 2);
 
-                    if ($type === "nameserver") {
-                        $value = \trim($value);
-                        $ip = @\inet_pton($value);
+                    if (\count($optline) !== 2) {
+                        continue;
+                    }
 
-                        if ($ip === false) {
-                            continue;
-                        }
+                    list($option, $value) = $optline;
 
-                        if (isset($ip[15])) { // IPv6
-                            $nameservers[] = "[" . $value . "]:53";
-                        } else { // IPv4
-                            $nameservers[] = $value . ":53";
-                        }
-                    } elseif ($type === "options") {
-                        $optline = \preg_split('#\s+#', $value, 2);
+                    switch ($option) {
+                        case "timeout":
+                            $timeout = (int) $value;
+                            break;
 
-                        if (\count($optline) !== 2) {
-                            continue;
-                        }
-
-                        list($option, $value) = $optline;
-
-                        switch ($option) {
-                            case "timeout":
-                                $timeout = (int) $value;
-                                break;
-
-                            case "attempts":
-                                $attempts = (int) $value;
-                        }
+                        case "attempts":
+                            $attempts = (int) $value;
                     }
                 }
-            } catch (FilesystemException $e) {
-                throw new ConfigException("Could not read configuration file ({$path})", $e);
             }
 
             $hosts = yield $this->hostLoader->loadHosts();

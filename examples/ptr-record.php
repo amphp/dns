@@ -10,7 +10,7 @@ Loop::run(function () {
 
     try {
         pretty_print_records($ip, yield Dns\query($ip, Dns\Record::PTR));
-    } catch (Dns\ResolutionException $e) {
+    } catch (Dns\DnsException $e) {
         pretty_print_error($ip, $e);
     }
 });

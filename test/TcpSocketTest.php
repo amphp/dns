@@ -22,7 +22,7 @@ class TcpSocketTest extends SocketTest {
     }
 
     public function testInvalidUri() {
-        $this->expectException(Dns\ResolutionException::class);
+        $this->expectException(Dns\DnsException::class);
         wait(Dns\Internal\TcpSocket::connect("tcp://8.8.8.8"));
     }
 
@@ -43,7 +43,7 @@ class TcpSocketTest extends SocketTest {
             // Google's DNS times out really fast
             yield new Delayed(3000);
 
-            $this->expectException(Dns\ResolutionException::class);
+            $this->expectException(Dns\DnsException::class);
             $this->expectExceptionMessageRegExp("(Sending the request failed|Reading from the server failed)");
 
             yield $socket->ask($question, 3000);

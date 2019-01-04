@@ -7,6 +7,7 @@ use Amp\ByteStream\ResourceInputStream;
 use Amp\ByteStream\ResourceOutputStream;
 use Amp\ByteStream\StreamException;
 use Amp\Deferred;
+use Amp\Dns\DnsException;
 use Amp\Dns\ResolutionException;
 use Amp\Dns\TimeoutException;
 use Amp\Promise;
@@ -132,7 +133,7 @@ abstract class Socket {
             try {
                 yield $this->send($message);
             } catch (StreamException $exception) {
-                $exception = new ResolutionException("Sending the request failed", 0, $exception);
+                $exception = new DnsException("Sending the request failed", 0, $exception);
                 $this->error($exception);
                 throw $exception;
             }
@@ -196,7 +197,7 @@ abstract class Socket {
 
         if (!$exception instanceof ResolutionException) {
             $message = "Unexpected error during resolution: " . $exception->getMessage();
-            $exception = new ResolutionException($message, 0, $exception);
+            $exception = new DnsException($message, 0, $exception);
         }
 
         $pending = $this->pending;
