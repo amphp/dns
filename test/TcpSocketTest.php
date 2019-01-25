@@ -11,22 +11,27 @@ use LibDNS\Messages\MessageTypes;
 use LibDNS\Records\QuestionFactory;
 use function Amp\Promise\wait;
 
-class TcpSocketTest extends SocketTest {
-    protected function connect(): Promise {
+class TcpSocketTest extends SocketTest
+{
+    protected function connect(): Promise
+    {
         return Dns\Internal\TcpSocket::connect("tcp://8.8.8.8:53");
     }
 
-    public function testTimeout() {
+    public function testTimeout()
+    {
         $this->expectException(Dns\TimeoutException::class);
         wait(Dns\Internal\TcpSocket::connect("tcp://8.8.8.8:53", 0));
     }
 
-    public function testInvalidUri() {
+    public function testInvalidUri()
+    {
         $this->expectException(Dns\DnsException::class);
         wait(Dns\Internal\TcpSocket::connect("tcp://8.8.8.8"));
     }
 
-    public function testAfterConnectionTimedOut() {
+    public function testAfterConnectionTimedOut()
+    {
         Loop::run(function () {
             $question = (new QuestionFactory)->create(Dns\Record::A);
             $question->setName("google.com");

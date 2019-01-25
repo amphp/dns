@@ -4,6 +4,7 @@ namespace Amp\Dns;
 
 use Amp\Promise;
 
-interface ConfigLoader {
+interface ConfigLoader
+{
     public function loadConfig(): Promise;
 }

@@ -7,14 +7,17 @@ use Amp\WindowsRegistry\KeyNotFoundException;
 use Amp\WindowsRegistry\WindowsRegistry;
 use function Amp\call;
 
-final class WindowsConfigLoader implements ConfigLoader {
+final class WindowsConfigLoader implements ConfigLoader
+{
     private $hostLoader;
 
-    public function __construct(HostLoader $hostLoader = null) {
+    public function __construct(HostLoader $hostLoader = null)
+    {
         $this->hostLoader = $hostLoader ?? new HostLoader;
     }
 
-    public function loadConfig(): Promise {
+    public function loadConfig(): Promise
+    {
         return call(function () {
             $keys = [
                 "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters\\NameServer",

@@ -16,7 +16,8 @@ use LibDNS\Records\Question;
 use LibDNS\Records\QuestionFactory;
 use function Amp\call;
 
-final class BasicResolver implements Resolver {
+final class BasicResolver implements Resolver
+{
     const CACHE_PREFIX = "amphp.dns.";
 
     /** @var \Amp\Dns\ConfigLoader */
@@ -46,7 +47,8 @@ final class BasicResolver implements Resolver {
     /** @var string */
     private $gcWatcher;
 
-    public function __construct(Cache $cache = null, ConfigLoader $configLoader = null) {
+    public function __construct(Cache $cache = null, ConfigLoader $configLoader = null)
+    {
         $this->cache = $cache ?? new ArrayCache(5000 /* default gc interval */, 256 /* size */);
         $this->configLoader = $configLoader ?? (\stripos(PHP_OS, "win") === 0
                 ? new WindowsConfigLoader
@@ -73,12 +75,14 @@ final class BasicResolver implements Resolver {
         Loop::unreference($this->gcWatcher);
     }
 
-    public function __destruct() {
+    public function __destruct()
+    {
         Loop::cancel($this->gcWatcher);
     }
 
     /** @inheritdoc */
-    public function resolve(string $name, int $typeRestriction = null): Promise {
+    public function resolve(string $name, int $typeRestriction = null): Promise
+    {
         if ($typeRestriction !== null && $typeRestriction !== Record::A && $typeRestriction !== Record::AAAA) {
             throw new \Error("Invalid value for parameter 2: null|Record::A|Record::AAAA expected");
         }
@@ -90,23 +94,23 @@ final class BasicResolver implements Resolver {
 
             switch ($typeRestriction) {
                 case Record::A:
-                    if (filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+                    if (\filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
                         return [new Record($name, Record::A, null)];
-                    } elseif (filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+                    } elseif (\filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
                         throw new DnsException("Got an IPv6 address, but type is restricted to IPv4");
                     }
                     break;
                 case Record::AAAA:
-                    if (filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+                    if (\filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
                         return [new Record($name, Record::AAAA, null)];
-                    } elseif (filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+                    } elseif (\filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
                         throw new DnsException("Got an IPv4 address, but type is restricted to IPv6");
                     }
                     break;
                 default:
-                    if (filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+                    if (\filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
                         return [new Record($name, Record::A, null)];
-                    } elseif (filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+                    } elseif (\filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
                         return [new Record($name, Record::AAAA, null)];
                     }
                     break;
@@ -165,7 +169,8 @@ final class BasicResolver implements Resolver {
         });
     }
 
-    private function queryHosts(string $name, int $typeRestriction = null): array {
+    private function queryHosts(string $name, int $typeRestriction = null): array
+    {
         $hosts = $this->config->getKnownHosts();
         $records = [];
 
@@ -184,7 +189,8 @@ final class BasicResolver implements Resolver {
     }
 
     /** @inheritdoc */
-    public function query(string $name, int $type): Promise {
+    public function query(string $name, int $type): Promise
+    {
         $pendingQueryKey = $type . " " . $name;
 
         if (isset($this->pendingQueries[$pendingQueryKey])) {
@@ -319,7 +325,8 @@ final class BasicResolver implements Resolver {
      *
      * @return Promise
      */
-    public function reloadConfig(): Promise {
+    public function reloadConfig(): Promise
+    {
         if ($this->pendingConfig) {
             return $this->pendingConfig;
         }
@@ -343,7 +350,8 @@ final class BasicResolver implements Resolver {
      *
      * @return \LibDNS\Records\Question
      */
-    private function createQuestion(string $name, int $type): Question {
+    private function createQuestion(string $name, int $type): Question
+    {
         if (0 > $type || 0xffff < $type) {
             $message = \sprintf('%d does not correspond to a valid record type (must be between 0 and 65535).', $type);
             throw new \Error($message);
@@ -355,11 +363,13 @@ final class BasicResolver implements Resolver {
         return $question;
     }
 
-    private function getCacheKey(string $name, int $type): string {
+    private function getCacheKey(string $name, int $type): string
+    {
         return self::CACHE_PREFIX . $name . "#" . $type;
     }
 
-    private function decodeCachedResult(string $name, string $type, string $encoded) {
+    private function decodeCachedResult(string $name, string $type, string $encoded)
+    {
         $decoded = \json_decode($encoded, true);
 
         if (!$decoded) {
@@ -375,9 +385,10 @@ final class BasicResolver implements Resolver {
         return $result;
     }
 
-    private function normalizeName(string $name, int $type) {
+    private function normalizeName(string $name, int $type)
+    {
         if ($type === Record::PTR) {
-            if (($packedIp = @inet_pton($name)) !== false) {
+            if (($packedIp = @\inet_pton($name)) !== false) {
                 if (isset($packedIp[4])) { // IPv6
                     $name = \wordwrap(\strrev(\bin2hex($packedIp)), 1, ".", true) . ".ip6.arpa";
                 } else { // IPv4
@@ -391,7 +402,8 @@ final class BasicResolver implements Resolver {
         return $name;
     }
 
-    private function getSocket($uri): Promise {
+    private function getSocket($uri): Promise
+    {
         // We use a new socket for each UDP request, as that increases the entropy and mitigates response forgery.
         if (\substr($uri, 0, 3) === "udp") {
             return UdpSocket::connect($uri);
@@ -420,7 +432,8 @@ final class BasicResolver implements Resolver {
         return $server;
     }
 
-    private function assertAcceptableResponse(Message $response) {
+    private function assertAcceptableResponse(Message $response)
+    {
         if ($response->getResponseCode() !== 0) {
             throw new DnsException(\sprintf("Server returned error code: %d", $response->getResponseCode()));
         }

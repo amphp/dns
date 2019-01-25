@@ -7,16 +7,19 @@ use Amp\Promise;
 use Amp\Success;
 use function Amp\call;
 
-class UnixConfigLoader implements ConfigLoader {
+class UnixConfigLoader implements ConfigLoader
+{
     private $path;
     private $hostLoader;
 
-    public function __construct(string $path = "/etc/resolv.conf", HostLoader $hostLoader = null) {
+    public function __construct(string $path = "/etc/resolv.conf", HostLoader $hostLoader = null)
+    {
         $this->path = $path;
         $this->hostLoader = $hostLoader ?? new HostLoader;
     }
 
-    protected function readFile(string $path): Promise {
+    protected function readFile(string $path): Promise
+    {
         \set_error_handler(function (int $errno, string $message) use ($path) {
             throw new ConfigException("Could not read configuration file '{$path}' ({$errno}) $message");
         });
@@ -33,7 +36,8 @@ class UnixConfigLoader implements ConfigLoader {
         return new Success($fileContent);
     }
 
-    final public function loadConfig(): Promise {
+    final public function loadConfig(): Promise
+    {
         return call(function () {
             $nameservers = [];
             $timeout = 3000;

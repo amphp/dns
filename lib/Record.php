@@ -5,7 +5,8 @@ namespace Amp\Dns;
 use LibDNS\Records\ResourceQTypes;
 use LibDNS\Records\ResourceTypes;
 
-final class Record {
+final class Record
+{
     const A = ResourceTypes::A;
     const AAAA = ResourceTypes::AAAA;
     const AFSDB = ResourceTypes::AFSDB;
@@ -59,21 +60,25 @@ final class Record {
     private $type;
     private $ttl;
 
-    public function __construct(string $value, int $type, int $ttl = null) {
+    public function __construct(string $value, int $type, int $ttl = null)
+    {
         $this->value = $value;
         $this->type = $type;
         $this->ttl = $ttl;
     }
 
-    public function getValue(): string {
+    public function getValue(): string
+    {
         return $this->value;
     }
 
-    public function getType(): int {
+    public function getType(): int
+    {
         return $this->type;
     }
 
-    public function getTtl() {
+    public function getTtl()
+    {
         return $this->ttl;
     }
 
@@ -86,7 +91,8 @@ final class Record {
      *
      * @return string Name of the constant for this record in this class.
      */
-    public static function getName(int $type): string {
+    public static function getName(int $type): string
+    {
         static $types;
 
         if (0 > $type || 0xffff < $type) {

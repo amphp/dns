@@ -10,10 +10,12 @@ use LibDNS\Messages\Message;
 use LibDNS\Messages\MessageTypes;
 use LibDNS\Records\QuestionFactory;
 
-abstract class SocketTest extends TestCase {
+abstract class SocketTest extends TestCase
+{
     abstract protected function connect(): Promise;
 
-    public function testAsk() {
+    public function testAsk()
+    {
         Loop::run(function () {
             $question = (new QuestionFactory)->create(Dns\Record::A);
             $question->setName("google.com");
@@ -29,7 +31,8 @@ abstract class SocketTest extends TestCase {
         });
     }
 
-    public function testGetLastActivity() {
+    public function testGetLastActivity()
+    {
         Loop::run(function () {
             $question = (new QuestionFactory)->create(Dns\Record::A);
             $question->setName("google.com");
@@ -37,7 +40,7 @@ abstract class SocketTest extends TestCase {
             /** @var Dns\Internal\Socket $socket */
             $socket = yield $this->connect();
 
-            $this->assertLessThan(time() + 1, $socket->getLastActivity());
+            $this->assertLessThan(\time() + 1, $socket->getLastActivity());
         });
     }
 }

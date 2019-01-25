@@ -11,14 +11,16 @@ use LibDNS\Messages\Message;
 use function Amp\call;
 
 /** @internal */
-class UdpSocket extends Socket {
+class UdpSocket extends Socket
+{
     /** @var \LibDNS\Encoder\Encoder */
     private $encoder;
 
     /** @var \LibDNS\Decoder\Decoder */
     private $decoder;
 
-    public static function connect(string $uri): Promise {
+    public static function connect(string $uri): Promise
+    {
         if (!$socket = @\stream_socket_client($uri, $errno, $errstr, 0, STREAM_CLIENT_ASYNC_CONNECT)) {
             throw new DnsException(\sprintf(
                 "Connection to %s failed: [Error #%d] %s",
@@ -31,19 +33,22 @@ class UdpSocket extends Socket {
         return new Success(new self($socket));
     }
 
-    protected function __construct($socket) {
+    protected function __construct($socket)
+    {
         parent::__construct($socket);
 
         $this->encoder = (new EncoderFactory)->create();
         $this->decoder = (new DecoderFactory)->create();
     }
 
-    protected function send(Message $message): Promise {
+    protected function send(Message $message): Promise
+    {
         $data = $this->encoder->encode($message);
         return $this->write($data);
     }
 
-    protected function receive(): Promise {
+    protected function receive(): Promise
+    {
         return call(function () {
             $data = yield $this->read();
 
@@ -55,7 +60,8 @@ class UdpSocket extends Socket {
         });
     }
 
-    public function isAlive(): bool {
+    public function isAlive(): bool
+    {
         return true;
     }
 }

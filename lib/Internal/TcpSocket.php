@@ -16,7 +16,8 @@ use LibDNS\Messages\Message;
 use function Amp\call;
 
 /** @internal */
-class TcpSocket extends Socket {
+class TcpSocket extends Socket
+{
     /** @var \LibDNS\Encoder\Encoder */
     private $encoder;
 
@@ -29,7 +30,8 @@ class TcpSocket extends Socket {
     /** @var bool */
     private $isAlive = true;
 
-    public static function connect(string $uri, int $timeout = 5000): Promise {
+    public static function connect(string $uri, int $timeout = 5000): Promise
+    {
         if (!$socket = @\stream_socket_client($uri, $errno, $errstr, 0, STREAM_CLIENT_ASYNC_CONNECT)) {
             throw new DnsException(\sprintf(
                 "Connection to %s failed: [Error #%d] %s",
@@ -58,7 +60,8 @@ class TcpSocket extends Socket {
         });
     }
 
-    public static function parser(callable $callback): \Generator {
+    public static function parser(callable $callback): \Generator
+    {
         $decoder = (new DecoderFactory)->create();
 
         while (true) {
@@ -70,7 +73,8 @@ class TcpSocket extends Socket {
         }
     }
 
-    protected function __construct($socket) {
+    protected function __construct($socket)
+    {
         parent::__construct($socket);
 
         $this->encoder = (new EncoderFactory)->create();
@@ -78,7 +82,8 @@ class TcpSocket extends Socket {
         $this->parser = new Parser(self::parser([$this->queue, 'push']));
     }
 
-    protected function send(Message $message): Promise {
+    protected function send(Message $message): Promise
+    {
         $data = $this->encoder->encode($message);
         $promise = $this->write(\pack("n", \strlen($data)) . $data);
         $promise->onResolve(function ($error) {
@@ -90,7 +95,8 @@ class TcpSocket extends Socket {
         return $promise;
     }
 
-    protected function receive(): Promise {
+    protected function receive(): Promise
+    {
         if ($this->queue->isEmpty()) {
             return call(function () {
                 do {
@@ -111,7 +117,8 @@ class TcpSocket extends Socket {
         return new Success($this->queue->shift());
     }
 
-    public function isAlive(): bool {
+    public function isAlive(): bool
+    {
         return $this->isAlive;
     }
 }

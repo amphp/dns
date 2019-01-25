@@ -4,7 +4,8 @@ namespace Amp\Dns;
 
 use Amp\Promise;
 
-interface Resolver {
+interface Resolver
+{
     /**
      * Resolves a hostname name to an IP address [hostname as defined by RFC 3986].
      *

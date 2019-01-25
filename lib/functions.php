@@ -14,7 +14,8 @@ const LOOP_STATE_IDENTIFIER = Resolver::class;
  *
  * @return \Amp\Dns\Resolver Returns the application-wide dns resolver instance
  */
-function resolver(Resolver $resolver = null): Resolver {
+function resolver(Resolver $resolver = null): Resolver
+{
     if ($resolver === null) {
         $resolver = Loop::getState(LOOP_STATE_IDENTIFIER);
 
@@ -35,21 +36,24 @@ function resolver(Resolver $resolver = null): Resolver {
  *
  * @return \Amp\Dns\Resolver
  */
-function driver(): Resolver {
+function driver(): Resolver
+{
     return new BasicResolver;
 }
 
 /**
  * @see Resolver::resolve()
  */
-function resolve(string $name, int $typeRestriction = null): Promise {
+function resolve(string $name, int $typeRestriction = null): Promise
+{
     return resolver()->resolve($name, $typeRestriction);
 }
 
 /**
  * @see Resolver::query()
  */
-function query(string $name, int $type): Promise {
+function query(string $name, int $type): Promise
+{
     return resolver()->query($name, $type);
 }
 
@@ -60,7 +64,8 @@ function query(string $name, int $type): Promise {
  *
  * @return bool
  */
-function isValidName(string $name) {
+function isValidName(string $name)
+{
     try {
         normalizeName($name);
         return true;
@@ -77,7 +82,8 @@ function isValidName(string $name) {
  * @return string Normalized DNS name.
  * @throws InvalidNameException If an invalid name or an IDN name without ext/intl being installed has been passed.
  */
-function normalizeName(string $name): string {
+function normalizeName(string $name): string
+{
     static $pattern = '/^(?<name>[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)(\.(?&name))*$/i';
 
     if (\function_exists('idn_to_ascii') && \defined('INTL_IDNA_VARIANT_UTS46')) {

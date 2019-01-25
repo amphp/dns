@@ -7,13 +7,15 @@ use Amp\Dns\Record;
 use Amp\Loop;
 use Amp\PHPUnit\TestCase;
 
-class IntegrationTest extends TestCase {
+class IntegrationTest extends TestCase
+{
     /**
      * @param string $hostname
      * @group internet
      * @dataProvider provideHostnames
      */
-    public function testResolve($hostname) {
+    public function testResolve($hostname)
+    {
         Loop::run(function () use ($hostname) {
             $result = yield Dns\resolve($hostname);
 
@@ -30,7 +32,8 @@ class IntegrationTest extends TestCase {
     /**
      * @group internet
      */
-    public function testWorksAfterConfigReload() {
+    public function testWorksAfterConfigReload()
+    {
         Loop::run(function () {
             yield Dns\query("google.com", Record::A);
             $this->assertNull(yield Dns\resolver()->reloadConfig());
@@ -38,7 +41,8 @@ class IntegrationTest extends TestCase {
         });
     }
 
-    public function testResolveIPv4only() {
+    public function testResolveIPv4only()
+    {
         Loop::run(function () {
             $records = yield Dns\resolve("google.com", Record::A);
 
@@ -54,7 +58,8 @@ class IntegrationTest extends TestCase {
         });
     }
 
-    public function testResolveIPv6only() {
+    public function testResolveIPv6only()
+    {
         Loop::run(function () {
             $records = yield Dns\resolve("google.com", Record::AAAA);
 
@@ -70,7 +75,8 @@ class IntegrationTest extends TestCase {
         });
     }
 
-    public function testPtrLookup() {
+    public function testPtrLookup()
+    {
         Loop::run(function () {
             $result = yield Dns\query("8.8.4.4", Record::PTR);
 
@@ -86,7 +92,8 @@ class IntegrationTest extends TestCase {
      * Test that two concurrent requests to the same resource share the same request and do not result in two requests
      * being sent.
      */
-    public function testRequestSharing() {
+    public function testRequestSharing()
+    {
         Loop::run(function () {
             $promise1 = Dns\query("example.com", Record::A);
             $promise2 = Dns\query("example.com", Record::A);
@@ -96,7 +103,8 @@ class IntegrationTest extends TestCase {
         });
     }
 
-    public function provideHostnames() {
+    public function provideHostnames()
+    {
         return [
             ["google.com"],
             ["github.com"],
@@ -108,7 +116,8 @@ class IntegrationTest extends TestCase {
         ];
     }
 
-    public function provideServers() {
+    public function provideServers()
+    {
         return [
             ["8.8.8.8"],
             ["8.8.8.8:53"],

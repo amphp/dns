@@ -2,13 +2,15 @@
 
 namespace Amp\Dns;
 
-final class Config {
+final class Config
+{
     private $nameservers;
     private $knownHosts;
     private $timeout;
     private $attempts;
 
-    public function __construct(array $nameservers, array $knownHosts = [], int $timeout = 3000, int $attempts = 2) {
+    public function __construct(array $nameservers, array $knownHosts = [], int $timeout = 3000, int $attempts = 2)
+    {
         if (\count($nameservers) < 1) {
             throw new ConfigException("At least one nameserver is required for a valid config");
         }
@@ -31,7 +33,8 @@ final class Config {
         $this->attempts = $attempts;
     }
 
-    private function validateNameserver($nameserver) {
+    private function validateNameserver($nameserver)
+    {
         if (!$nameserver || !\is_string($nameserver)) {
             throw new ConfigException("Invalid nameserver: {$nameserver}");
         }
@@ -68,19 +71,23 @@ final class Config {
         }
     }
 
-    public function getNameservers(): array {
+    public function getNameservers(): array
+    {
         return $this->nameservers;
     }
 
-    public function getKnownHosts(): array {
+    public function getKnownHosts(): array
+    {
         return $this->knownHosts;
     }
 
-    public function getTimeout(): int {
+    public function getTimeout(): int
+    {
         return $this->timeout;
     }
 
-    public function getAttempts(): int {
+    public function getAttempts(): int
+    {
         return $this->attempts;
     }
 }

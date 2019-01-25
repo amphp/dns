@@ -2,5 +2,6 @@
 
 namespace Amp\Dns;
 
-class InvalidNameException extends DnsException {
+class InvalidNameException extends DnsException
+{
 }

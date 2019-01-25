@@ -7,7 +7,8 @@ use Amp\Loop;
 use Amp\Promise;
 
 $customConfigLoader = new class implements Dns\ConfigLoader {
-    public function loadConfig(): Promise {
+    public function loadConfig(): Promise
+    {
         return Amp\call(function () {
             $hosts = yield (new Dns\HostLoader)->loadHosts();
 

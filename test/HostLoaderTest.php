@@ -7,8 +7,10 @@ use Amp\Dns\Record;
 use Amp\Loop;
 use Amp\PHPUnit\TestCase;
 
-class HostLoaderTest extends TestCase {
-    public function testIgnoresCommentsAndParsesBasicEntry() {
+class HostLoaderTest extends TestCase
+{
+    public function testIgnoresCommentsAndParsesBasicEntry()
+    {
         Loop::run(function () {
             $loader = new HostLoader(__DIR__ . "/data/hosts");
             $this->assertSame([
@@ -19,14 +21,16 @@ class HostLoaderTest extends TestCase {
         });
     }
 
-    public function testReturnsEmptyErrorOnFileNotFound() {
+    public function testReturnsEmptyErrorOnFileNotFound()
+    {
         Loop::run(function () {
             $loader = new HostLoader(__DIR__ . "/data/hosts.not.found");
             $this->assertSame([], yield $loader->loadHosts());
         });
     }
 
-    public function testIgnoresInvalidNames() {
+    public function testIgnoresInvalidNames()
+    {
         Loop::run(function () {
             $loader = new HostLoader(__DIR__ . "/data/hosts.invalid.name");
             $this->assertSame([

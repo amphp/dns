@@ -7,20 +7,24 @@ use Amp\Promise;
 use Amp\Success;
 use function Amp\call;
 
-class HostLoader {
+class HostLoader
+{
     private $path;
 
-    public function __construct(string $path = null) {
+    public function __construct(string $path = null)
+    {
         $this->path = $path ?? $this->getDefaultPath();
     }
 
-    private function getDefaultPath(): string {
+    private function getDefaultPath(): string
+    {
         return \stripos(PHP_OS, "win") === 0
             ? 'C:\Windows\system32\drivers\etc\hosts'
             : '/etc/hosts';
     }
 
-    protected function readFile(string $path): Promise {
+    protected function readFile(string $path): Promise
+    {
         \set_error_handler(function (int $errno, string $message) use ($path) {
             throw new ConfigException("Could not read configuration file '{$path}' ({$errno}) $message");
         });
@@ -37,7 +41,8 @@ class HostLoader {
         return new Success($fileContent);
     }
 
-    public function loadHosts(): Promise {
+    public function loadHosts(): Promise
+    {
         return call(function () {
             try {
                 $contents = yield $this->readFile($this->path);

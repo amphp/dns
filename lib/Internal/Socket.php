@@ -18,7 +18,8 @@ use LibDNS\Records\Question;
 use function Amp\call;
 
 /** @internal */
-abstract class Socket {
+abstract class Socket
+{
     const MAX_CONCURRENT_REQUESTS = 500;
 
     /** @var ResourceInputStream */
@@ -69,11 +70,13 @@ abstract class Socket {
      */
     abstract public function isAlive(): bool;
 
-    public function getLastActivity(): int {
+    public function getLastActivity(): int
+    {
         return $this->lastActivity;
     }
 
-    protected function __construct($socket) {
+    protected function __construct($socket)
+    {
         $this->input = new ResourceInputStream($socket);
         $this->output = new ResourceOutputStream($socket);
         $this->messageFactory = new MessageFactory;
@@ -115,7 +118,8 @@ abstract class Socket {
      *
      * @return \Amp\Promise<\LibDNS\Messages\Message>
      */
-    public function ask(Question $question, int $timeout): Promise {
+    public function ask(Question $question, int $timeout): Promise
+    {
         return call(function () use ($question, $timeout) {
             $this->lastActivity = \time();
 
@@ -175,7 +179,7 @@ abstract class Socket {
                 throw new TimeoutException("Didn't receive a response within {$timeout} milliseconds.");
             } finally {
                 if ($this->queue) {
-                    $deferred = array_shift($this->queue);
+                    $deferred = \array_shift($this->queue);
                     $deferred->resolve();
                 }
             }
@@ -184,12 +188,14 @@ abstract class Socket {
         });
     }
 
-    public function close() {
+    public function close()
+    {
         $this->input->close();
         $this->output->close();
     }
 
-    private function error(\Throwable $exception) {
+    private function error(\Throwable $exception)
+    {
         $this->close();
 
         if (empty($this->pending)) {
@@ -211,15 +217,18 @@ abstract class Socket {
         }
     }
 
-    protected function read(): Promise {
+    protected function read(): Promise
+    {
         return $this->input->read();
     }
 
-    protected function write(string $data): Promise {
+    protected function write(string $data): Promise
+    {
         return $this->output->write($data);
     }
 
-    protected function createMessage(Question $question, int $id): Message {
+    protected function createMessage(Question $question, int $id): Message
+    {
         $request = $this->messageFactory->create(MessageTypes::QUERY);
         $request->getQuestionRecords()->add($question);
         $request->isRecursionDesired(true);
@@ -227,7 +236,8 @@ abstract class Socket {
         return $request;
     }
 
-    private function matchesQuestion(Message $message, Question $question): bool {
+    private function matchesQuestion(Message $message, Question $question): bool
+    {
         if ($message->getType() !== MessageTypes::RESPONSE) {
             return false;
         }
