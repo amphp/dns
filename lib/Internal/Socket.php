@@ -48,7 +48,7 @@ abstract class Socket {
     /**
      * @param string $uri
      *
-     * @return Promise<\Amp\Dns\Server>
+     * @return Promise<self>
      */
     abstract public static function connect(string $uri): Promise;
 
@@ -88,6 +88,7 @@ abstract class Socket {
                 return;
             }
 
+            \assert($message instanceof Message);
             $id = $message->getId();
 
             // Ignore duplicate and invalid responses.
@@ -128,16 +129,6 @@ abstract class Socket {
                 $id = \random_int(0, 0xffff);
             } while (isset($this->pending[$id]));
 
-            $message = $this->createMessage($question, $id);
-
-            try {
-                yield $this->send($message);
-            } catch (StreamException $exception) {
-                $exception = new DnsException("Sending the request failed", 0, $exception);
-                $this->error($exception);
-                throw $exception;
-            }
-
             $deferred = new Deferred;
             $pending = new class {
                 use Amp\Struct;
@@ -149,6 +140,16 @@ abstract class Socket {
             $pending->deferred = $deferred;
             $pending->question = $question;
             $this->pending[$id] = $pending;
+
+            $message = $this->createMessage($question, $id);
+
+            try {
+                yield $this->send($message);
+            } catch (StreamException $exception) {
+                $exception = new DnsException("Sending the request failed", 0, $exception);
+                $this->error($exception);
+                throw $exception;
+            }
 
             $this->input->reference();
 
