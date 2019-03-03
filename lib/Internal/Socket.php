@@ -8,7 +8,6 @@ use Amp\ByteStream\ResourceOutputStream;
 use Amp\ByteStream\StreamException;
 use Amp\Deferred;
 use Amp\Dns\DnsException;
-use Amp\Dns\ResolutionException;
 use Amp\Dns\TimeoutException;
 use Amp\Promise;
 use LibDNS\Messages\Message;
@@ -118,7 +117,7 @@ abstract class Socket
      *
      * @return \Amp\Promise<\LibDNS\Messages\Message>
      */
-    public function ask(Question $question, int $timeout): Promise
+    final public function ask(Question $question, int $timeout): Promise
     {
         return call(function () use ($question, $timeout) {
             $this->lastActivity = \time();
@@ -188,7 +187,7 @@ abstract class Socket
         });
     }
 
-    public function close()
+    final public function close()
     {
         $this->input->close();
         $this->output->close();
@@ -202,7 +201,7 @@ abstract class Socket
             return;
         }
 
-        if (!$exception instanceof ResolutionException) {
+        if (!$exception instanceof DnsException) {
             $message = "Unexpected error during resolution: " . $exception->getMessage();
             $exception = new DnsException($message, 0, $exception);
         }
@@ -217,17 +216,17 @@ abstract class Socket
         }
     }
 
-    protected function read(): Promise
+    final protected function read(): Promise
     {
         return $this->input->read();
     }
 
-    protected function write(string $data): Promise
+    final protected function write(string $data): Promise
     {
         return $this->output->write($data);
     }
 
-    protected function createMessage(Question $question, int $id): Message
+    final protected function createMessage(Question $question, int $id): Message
     {
         $request = $this->messageFactory->create(MessageTypes::QUERY);
         $request->getQuestionRecords()->add($question);

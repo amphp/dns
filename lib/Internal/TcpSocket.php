@@ -16,7 +16,7 @@ use LibDNS\Messages\Message;
 use function Amp\call;
 
 /** @internal */
-class TcpSocket extends Socket
+final class TcpSocket extends Socket
 {
     /** @var \LibDNS\Encoder\Encoder */
     private $encoder;
