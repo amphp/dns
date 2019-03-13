@@ -17,25 +17,25 @@ composer require amphp/dns
 ```php
 <?php
 
-require __DIR__ . '/vendor/autoload.php';
+require __DIR__ . '/examples/_bootstrap.php';
 
 use Amp\Dns;
 use Amp\Loop;
 
 Loop::run(function () {
     $githubIpv4 = yield Dns\resolve("github.com", Dns\Record::A);
-    var_dump($githubIpv4);
+    pretty_print_records("github.com", $githubIpv4);
 
     $googleIpv4 = Amp\Dns\resolve("google.com", Dns\Record::A);
     $googleIpv6 = Amp\Dns\resolve("google.com", Dns\Record::AAAA);
 
     $firstGoogleResult = yield Amp\Promise\first([$googleIpv4, $googleIpv6]);
-    var_dump($firstGoogleResult);
-    
+    pretty_print_records("google.com", $firstGoogleResult);
+
     $combinedGoogleResult = yield Amp\Dns\resolve("google.com");
-    var_dump($combinedGoogleResult);
-    
+    pretty_print_records("google.com", $combinedGoogleResult);
+
     $googleMx = yield Amp\Dns\query("google.com", Amp\Dns\Record::MX);
-    var_dump($googleMx);
+    pretty_print_records("google.com", $googleMx);
 });
 ```
