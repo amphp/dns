@@ -20,7 +20,7 @@ $customConfigLoader = new class implements Dns\ConfigLoader {
     }
 };
 
-Dns\resolver(new Dns\BasicResolver(null, $customConfigLoader));
+Dns\resolver(new Dns\Rfc1035StubResolver(null, $customConfigLoader));
 
 Loop::run(function () {
     $hostname = "amphp.org";

@@ -16,7 +16,7 @@ use LibDNS\Records\Question;
 use LibDNS\Records\QuestionFactory;
 use function Amp\call;
 
-final class BasicResolver implements Resolver
+final class Rfc1035StubResolver implements Resolver
 {
     const CACHE_PREFIX = "amphp.dns.";
 

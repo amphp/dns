@@ -38,7 +38,7 @@ function resolver(Resolver $resolver = null): Resolver
  */
 function driver(): Resolver
 {
-    return new BasicResolver;
+    return new Rfc1035StubResolver;
 }
 
 /**
