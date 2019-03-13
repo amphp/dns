@@ -122,6 +122,14 @@ final class BasicResolver implements Resolver
                 return $records;
             }
 
+            // Follow RFC 6761 and never send queries for localhost to the caching DNS server
+            // Usually, these queries are already resolved via queryHosts()
+            if ($name === 'localhost') {
+                return $typeRestriction === Record::AAAA
+                    ? [new Record('::1', Record::AAAA, null)]
+                    : [new Record('127.0.0.1', Record::A, null)];
+            }
+
             for ($redirects = 0; $redirects < 5; $redirects++) {
                 try {
                     if ($typeRestriction) {
@@ -167,6 +175,32 @@ final class BasicResolver implements Resolver
 
             return $records;
         });
+    }
+
+    /**
+     * Reloads the configuration in the background.
+     *
+     * Once it's finished, the configuration will be used for new requests.
+     *
+     * @return Promise
+     */
+    public function reloadConfig(): Promise
+    {
+        if ($this->pendingConfig) {
+            return $this->pendingConfig;
+        }
+
+        $promise = call(function () {
+            $this->config = yield $this->configLoader->loadConfig();
+        });
+
+        $this->pendingConfig = $promise;
+
+        $promise->onResolve(function () {
+            $this->pendingConfig = null;
+        });
+
+        return $promise;
     }
 
     private function queryHosts(string $name, int $typeRestriction = null): array
@@ -318,30 +352,21 @@ final class BasicResolver implements Resolver
         return $promise;
     }
 
-    /**
-     * Reloads the configuration in the background.
-     *
-     * Once it's finished, the configuration will be used for new requests.
-     *
-     * @return Promise
-     */
-    public function reloadConfig(): Promise
+    private function normalizeName(string $name, int $type)
     {
-        if ($this->pendingConfig) {
-            return $this->pendingConfig;
+        if ($type === Record::PTR) {
+            if (($packedIp = @\inet_pton($name)) !== false) {
+                if (isset($packedIp[4])) { // IPv6
+                    $name = \wordwrap(\strrev(\bin2hex($packedIp)), 1, ".", true) . ".ip6.arpa";
+                } else { // IPv4
+                    $name = \inet_ntop(\strrev($packedIp)) . ".in-addr.arpa";
+                }
+            }
+        } elseif (\in_array($type, [Record::A, Record::AAAA])) {
+            $name = normalizeName($name);
         }
 
-        $promise = call(function () {
-            $this->config = yield $this->configLoader->loadConfig();
-        });
-
-        $this->pendingConfig = $promise;
-
-        $promise->onResolve(function () {
-            $this->pendingConfig = null;
-        });
-
-        return $promise;
+        return $name;
     }
 
     /**
@@ -383,23 +408,6 @@ final class BasicResolver implements Resolver
         }
 
         return $result;
-    }
-
-    private function normalizeName(string $name, int $type)
-    {
-        if ($type === Record::PTR) {
-            if (($packedIp = @\inet_pton($name)) !== false) {
-                if (isset($packedIp[4])) { // IPv6
-                    $name = \wordwrap(\strrev(\bin2hex($packedIp)), 1, ".", true) . ".ip6.arpa";
-                } else { // IPv4
-                    $name = \inet_ntop(\strrev($packedIp)) . ".in-addr.arpa";
-                }
-            }
-        } elseif (\in_array($type, [Record::A, Record::AAAA])) {
-            $name = normalizeName($name);
-        }
-
-        return $name;
     }
 
     private function getSocket($uri): Promise
