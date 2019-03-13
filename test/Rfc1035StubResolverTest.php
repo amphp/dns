@@ -2,14 +2,14 @@
 
 namespace Amp\Dns\Test;
 
-use Amp\Dns\Rfc1035StubResolver;
 use Amp\Dns\DnsException;
 use Amp\Dns\InvalidNameException;
 use Amp\Dns\Record;
+use Amp\Dns\Rfc1035StubResolver;
 use Amp\Loop;
 use Amp\PHPUnit\TestCase;
 
-class BasicResolverTest extends TestCase
+class Rfc1035StubResolverTest extends TestCase
 {
     public function testResolveSecondParameterAcceptedValues()
     {
