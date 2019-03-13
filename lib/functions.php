@@ -23,7 +23,7 @@ function resolver(Resolver $resolver = null): Resolver
             return $resolver;
         }
 
-        $resolver = driver();
+        $resolver = createDefaultResolver();
     }
 
     Loop::setState(LOOP_STATE_IDENTIFIER, $resolver);
@@ -36,7 +36,7 @@ function resolver(Resolver $resolver = null): Resolver
  *
  * @return \Amp\Dns\Resolver
  */
-function driver(): Resolver
+function createDefaultResolver(): Resolver
 {
     return new Rfc1035StubResolver;
 }
