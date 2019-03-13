@@ -41,7 +41,7 @@ class HostLoader
         return new Success($fileContent);
     }
 
-    final public function loadHosts(): Promise
+    public function loadHosts(): Promise
     {
         return call(function () {
             try {
