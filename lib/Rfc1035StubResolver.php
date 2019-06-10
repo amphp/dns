@@ -393,7 +393,7 @@ final class Rfc1035StubResolver implements Resolver
         return self::CACHE_PREFIX . $name . "#" . $type;
     }
 
-    private function decodeCachedResult(string $name, string $type, string $encoded)
+    private function decodeCachedResult(string $name, int $type, string $encoded)
     {
         $decoded = \json_decode($encoded, true);
 
