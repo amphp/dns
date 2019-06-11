@@ -7,7 +7,7 @@ use Amp\Loop;
 
 print "Downloading top 500 domains..." . PHP_EOL;
 
-$domains = \file_get_contents("https://moz.com/top500/domains/csv");
+$domains = \file_get_contents("https://moz.com/top-500/download?table=top500Domains");
 $domains = \array_map(function ($line) {
     return \trim(\explode(",", $line)[1], '"/');
 }, \array_filter(\explode("\n", $domains)));
