@@ -19,6 +19,9 @@ use function Amp\call;
 final class Rfc1035StubResolver implements Resolver
 {
     const CACHE_PREFIX = "amphp.dns.";
+    const CONFIG_NOT_LOADED = 0;
+    const CONFIG_LOADED = 1;
+    const CONFIG_FAILED = 2;
 
     /** @var \Amp\Dns\ConfigLoader */
     private $configLoader;
@@ -28,6 +31,9 @@ final class Rfc1035StubResolver implements Resolver
 
     /** @var \Amp\Dns\Config|null */
     private $config;
+
+    /** @var int */
+    private $configStatus = self::CONFIG_NOT_LOADED;
 
     /** @var Promise|null */
     private $pendingConfig;
@@ -49,10 +55,10 @@ final class Rfc1035StubResolver implements Resolver
 
     public function __construct(Cache $cache = null, ConfigLoader $configLoader = null)
     {
-        $this->cache = $cache ?? new ArrayCache(5000 /* default gc interval */, 256 /* size */);
+        $this->cache = $cache ?? new ArrayCache(5000/* default gc interval */, 256/* size */);
         $this->configLoader = $configLoader ?? (\stripos(PHP_OS, "win") === 0
-                ? new WindowsConfigLoader
-                : new UnixConfigLoader);
+            ? new WindowsConfigLoader
+            : new UnixConfigLoader);
 
         $this->questionFactory = new QuestionFactory;
 
@@ -88,8 +94,25 @@ final class Rfc1035StubResolver implements Resolver
         }
 
         return call(function () use ($name, $typeRestriction) {
-            if (!$this->config) {
-                yield $this->reloadConfig();
+            if (!$this->configStatus) {
+                try {
+                    yield $this->reloadConfig();
+                } catch (ConfigException $e) {
+                    $this->configStatus = self::CONFIG_FAILED;
+                }
+            }
+            if ($this->configStatus === self::CONFIG_FAILED) {
+                if (!\in_array($typeRestriction, [Record::A, null])) {
+                    return [];
+                }
+                $result = \gethostbynamel($name);
+                if ($result === false) {
+                    return [];
+                }
+                foreach ($result as &$record) {
+                    $record = new Record($record, Record::A, null);
+                }
+                return $result;
             }
 
             switch ($typeRestriction) {
@@ -126,8 +149,8 @@ final class Rfc1035StubResolver implements Resolver
             // Usually, these queries are already resolved via queryHosts()
             if ($name === 'localhost') {
                 return $typeRestriction === Record::AAAA
-                    ? [new Record('::1', Record::AAAA, null)]
-                    : [new Record('127.0.0.1', Record::A, null)];
+                ? [new Record('::1', Record::AAAA, null)]
+                : [new Record('127.0.0.1', Record::A, null)];
             }
 
             for ($redirects = 0; $redirects < 5; $redirects++) {
@@ -155,7 +178,7 @@ final class Rfc1035StubResolver implements Resolver
                                 $errors[] = $reason->getMessage();
                             }
 
-                            throw new DnsException("All query attempts failed for {$name}: " . \implode(", ", $errors), 0, $e);
+                            throw new DnsException("All query attempts failed for {$name}: ".\implode(", ", $errors), 0, $e);
                         }
                     }
                 } catch (NoRecordException $e) {
@@ -192,6 +215,7 @@ final class Rfc1035StubResolver implements Resolver
 
         $promise = call(function () {
             $this->config = yield $this->configLoader->loadConfig();
+            $this->configStatus = self::CONFIG_LOADED;
         });
 
         $this->pendingConfig = $promise;
@@ -225,15 +249,32 @@ final class Rfc1035StubResolver implements Resolver
     /** @inheritdoc */
     public function query(string $name, int $type): Promise
     {
-        $pendingQueryKey = $type . " " . $name;
+        $pendingQueryKey = $type." ".$name;
 
         if (isset($this->pendingQueries[$pendingQueryKey])) {
             return $this->pendingQueries[$pendingQueryKey];
         }
 
         $promise = call(function () use ($name, $type) {
-            if (!$this->config) {
-                yield $this->reloadConfig();
+            if (!$this->configStatus) {
+                try {
+                    yield $this->reloadConfig();
+                } catch (ConfigException $e) {
+                    $this->configStatus = self::CONFIG_FAILED;
+                }
+            }
+            if ($this->configStatus === self::CONFIG_FAILED) {
+                if ($type !== Record::A) {
+                    return [];
+                }
+                $result = \gethostbynamel($name);
+                if ($result === false) {
+                    return [];
+                }
+                foreach ($result as &$record) {
+                    $record = new Record($record, Record::A, null);
+                }
+                return $result;
             }
 
             $name = $this->normalizeName($name, $type);
@@ -249,7 +290,7 @@ final class Rfc1035StubResolver implements Resolver
             $attempt = 0;
 
             /** @var Socket $socket */
-            $uri = $protocol . "://" . $nameservers[0];
+            $uri = $protocol."://".$nameservers[0];
             $socket = yield $this->getSocket($uri);
 
             $attemptDescription = [];
@@ -262,7 +303,7 @@ final class Rfc1035StubResolver implements Resolver
 
                         /** @var Socket $server */
                         $i = $attempt % \count($nameservers);
-                        $uri = $protocol . "://" . $nameservers[$i];
+                        $uri = $protocol."://".$nameservers[$i];
                         $socket = yield $this->getSocket($uri);
                     }
 
@@ -285,12 +326,12 @@ final class Rfc1035StubResolver implements Resolver
                             // Retry with TCP, don't count attempt
                             $protocol = "tcp";
                             $i = $attempt % \count($nameservers);
-                            $uri = $protocol . "://" . $nameservers[$i];
+                            $uri = $protocol."://".$nameservers[$i];
                             $socket = yield $this->getSocket($uri);
                             continue;
                         }
 
-                        throw new DnsException("Server returned a truncated response for '{$name}' (" . Record::getName($type) . ")");
+                        throw new DnsException("Server returned a truncated response for '{$name}' (".Record::getName($type).")");
                     }
 
                     $answers = $response->getAnswerRecords();
@@ -314,7 +355,7 @@ final class Rfc1035StubResolver implements Resolver
                     if (!isset($result[$type])) {
                         // "it MUST NOT cache it for longer than five (5) minutes" per RFC 2308 section 7.1
                         $this->cache->set($this->getCacheKey($name, $type), \json_encode([]), 300);
-                        throw new NoRecordException("No records returned for '{$name}' (" . Record::getName($type) . ")");
+                        throw new NoRecordException("No records returned for '{$name}' (".Record::getName($type).")");
                     }
 
                     return \array_map(function ($data) use ($type, $ttls) {
@@ -328,7 +369,7 @@ final class Rfc1035StubResolver implements Resolver
                     });
 
                     $i = ++$attempt % \count($nameservers);
-                    $uri = $protocol . "://" . $nameservers[$i];
+                    $uri = $protocol."://".$nameservers[$i];
                     $socket = yield $this->getSocket($uri);
 
                     continue;
@@ -344,9 +385,9 @@ final class Rfc1035StubResolver implements Resolver
             ));
         });
 
-        $this->pendingQueries[$type . " " . $name] = $promise;
+        $this->pendingQueries[$type." ".$name] = $promise;
         $promise->onResolve(function () use ($name, $type) {
-            unset($this->pendingQueries[$type . " " . $name]);
+            unset($this->pendingQueries[$type." ".$name]);
         });
 
         return $promise;
@@ -357,9 +398,9 @@ final class Rfc1035StubResolver implements Resolver
         if ($type === Record::PTR) {
             if (($packedIp = @\inet_pton($name)) !== false) {
                 if (isset($packedIp[4])) { // IPv6
-                    $name = \wordwrap(\strrev(\bin2hex($packedIp)), 1, ".", true) . ".ip6.arpa";
+                    $name = \wordwrap(\strrev(\bin2hex($packedIp)), 1, ".", true).".ip6.arpa";
                 } else { // IPv4
-                    $name = \inet_ntop(\strrev($packedIp)) . ".in-addr.arpa";
+                    $name = \inet_ntop(\strrev($packedIp)).".in-addr.arpa";
                 }
             }
         } elseif (\in_array($type, [Record::A, Record::AAAA])) {
@@ -390,7 +431,7 @@ final class Rfc1035StubResolver implements Resolver
 
     private function getCacheKey(string $name, int $type): string
     {
-        return self::CACHE_PREFIX . $name . "#" . $type;
+        return self::CACHE_PREFIX.$name."#".$type;
     }
 
     private function decodeCachedResult(string $name, int $type, string $encoded)
