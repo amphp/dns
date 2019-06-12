@@ -265,11 +265,11 @@ final class Rfc1035StubResolver implements Resolver
             }
             if ($this->configStatus === self::CONFIG_FAILED) {
                 if ($type !== Record::A) {
-                    return [];
+                    throw new NoRecordException("No records returned for '{$name}' (".Record::getName($type).")");
                 }
                 $result = \gethostbynamel($name);
-                if ($result === false) {
-                    return [];
+                if ($result === false || $result === []) {
+                    throw new NoRecordException("No records returned for '{$name}' (".Record::getName($type).")");
                 }
                 foreach ($result as &$record) {
                     $record = new Record($record, Record::A, null);
