@@ -98,6 +98,7 @@ final class Rfc1035StubResolver implements Resolver
                 try {
                     yield $this->reloadConfig();
                 } catch (ConfigException $e) {
+                    trigger_error("Could not load DNS config, using synchronous fallback", E_USER_WARNING);
                     $this->configStatus = self::CONFIG_FAILED;
                 }
             }
