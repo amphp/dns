@@ -151,16 +151,21 @@ final class BasicResolver implements Resolver
                         }
                     }
                 } catch (NoRecordException $e) {
-                    try {
-                        /** @var Record[] $cnameRecords */
-                        $cnameRecords = yield $this->query($name, Record::CNAME);
-                        $name = $cnameRecords[0]->getValue();
-                        continue;
-                    } catch (NoRecordException $e) {
-                        /** @var Record[] $dnameRecords */
-                        $dnameRecords = yield $this->query($name, Record::DNAME);
-                        $name = $dnameRecords[0]->getValue();
-                        continue;
+                    // Look for aliases only when we have at least one attempt left
+                    if ($redirects < 4) {
+                        try {
+                            /** @var Record[] $cnameRecords */
+                            $cnameRecords = yield $this->query($name, Record::CNAME);
+                            $name = $cnameRecords[0]->getValue();
+                            continue;
+                        } catch (NoRecordException $e) {
+                            /** @var Record[] $dnameRecords */
+                            $dnameRecords = yield $this->query($name, Record::DNAME);
+                            $name = $dnameRecords[0]->getValue();
+                            continue;
+                        }
+                    } else {
+                        throw $e;
                     }
                 }
             }
