@@ -122,7 +122,9 @@ final class BasicResolver implements Resolver
                 return $records;
             }
 
-            for ($redirects = 0; $redirects < 5; $redirects++) {
+            $maxRedirects = 5;
+
+            for ($redirects = 0; $redirects < $maxRedirects; $redirects++) {
                 try {
                     if ($typeRestriction) {
                         $records = yield $this->query($name, $typeRestriction);
@@ -152,7 +154,7 @@ final class BasicResolver implements Resolver
                     }
                 } catch (NoRecordException $e) {
                     // Look for aliases only when we have at least one attempt left
-                    if ($redirects < 4) {
+                    if ($redirects < $maxRedirects - 1) {
                         try {
                             /** @var Record[] $cnameRecords */
                             $cnameRecords = yield $this->query($name, Record::CNAME);
@@ -165,7 +167,7 @@ final class BasicResolver implements Resolver
                             continue;
                         }
                     } else {
-                        throw $e;
+                        throw new RedirectException('Too many redirects');
                     }
                 }
             }
