@@ -23,13 +23,13 @@ final class Rfc1035StubResolver implements Resolver
     const CONFIG_LOADED = 1;
     const CONFIG_FAILED = 2;
 
-    /** @var \Amp\Dns\ConfigLoader */
+    /** @var ConfigLoader */
     private $configLoader;
 
-    /** @var \LibDNS\Records\QuestionFactory */
+    /** @var QuestionFactory */
     private $questionFactory;
 
-    /** @var \Amp\Dns\Config|null */
+    /** @var Config|null */
     private $config;
 
     /** @var int */
@@ -53,6 +53,9 @@ final class Rfc1035StubResolver implements Resolver
     /** @var string */
     private $gcWatcher;
 
+    /** @var BlockingFallbackResolver */
+    private $blockingFallbackResolver;
+
     public function __construct(Cache $cache = null, ConfigLoader $configLoader = null)
     {
         $this->cache = $cache ?? new ArrayCache(5000 /* default gc interval */, 256 /* size */);
@@ -61,6 +64,7 @@ final class Rfc1035StubResolver implements Resolver
                 : new UnixConfigLoader);
 
         $this->questionFactory = new QuestionFactory;
+        $this->blockingFallbackResolver = new BlockingFallbackResolver;
 
         $sockets = &$this->sockets;
         $this->gcWatcher = Loop::repeat(5000, static function () use (&$sockets) {
@@ -99,47 +103,34 @@ final class Rfc1035StubResolver implements Resolver
             }
 
             if ($this->configStatus === self::CONFIG_FAILED) {
-                if (!\in_array($typeRestriction, [Record::A, null], true)) {
-                    throw new DnsException("Query for '{$name}' failed, because loading the system's DNS configuration failed and querying records other than A records isn't supported in blocking fallback mode.");
-                }
-
-                $result = \gethostbynamel($name);
-                if ($result === false) {
-                    throw new DnsException("Query for '{$name}' failed, because loading the system's DNS configuration failed and blocking fallback via gethostbynamel() failed, too.");
-                }
-
-                if ($result === []) {
-                    throw new NoRecordException("No records returned for '{$name}' using blocking fallback mode.");
-                }
-
-                $records = [];
-
-                foreach ($result as $record) {
-                    $records[] = new Record($record, Record::A, null);
-                }
-
-                return $records;
+                return $this->blockingFallbackResolver->resolve($name, $typeRestriction);
             }
 
             switch ($typeRestriction) {
                 case Record::A:
                     if (\filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
                         return [new Record($name, Record::A, null)];
-                    } elseif (\filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+                    }
+
+                    if (\filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
                         throw new DnsException("Got an IPv6 address, but type is restricted to IPv4");
                     }
                     break;
                 case Record::AAAA:
                     if (\filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
                         return [new Record($name, Record::AAAA, null)];
-                    } elseif (\filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+                    }
+
+                    if (\filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
                         throw new DnsException("Got an IPv4 address, but type is restricted to IPv6");
                     }
                     break;
                 default:
                     if (\filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
                         return [new Record($name, Record::A, null)];
-                    } elseif (\filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+                    }
+
+                    if (\filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
                         return [new Record($name, Record::AAAA, null)];
                     }
                     break;
@@ -184,8 +175,11 @@ final class Rfc1035StubResolver implements Resolver
                                 $errors[] = $reason->getMessage();
                             }
 
-                            throw new DnsException("All query attempts failed for {$name}: " . \implode(", ", $errors),
-                                0, $e);
+                            throw new DnsException(
+                                "All query attempts failed for {$name}: " . \implode(", ", $errors),
+                                0,
+                                $e
+                            );
                         }
                     }
                 } catch (NoRecordException $e) {
@@ -228,12 +222,16 @@ final class Rfc1035StubResolver implements Resolver
                 $this->configStatus = self::CONFIG_FAILED;
 
                 try {
-                    \trigger_error("Could not load the system's DNS configuration, using synchronous, blocking fallback",
-                        \E_USER_WARNING);
+                    \trigger_error(
+                        "Could not load the system's DNS configuration, using synchronous, blocking fallback",
+                        \E_USER_WARNING
+                    );
                 } catch (\Throwable $triggerException) {
                     \set_error_handler(null);
-                    \trigger_error("Could not load the system's DNS configuration, using synchronous, blocking fallback",
-                        \E_USER_WARNING);
+                    \trigger_error(
+                        "Could not load the system's DNS configuration, using synchronous, blocking fallback",
+                        \E_USER_WARNING
+                    );
                     \restore_error_handler();
                 }
             }
@@ -262,26 +260,7 @@ final class Rfc1035StubResolver implements Resolver
                 yield $this->reloadConfig();
             }
             if ($this->configStatus === self::CONFIG_FAILED) {
-                if ($type !== Record::A) {
-                    throw new DnsException("Query for '{$name}' failed, because loading the system's DNS configuration failed and querying records other than A records isn't supported in blocking fallback mode.");
-                }
-
-                $result = \gethostbynamel($name);
-                if ($result === false) {
-                    throw new DnsException("Query for '{$name}' failed, because loading the system's DNS configuration failed and blocking fallback via gethostbynamel() failed, too.");
-                }
-
-                if ($result === []) {
-                    throw new NoRecordException("No records returned for '{$name}' using blocking fallback mode.");
-                }
-
-                $records = [];
-
-                foreach ($result as $record) {
-                    $records[] = new Record($record, Record::A, null);
-                }
-
-                return $records;
+                return $this->blockingFallbackResolver->query($name, $type);
             }
 
             $name = $this->normalizeName($name, $type);
@@ -323,7 +302,7 @@ final class Rfc1035StubResolver implements Resolver
                     // UDP sockets are never reused, they're not in the $this->sockets map
                     if ($protocol === "udp") {
                         // Defer call, because it interferes with the unreference() call in Internal\Socket otherwise
-                        Loop::defer(function () use ($socket) {
+                        Loop::defer(static function () use ($socket) {
                             $socket->close();
                         });
                     }
@@ -356,8 +335,11 @@ final class Rfc1035StubResolver implements Resolver
 
                     foreach ($result as $recordType => $records) {
                         // We don't care here whether storing in the cache fails
-                        $this->cache->set($this->getCacheKey($name, $recordType), \json_encode($records),
-                            $ttls[$recordType]);
+                        $this->cache->set(
+                            $this->getCacheKey($name, $recordType),
+                            \json_encode($records),
+                            $ttls[$recordType]
+                        );
                     }
 
                     if (!isset($result[$type])) {
@@ -366,7 +348,7 @@ final class Rfc1035StubResolver implements Resolver
                         throw new NoRecordException("No records returned for '{$name}' (" . Record::getName($type) . ")");
                     }
 
-                    return \array_map(function ($data) use ($type, $ttls) {
+                    return \array_map(static function ($data) use ($type, $ttls) {
                         return new Record($data, $type, $ttls[$type]);
                     }, $result[$type]);
                 } catch (TimeoutException $e) {
@@ -430,7 +412,7 @@ final class Rfc1035StubResolver implements Resolver
                     $name = \inet_ntop(\strrev($packedIp)) . ".in-addr.arpa";
                 }
             }
-        } elseif (\in_array($type, [Record::A, Record::AAAA])) {
+        } elseif (\in_array($type, [Record::A, Record::AAAA], true)) {
             $name = normalizeName($name);
         }
 
@@ -441,7 +423,7 @@ final class Rfc1035StubResolver implements Resolver
      * @param string $name
      * @param int    $type
      *
-     * @return \LibDNS\Records\Question
+     * @return Question
      */
     private function createQuestion(string $name, int $type): Question
     {
@@ -461,7 +443,7 @@ final class Rfc1035StubResolver implements Resolver
         return self::CACHE_PREFIX . $name . "#" . $type;
     }
 
-    private function decodeCachedResult(string $name, int $type, string $encoded)
+    private function decodeCachedResult(string $name, int $type, string $encoded): array
     {
         $decoded = \json_decode($encoded, true);
 

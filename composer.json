@@ -35,6 +35,7 @@
     ],
     "require": {
         "php": ">=7.0",
+        "ext-json": "*",
         "amphp/amp": "^2",
         "amphp/byte-stream": "^1.1",
         "amphp/cache": "^1.2",
