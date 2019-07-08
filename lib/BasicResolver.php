@@ -20,13 +20,13 @@ final class BasicResolver implements Resolver
 {
     const CACHE_PREFIX = "amphp.dns.";
 
-    /** @var \Amp\Dns\ConfigLoader */
+    /** @var ConfigLoader */
     private $configLoader;
 
-    /** @var \LibDNS\Records\QuestionFactory */
+    /** @var QuestionFactory */
     private $questionFactory;
 
-    /** @var \Amp\Dns\Config|null */
+    /** @var Config|null */
     private $config;
 
     /** @var Promise|null */
@@ -125,30 +125,28 @@ final class BasicResolver implements Resolver
             for ($redirects = 0; $redirects < 5; $redirects++) {
                 try {
                     if ($typeRestriction) {
-                        $records = yield $this->query($name, $typeRestriction);
-                    } else {
-                        try {
-                            list(, $records) = yield Promise\some([
-                                $this->query($name, Record::A),
-                                $this->query($name, Record::AAAA),
-                            ]);
+                        return yield $this->query($name, $typeRestriction);
+                    }
 
-                            $records = \array_merge(...$records);
+                    try {
+                        list(, $records) = yield Promise\some([
+                            $this->query($name, Record::A),
+                            $this->query($name, Record::AAAA),
+                        ]);
 
-                            break; // Break redirect loop, otherwise we query the same records 5 times
-                        } catch (MultiReasonException $e) {
-                            $errors = [];
+                        return \array_merge(...$records);
+                    } catch (MultiReasonException $e) {
+                        $errors = [];
 
-                            foreach ($e->getReasons() as $reason) {
-                                if ($reason instanceof NoRecordException) {
-                                    throw $reason;
-                                }
-
-                                $errors[] = $reason->getMessage();
+                        foreach ($e->getReasons() as $reason) {
+                            if ($reason instanceof NoRecordException) {
+                                throw $reason;
                             }
 
-                            throw new DnsException("All query attempts failed for {$name}: " . \implode(", ", $errors), 0, $e);
+                            $errors[] = $reason->getMessage();
                         }
+
+                        throw new DnsException("All query attempts failed for {$name}: " . \implode(", ", $errors), 0, $e);
                     }
                 } catch (NoRecordException $e) {
                     try {
@@ -165,7 +163,7 @@ final class BasicResolver implements Resolver
                 }
             }
 
-            return $records;
+            throw new DnsException("Giving up resolution of '{$name}', too many redirects");
         });
     }
 
