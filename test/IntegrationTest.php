@@ -82,7 +82,7 @@ class IntegrationTest extends TestCase
 
             /** @var Record $record */
             $record = $result[0];
-            $this->assertSame("google-public-dns-b.google.com", $record->getValue());
+            $this->assertSame("dns.google", $record->getValue());
             $this->assertNotNull($record->getTtl());
             $this->assertSame(Record::PTR, $record->getType());
         });
