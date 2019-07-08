@@ -19,6 +19,9 @@ use function Amp\call;
 final class Rfc1035StubResolver implements Resolver
 {
     const CACHE_PREFIX = "amphp.dns.";
+    const CONFIG_NOT_LOADED = 0;
+    const CONFIG_LOADED = 1;
+    const CONFIG_FAILED = 2;
 
     /** @var \Amp\Dns\ConfigLoader */
     private $configLoader;
@@ -28,6 +31,9 @@ final class Rfc1035StubResolver implements Resolver
 
     /** @var \Amp\Dns\Config|null */
     private $config;
+
+    /** @var int */
+    private $configStatus = self::CONFIG_NOT_LOADED;
 
     /** @var Promise|null */
     private $pendingConfig;
@@ -88,8 +94,21 @@ final class Rfc1035StubResolver implements Resolver
         }
 
         return call(function () use ($name, $typeRestriction) {
-            if (!$this->config) {
+            if ($this->configStatus === self::CONFIG_NOT_LOADED) {
                 yield $this->reloadConfig();
+            }
+            if ($this->configStatus === self::CONFIG_FAILED) {
+                if (!\in_array($typeRestriction, [Record::A, null])) {
+                    throw new DnsException("All query attempts failed for {$name}: could not load DNS config, and fallback cannot load non-A queries");
+                }
+                $result = \gethostbynamel($name);
+                if ($result === false) {
+                    throw new DnsException("All query attempts failed for {$name}: could not load DNS config, and no records were returned by fallback");
+                }
+                foreach ($result as &$record) {
+                    $record = new Record($record, Record::A, null);
+                }
+                return $result;
             }
 
             switch ($typeRestriction) {
@@ -191,7 +210,13 @@ final class Rfc1035StubResolver implements Resolver
         }
 
         $promise = call(function () {
-            $this->config = yield $this->configLoader->loadConfig();
+            try {
+                $this->config = yield $this->configLoader->loadConfig();
+                $this->configStatus = self::CONFIG_LOADED;
+            } catch (ConfigException $e) {
+                \trigger_error("Could not load DNS config, using synchronous fallback", E_USER_WARNING);
+                $this->configStatus = self::CONFIG_FAILED;
+            }
         });
 
         $this->pendingConfig = $promise;
@@ -232,8 +257,21 @@ final class Rfc1035StubResolver implements Resolver
         }
 
         $promise = call(function () use ($name, $type) {
-            if (!$this->config) {
+            if ($this->configStatus === self::CONFIG_NOT_LOADED) {
                 yield $this->reloadConfig();
+            }
+            if ($this->configStatus === self::CONFIG_FAILED) {
+                if ($type !== Record::A) {
+                    throw new NoRecordException("No records returned for '{$name}' (".Record::getName($type).")");
+                }
+                $result = \gethostbynamel($name);
+                if ($result === false || $result === []) {
+                    throw new NoRecordException("No records returned for '{$name}' (".Record::getName($type).")");
+                }
+                foreach ($result as &$record) {
+                    $record = new Record($record, Record::A, null);
+                }
+                return $result;
             }
 
             $name = $this->normalizeName($name, $type);
