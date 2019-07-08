@@ -97,18 +97,28 @@ final class Rfc1035StubResolver implements Resolver
             if ($this->configStatus === self::CONFIG_NOT_LOADED) {
                 yield $this->reloadConfig();
             }
+
             if ($this->configStatus === self::CONFIG_FAILED) {
-                if (!\in_array($typeRestriction, [Record::A, null])) {
-                    throw new DnsException("All query attempts failed for {$name}: could not load DNS config, and fallback cannot load non-A queries");
+                if (!\in_array($typeRestriction, [Record::A, null], true)) {
+                    throw new DnsException("Query for '{$name}' failed, because loading the system's DNS configuration failed and querying records other than A records isn't supported in blocking fallback mode.");
                 }
+
                 $result = \gethostbynamel($name);
                 if ($result === false) {
-                    throw new DnsException("All query attempts failed for {$name}: could not load DNS config, and no records were returned by fallback");
+                    throw new DnsException("Query for '{$name}' failed, because loading the system's DNS configuration failed and blocking fallback via gethostbynamel() failed, too.");
                 }
-                foreach ($result as &$record) {
-                    $record = new Record($record, Record::A, null);
+
+                if ($result === []) {
+                    throw new NoRecordException("No records returned for '{$name}' using blocking fallback mode.");
                 }
-                return $result;
+
+                $records = [];
+
+                foreach ($result as $record) {
+                    $records[] = new Record($record, Record::A, null);
+                }
+
+                return $records;
             }
 
             switch ($typeRestriction) {
@@ -174,7 +184,8 @@ final class Rfc1035StubResolver implements Resolver
                                 $errors[] = $reason->getMessage();
                             }
 
-                            throw new DnsException("All query attempts failed for {$name}: " . \implode(", ", $errors), 0, $e);
+                            throw new DnsException("All query attempts failed for {$name}: " . \implode(", ", $errors),
+                                0, $e);
                         }
                     }
                 } catch (NoRecordException $e) {
@@ -214,8 +225,17 @@ final class Rfc1035StubResolver implements Resolver
                 $this->config = yield $this->configLoader->loadConfig();
                 $this->configStatus = self::CONFIG_LOADED;
             } catch (ConfigException $e) {
-                \trigger_error("Could not load DNS config, using synchronous fallback", E_USER_WARNING);
                 $this->configStatus = self::CONFIG_FAILED;
+
+                try {
+                    \trigger_error("Could not load the system's DNS configuration, using synchronous, blocking fallback",
+                        \E_USER_WARNING);
+                } catch (\Throwable $triggerException) {
+                    \set_error_handler(null);
+                    \trigger_error("Could not load the system's DNS configuration, using synchronous, blocking fallback",
+                        \E_USER_WARNING);
+                    \restore_error_handler();
+                }
             }
         });
 
@@ -226,25 +246,6 @@ final class Rfc1035StubResolver implements Resolver
         });
 
         return $promise;
-    }
-
-    private function queryHosts(string $name, int $typeRestriction = null): array
-    {
-        $hosts = $this->config->getKnownHosts();
-        $records = [];
-
-        $returnIPv4 = $typeRestriction === null || $typeRestriction === Record::A;
-        $returnIPv6 = $typeRestriction === null || $typeRestriction === Record::AAAA;
-
-        if ($returnIPv4 && isset($hosts[Record::A][$name])) {
-            $records[] = new Record($hosts[Record::A][$name], Record::A, null);
-        }
-
-        if ($returnIPv6 && isset($hosts[Record::AAAA][$name])) {
-            $records[] = new Record($hosts[Record::AAAA][$name], Record::AAAA, null);
-        }
-
-        return $records;
     }
 
     /** @inheritdoc */
@@ -262,16 +263,25 @@ final class Rfc1035StubResolver implements Resolver
             }
             if ($this->configStatus === self::CONFIG_FAILED) {
                 if ($type !== Record::A) {
-                    throw new NoRecordException("No records returned for '{$name}' (".Record::getName($type).")");
+                    throw new DnsException("Query for '{$name}' failed, because loading the system's DNS configuration failed and querying records other than A records isn't supported in blocking fallback mode.");
                 }
+
                 $result = \gethostbynamel($name);
-                if ($result === false || $result === []) {
-                    throw new NoRecordException("No records returned for '{$name}' (".Record::getName($type).")");
+                if ($result === false) {
+                    throw new DnsException("Query for '{$name}' failed, because loading the system's DNS configuration failed and blocking fallback via gethostbynamel() failed, too.");
                 }
-                foreach ($result as &$record) {
-                    $record = new Record($record, Record::A, null);
+
+                if ($result === []) {
+                    throw new NoRecordException("No records returned for '{$name}' using blocking fallback mode.");
                 }
-                return $result;
+
+                $records = [];
+
+                foreach ($result as $record) {
+                    $records[] = new Record($record, Record::A, null);
+                }
+
+                return $records;
             }
 
             $name = $this->normalizeName($name, $type);
@@ -346,7 +356,8 @@ final class Rfc1035StubResolver implements Resolver
 
                     foreach ($result as $recordType => $records) {
                         // We don't care here whether storing in the cache fails
-                        $this->cache->set($this->getCacheKey($name, $recordType), \json_encode($records), $ttls[$recordType]);
+                        $this->cache->set($this->getCacheKey($name, $recordType), \json_encode($records),
+                            $ttls[$recordType]);
                     }
 
                     if (!isset($result[$type])) {
@@ -388,6 +399,25 @@ final class Rfc1035StubResolver implements Resolver
         });
 
         return $promise;
+    }
+
+    private function queryHosts(string $name, int $typeRestriction = null): array
+    {
+        $hosts = $this->config->getKnownHosts();
+        $records = [];
+
+        $returnIPv4 = $typeRestriction === null || $typeRestriction === Record::A;
+        $returnIPv6 = $typeRestriction === null || $typeRestriction === Record::AAAA;
+
+        if ($returnIPv4 && isset($hosts[Record::A][$name])) {
+            $records[] = new Record($hosts[Record::A][$name], Record::A, null);
+        }
+
+        if ($returnIPv6 && isset($hosts[Record::AAAA][$name])) {
+            $records[] = new Record($hosts[Record::AAAA][$name], Record::AAAA, null);
+        }
+
+        return $records;
     }
 
     private function normalizeName(string $name, int $type)
