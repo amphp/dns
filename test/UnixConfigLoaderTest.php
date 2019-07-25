@@ -40,7 +40,7 @@ class UnixConfigLoaderTest extends TestCase
 
         $this->assertSame(5000, $result->getTimeout());
         $this->assertSame(3, $result->getAttempts());
-        $this->assertSame(['local'], $result->getSearchList());
+        $this->assertSame(['local', 'local1', 'local2', 'local3', 'local4', 'local5'], $result->getSearchList());
         $this->assertSame(15, $result->getNdots());
     }
 

@@ -9,6 +9,7 @@ use function Amp\call;
 
 class UnixConfigLoader implements ConfigLoader
 {
+    const MAXDNSRCH = 6;
     private $path;
     private $hostLoader;
 
@@ -72,7 +73,7 @@ class UnixConfigLoader implements ConfigLoader
                         $nameservers[] = $value . ":53";
                     }
                 } elseif ($type === "search") {
-                    $searchList = \array_slice($line, 1);
+                    $searchList = \array_slice(\explode(" ", $value), 0, self::MAXDNSRCH);
                 } elseif ($type === "options") {
                     $optline = \preg_split('#:#', $value, 2);
 
