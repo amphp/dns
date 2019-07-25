@@ -65,6 +65,30 @@ class UnixConfigLoaderTest extends TestCase
         $this->assertSame(true, $result->shouldRotate());
     }
 
+    public function testWithEnvironmentOverride()
+    {
+        \putenv("LOCALDOMAIN=local");
+        \putenv("RES_OPTIONS=timeout:1000 attempts:10 ndots:10 rotate");
+
+        $loader = new UnixConfigLoader(__DIR__ . "/data/resolv.conf");
+
+        /** @var Config $result */
+        $result = wait($loader->loadConfig());
+
+        $this->assertSame([
+            "127.0.0.1:53",
+            "[2001:4860:4860::8888]:53",
+        ], $result->getNameservers());
+
+        $this->assertSame(['local'], $result->getSearchList());
+
+        $this->assertSame(1000, $result->getTimeout());
+        $this->assertSame(10, $result->getAttempts());
+        $this->assertSame(10, $result->getNdots());
+        $this->assertSame(true, $result->shouldRotate());
+
+    }
+
     public function testNoDefaultsOnConfNotFound()
     {
         $this->expectException(ConfigException::class);
