@@ -16,9 +16,18 @@ final class Config
     private $searchList;
     /** @var int */
     private $ndots;
+    /** @var bool */
+    private $rotate;
 
-    public function __construct(array $nameservers, array $knownHosts = [], int $timeout = 3000, int $attempts = 2, array $searchList = [], int $ndots = 1)
-    {
+    public function __construct(
+        array $nameservers,
+        array $knownHosts = [],
+        int $timeout = 3000,
+        int $attempts = 2,
+        array $searchList = [],
+        int $ndots = 1,
+        bool $rotate = false
+    ) {
         if (\count($nameservers) < 1) {
             throw new ConfigException("At least one nameserver is required for a valid config");
         }
@@ -61,6 +70,7 @@ final class Config
         $this->attempts = $attempts;
         $this->searchList = $searchList;
         $this->ndots = $ndots;
+        $this->rotate = $rotate;
     }
 
     private function validateNameserver($nameserver)
@@ -129,5 +139,10 @@ final class Config
     public function getNdots(): int
     {
         return $this->ndots;
+    }
+
+    public function shouldRotate(): bool
+    {
+        return $this->rotate;
     }
 }

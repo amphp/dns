@@ -55,6 +55,8 @@ final class Rfc1035StubResolver implements Resolver
 
     /** @var BlockingFallbackResolver */
     private $blockingFallbackResolver;
+    /** @var int */
+    private $nextNameserver = 0;
 
     public function __construct(Cache $cache = null, ConfigLoader $configLoader = null)
     {
@@ -291,13 +293,13 @@ final class Rfc1035StubResolver implements Resolver
                 return $this->decodeCachedResult($name, $type, $cachedValue);
             }
 
-            $nameservers = $this->config->getNameservers();
+            $nameserver = $this->getNameserver(0, __METHOD__ . '@' . __LINE__);
             $attempts = $this->config->getAttempts();
             $protocol = "udp";
             $attempt = 0;
 
             /** @var Socket $socket */
-            $uri = $protocol . "://" . $nameservers[0];
+            $uri = $protocol . "://" . $nameserver;
             $socket = yield $this->getSocket($uri);
 
             $attemptDescription = [];
@@ -308,9 +310,7 @@ final class Rfc1035StubResolver implements Resolver
                         unset($this->sockets[$uri]);
                         $socket->close();
 
-                        /** @var Socket $server */
-                        $i = $attempt % \count($nameservers);
-                        $uri = $protocol . "://" . $nameservers[$i];
+                        $uri = $protocol . "://" . $nameserver;
                         $socket = yield $this->getSocket($uri);
                     }
 
@@ -332,8 +332,7 @@ final class Rfc1035StubResolver implements Resolver
                         if ($protocol !== "tcp") {
                             // Retry with TCP, don't count attempt
                             $protocol = "tcp";
-                            $i = $attempt % \count($nameservers);
-                            $uri = $protocol . "://" . $nameservers[$i];
+                            $uri = $protocol . "://" . $nameserver;
                             $socket = yield $this->getSocket($uri);
                             continue;
                         }
@@ -379,8 +378,8 @@ final class Rfc1035StubResolver implements Resolver
                         $socket->close();
                     });
 
-                    $i = ++$attempt % \count($nameservers);
-                    $uri = $protocol . "://" . $nameservers[$i];
+                    $nameserver = $this->getNameserver(++$attempt, __METHOD__ . '@' . __LINE__);
+                    $uri = $protocol . "://" . $nameserver;
                     $socket = yield $this->getSocket($uri);
 
                     continue;
@@ -516,5 +515,20 @@ final class Rfc1035StubResolver implements Resolver
         if ($response->getResponseCode() !== 0) {
             throw new DnsException(\sprintf("Server returned error code: %d", $response->getResponseCode()));
         }
+    }
+
+    private function getNameserver(int $attempt = 0, string $from = null): string
+    {
+        $nameservers = $this->config->getNameservers();
+        $nameserversCount = \count($nameservers);
+
+        if ($this->config->shouldRotate()) {
+            $nameserver = $nameservers[$this->nextNameserver];
+            $this->nextNameserver = ++$this->nextNameserver % $nameserversCount;
+
+            return $nameserver;
+        }
+
+        return $nameservers[$attempt % $nameserversCount];
     }
 }

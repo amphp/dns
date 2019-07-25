@@ -24,6 +24,9 @@ class UnixConfigLoaderTest extends TestCase
 
         $this->assertSame(5000, $result->getTimeout());
         $this->assertSame(3, $result->getAttempts());
+        $this->assertEmpty($result->getSearchList());
+        $this->assertSame(1, $result->getNdots());
+        $this->assertFalse($result->shouldRotate());
     }
 
     public function testWithSearchList()
@@ -42,6 +45,24 @@ class UnixConfigLoaderTest extends TestCase
         $this->assertSame(3, $result->getAttempts());
         $this->assertSame(['local', 'local1', 'local2', 'local3', 'local4', 'local5'], $result->getSearchList());
         $this->assertSame(15, $result->getNdots());
+        $this->assertFalse($result->shouldRotate());
+    }
+
+    public function testWithRotateOption()
+    {
+        $loader = new UnixConfigLoader(__DIR__ . "/data/resolv-rotate.conf");
+
+        /** @var Config $result */
+        $result = wait($loader->loadConfig());
+
+        $this->assertSame([
+            "127.0.0.1:53",
+            "[2001:4860:4860::8888]:53",
+        ], $result->getNameservers());
+
+        $this->assertSame(3000, $result->getTimeout());
+        $this->assertSame(2, $result->getAttempts());
+        $this->assertSame(true, $result->shouldRotate());
     }
 
     public function testNoDefaultsOnConfNotFound()

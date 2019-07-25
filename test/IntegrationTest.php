@@ -2,8 +2,10 @@
 
 namespace Amp\Dns\Test;
 
+use Amp\Cache\NullCache;
 use Amp\Dns;
 use Amp\Dns\Record;
+use Amp\Dns\Rfc1035StubResolver;
 use Amp\Dns\UnixConfigLoader;
 use Amp\Dns\WindowsConfigLoader;
 use Amp\Loop;
@@ -110,6 +112,38 @@ class IntegrationTest extends TestCase
                 $inAddr,
                 "Server name blog.kelunik.com did not resolve to a valid IP address"
             );
+        });
+    }
+
+    public function testResolveWithRotateList()
+    {
+        Loop::run(function () {
+            /** @var Dns\ConfigLoader|MockObject $configLoader */
+            $configLoader = $this->createMock(Dns\ConfigLoader::class);
+            $configLoader->expects($this->once())
+                ->method('loadConfig')
+                ->willReturn(new Success(new Dns\Config(
+                    [
+                        '208.67.222.220:53', // Opendns
+                        '195.243.214.4:53', // Deutche Telecom AG
+                    ],
+                    [],
+                    5000,
+                    3,
+                    [],
+                    1,
+                    true
+                )));
+
+            $resolver = new Dns\Rfc1035StubResolver(new NullCache(), $configLoader);
+
+            /** @var Record $record1 */
+            list($record1) = yield $resolver->query('facebook.com', Dns\Record::A);
+            /** @var Record $record2 */
+            list($record2) = yield $resolver->query('facebook.com', Dns\Record::A);
+
+
+            $this->assertNotSame($record1->getValue(), $record2->getValue());
         });
     }
 

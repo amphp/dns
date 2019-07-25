@@ -45,6 +45,7 @@ class UnixConfigLoader implements ConfigLoader
             $attempts = 2;
             $searchList = [];
             $ndots = 1;
+            $rotate = false;
 
             $fileContent = yield $this->readFile($this->path);
 
@@ -77,11 +78,11 @@ class UnixConfigLoader implements ConfigLoader
                 } elseif ($type === "options") {
                     $optline = \preg_split('#:#', $value, 2);
 
-                    if (\count($optline) !== 2) {
+                    if (\count($optline) !== 2 && !\in_array($optline[0], ['rotate'], true)) {
                         continue;
                     }
 
-                    list($option, $value) = $optline;
+                    list($option, $value) = $optline + [1 => null];
 
                     switch ($option) {
                         case "timeout":
@@ -95,13 +96,17 @@ class UnixConfigLoader implements ConfigLoader
                         case "ndots":
                             // The value for this option is silently capped to 15
                             $ndots = \min((int) $value, 15);
+                            break;
+
+                        case "rotate":
+                            $rotate = true;
                     }
                 }
             }
 
             $hosts = yield $this->hostLoader->loadHosts();
 
-            return new Config($nameservers, $hosts, $timeout, $attempts, $searchList, $ndots);
+            return new Config($nameservers, $hosts, $timeout, $attempts, $searchList, $ndots, $rotate);
         });
     }
 }
