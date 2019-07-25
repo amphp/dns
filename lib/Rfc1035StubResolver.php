@@ -137,7 +137,9 @@ final class Rfc1035StubResolver implements Resolver
                     }
                     break;
             }
-
+            $dots = \substr_count($name, ".");
+            // Should be replaced with $name[-1] from 7.1
+            $trailingDot = \substr($name, -1, 1) === ".";
             $name = normalizeName($name);
 
             if ($records = $this->queryHosts($name, $typeRestriction)) {
@@ -151,10 +153,6 @@ final class Rfc1035StubResolver implements Resolver
                     ? [new Record('::1', Record::AAAA, null)]
                     : [new Record('127.0.0.1', Record::A, null)];
             }
-
-            $dots = \substr_count($name, ".");
-            // Should be replaced with $name[-1] from 7.1
-            $trailingDot = \substr($name, -1, 1) === ".";
 
             if (!$dots && \count($this->config->getSearchList()) === 0) {
                 throw new DnsException("Giving up resolution of '{$name}', unknown host");

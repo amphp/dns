@@ -4,8 +4,8 @@ namespace Amp\Dns\Test;
 
 use Amp\Cache\NullCache;
 use Amp\Dns;
+use Amp\Dns\DnsException;
 use Amp\Dns\Record;
-use Amp\Dns\Rfc1035StubResolver;
 use Amp\Dns\UnixConfigLoader;
 use Amp\Dns\WindowsConfigLoader;
 use Amp\Loop;
@@ -115,6 +115,33 @@ class IntegrationTest extends TestCase
         });
     }
 
+    public function testFailResolveRootedDomainWhenSearchListDefined()
+    {
+        Loop::run(function () {
+            $configLoader = \stripos(PHP_OS, "win") === 0
+                ? new WindowsConfigLoader()
+                : new UnixConfigLoader();
+            /** @var Dns\Config $config */
+            $config = yield $configLoader->loadConfig();
+            /** @var Dns\ConfigLoader|MockObject $configLoader */
+            $configLoader = $this->createMock(Dns\ConfigLoader::class);
+            $configLoader->expects($this->once())
+                ->method('loadConfig')
+                ->willReturn(new Success(new Dns\Config(
+                    $config->getNameservers(),
+                    $config->getKnownHosts(),
+                    $config->getTimeout(),
+                    $config->getAttempts(),
+                    ['kelunik.com'],
+                    1
+                )));
+
+            Dns\resolver(new Dns\Rfc1035StubResolver(null, $configLoader));
+            $this->expectException(DnsException::class);
+            yield Dns\resolve('blog.');
+        });
+    }
+
     public function testResolveWithRotateList()
     {
         Loop::run(function () {
@@ -185,6 +212,7 @@ class IntegrationTest extends TestCase
             ["localhost"],
             ["192.168.0.1"],
             ["::1"],
+            ["dns.google."], /* that's rooted domain name - cannot use searchList */
         ];
     }
 
