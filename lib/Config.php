@@ -4,12 +4,20 @@ namespace Amp\Dns;
 
 final class Config
 {
+    /** @var array */
     private $nameservers;
+    /** @var array */
     private $knownHosts;
+    /** @var int */
     private $timeout;
+    /** @var int */
     private $attempts;
+    /** @var array */
+    private $searchList;
+    /** @var int */
+    private $ndots;
 
-    public function __construct(array $nameservers, array $knownHosts = [], int $timeout = 3000, int $attempts = 2)
+    public function __construct(array $nameservers, array $knownHosts = [], int $timeout = 3000, int $attempts = 2, array $searchList = [], int $ndots = 1)
     {
         if (\count($nameservers) < 1) {
             throw new ConfigException("At least one nameserver is required for a valid config");
@@ -25,6 +33,15 @@ final class Config
 
         if ($attempts < 1) {
             throw new ConfigException("Invalid attempt count ({$attempts}), must be 1 or greater");
+        }
+        if ($ndots > 1 && \count($searchList) === 0) {
+            throw new ConfigException("Invalid ndots count ({$ndots}), must be 1 if search list is empty");
+        }
+        if ($ndots < 1) {
+            throw new ConfigException("Invalid ndots ({$timeout}), must be 1 or greater");
+        }
+        if ($ndots > 15) {
+            $ndots = 15;
         }
 
         // Windows does not include localhost in its host file. Fetch it from the system instead
@@ -42,6 +59,8 @@ final class Config
         $this->knownHosts = $knownHosts;
         $this->timeout = $timeout;
         $this->attempts = $attempts;
+        $this->searchList = $searchList;
+        $this->ndots = $ndots;
     }
 
     private function validateNameserver($nameserver)
@@ -100,5 +119,15 @@ final class Config
     public function getAttempts(): int
     {
         return $this->attempts;
+    }
+
+    public function getSearchList(): array
+    {
+        return $this->searchList;
+    }
+
+    public function getNdots(): int
+    {
+        return $this->ndots;
     }
 }

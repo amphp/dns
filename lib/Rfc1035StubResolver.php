@@ -150,52 +150,75 @@ final class Rfc1035StubResolver implements Resolver
                     : [new Record('127.0.0.1', Record::A, null)];
             }
 
-            for ($redirects = 0; $redirects < 5; $redirects++) {
-                try {
-                    if ($typeRestriction) {
-                        return yield $this->query($name, $typeRestriction);
+            $dots = \substr_count($name, ".");
+            // Should be replaced with $name[-1] from 7.1
+            $trailingDot = \substr($name, -1, 1) === ".";
+
+            if (!$dots && \count($this->config->getSearchList()) === 0) {
+                throw new DnsException("Giving up resolution of '{$name}', unknown host");
+            }
+
+            $searchList = [null];
+            if ($trailingDot) {
+                $searchList = $this->config->getSearchList();
+            } elseif ($dots < $this->config->getNdots()) {
+                $searchList = \array_merge($this->config->getSearchList(), $searchList);
+            }
+
+            $searchName = $name;
+
+            foreach ($searchList as $search) {
+                for ($redirects = 0; $redirects < 5; $redirects++) {
+                    if ($search !== null) {
+                        $searchName = $trailingDot ? $name . $search : $name . "." . $search;
                     }
 
                     try {
-                        list(, $records) = yield Promise\some([
-                            $this->query($name, Record::A),
-                            $this->query($name, Record::AAAA),
-                        ]);
-
-                        return \array_merge(...$records);
-                    } catch (MultiReasonException $e) {
-                        $errors = [];
-
-                        foreach ($e->getReasons() as $reason) {
-                            if ($reason instanceof NoRecordException) {
-                                throw $reason;
-                            }
-
-                            $errors[] = $reason->getMessage();
+                        if ($typeRestriction) {
+                            return yield $this->query($searchName, $typeRestriction);
                         }
 
-                        throw new DnsException(
-                            "All query attempts failed for {$name}: " . \implode(", ", $errors),
-                            0,
-                            $e
-                        );
-                    }
-                } catch (NoRecordException $e) {
-                    try {
-                        /** @var Record[] $cnameRecords */
-                        $cnameRecords = yield $this->query($name, Record::CNAME);
-                        $name = $cnameRecords[0]->getValue();
-                        continue;
+                        try {
+                            list(, $records) = yield Promise\some([
+                                $this->query($searchName, Record::A),
+                                $this->query($searchName, Record::AAAA),
+                            ]);
+
+                            return \array_merge(...$records);
+                        } catch (MultiReasonException $e) {
+                            $errors = [];
+
+                            foreach ($e->getReasons() as $reason) {
+                                if ($reason instanceof NoRecordException) {
+                                    throw $reason;
+                                }
+
+                                $errors[] = $reason->getMessage();
+                            }
+
+                            throw new DnsException(
+                                "All query attempts failed for {$searchName}: " . \implode(", ", $errors),
+                                0,
+                                $e
+                            );
+                        }
                     } catch (NoRecordException $e) {
-                        /** @var Record[] $dnameRecords */
-                        $dnameRecords = yield $this->query($name, Record::DNAME);
-                        $name = $dnameRecords[0]->getValue();
-                        continue;
+                        try {
+                            /** @var Record[] $cnameRecords */
+                            $cnameRecords = yield $this->query($searchName, Record::CNAME);
+                            $name = $cnameRecords[0]->getValue();
+                            continue;
+                        } catch (NoRecordException $e) {
+                            /** @var Record[] $dnameRecords */
+                            $dnameRecords = yield $this->query($searchName, Record::DNAME);
+                            $name = $dnameRecords[0]->getValue();
+                            continue;
+                        }
                     }
                 }
             }
 
-            throw new DnsException("Giving up resolution of '{$name}', too many redirects");
+            throw new DnsException("Giving up resolution of '{$searchName}', too many redirects");
         });
     }
 

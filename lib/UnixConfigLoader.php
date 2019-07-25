@@ -42,6 +42,8 @@ class UnixConfigLoader implements ConfigLoader
             $nameservers = [];
             $timeout = 3000;
             $attempts = 2;
+            $searchList = [];
+            $ndots = 1;
 
             $fileContent = yield $this->readFile($this->path);
 
@@ -69,8 +71,10 @@ class UnixConfigLoader implements ConfigLoader
                     } else { // IPv4
                         $nameservers[] = $value . ":53";
                     }
+                } elseif ($type === "search") {
+                    $searchList = \array_slice($line, 1);
                 } elseif ($type === "options") {
-                    $optline = \preg_split('#\s+#', $value, 2);
+                    $optline = \preg_split('#:#', $value, 2);
 
                     if (\count($optline) !== 2) {
                         continue;
@@ -85,13 +89,18 @@ class UnixConfigLoader implements ConfigLoader
 
                         case "attempts":
                             $attempts = (int) $value;
+                            break;
+
+                        case "ndots":
+                            // The value for this option is silently capped to 15
+                            $ndots = \min((int) $value, 15);
                     }
                 }
             }
 
             $hosts = yield $this->hostLoader->loadHosts();
 
-            return new Config($nameservers, $hosts, $timeout, $attempts);
+            return new Config($nameservers, $hosts, $timeout, $attempts, $searchList, $ndots);
         });
     }
 }

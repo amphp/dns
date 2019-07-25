@@ -4,8 +4,12 @@ namespace Amp\Dns\Test;
 
 use Amp\Dns;
 use Amp\Dns\Record;
+use Amp\Dns\UnixConfigLoader;
+use Amp\Dns\WindowsConfigLoader;
 use Amp\Loop;
 use Amp\PHPUnit\TestCase;
+use Amp\Success;
+use PHPUnit\Framework\MockObject\MockObject;
 
 class IntegrationTest extends TestCase
 {
@@ -24,7 +28,7 @@ class IntegrationTest extends TestCase
             $inAddr = @\inet_pton($record->getValue());
             $this->assertNotFalse(
                 $inAddr,
-                "Server name $hostname did not resolve to a valid IP address"
+                "Server name {$hostname} did not resolve to a valid IP address"
             );
         });
     }
@@ -72,6 +76,40 @@ class IntegrationTest extends TestCase
                     "Server name google.com did not resolve to a valid IP address"
                 );
             }
+        });
+    }
+
+    public function testResolveUsingSearchList()
+    {
+        Loop::run(function () {
+            $configLoader = \stripos(PHP_OS, "win") === 0
+                ? new WindowsConfigLoader()
+                : new UnixConfigLoader();
+            /** @var Dns\Config $config */
+            $config = yield $configLoader->loadConfig();
+            /** @var Dns\ConfigLoader|MockObject $configLoader */
+            $configLoader = $this->createMock(Dns\ConfigLoader::class);
+            $configLoader->expects($this->once())
+                ->method('loadConfig')
+                ->willReturn(new Success(new Dns\Config(
+                    $config->getNameservers(),
+                    $config->getKnownHosts(),
+                    $config->getTimeout(),
+                    $config->getAttempts(),
+                    ['kelunik.com'],
+                    1
+                )));
+
+            Dns\resolver(new Dns\Rfc1035StubResolver(null, $configLoader));
+            $result = yield Dns\resolve('blog');
+
+            /** @var Record $record */
+            $record = $result[0];
+            $inAddr = @\inet_pton($record->getValue());
+            $this->assertNotFalse(
+                $inAddr,
+                "Server name blog.kelunik.com did not resolve to a valid IP address"
+            );
         });
     }
 
