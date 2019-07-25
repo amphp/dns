@@ -161,9 +161,7 @@ final class Rfc1035StubResolver implements Resolver
             }
 
             $searchList = [null];
-            if ($trailingDot) {
-                $searchList = $this->config->getSearchList();
-            } elseif ($dots < $this->config->getNdots()) {
+            if (!$trailingDot && $dots < $this->config->getNdots()) {
                 $searchList = \array_merge($this->config->getSearchList(), $searchList);
             }
 
