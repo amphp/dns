@@ -136,12 +136,12 @@ class UnixConfigLoader implements ConfigLoader
         });
     }
 
-    function splitNames(string $names) : array
+    private function splitNames(string $names) : array
     {
         return \preg_split("#\s+#", \trim($names));
     }
 
-    function parseOption(string $option): array
+    private function parseOption(string $option): array
     {
         $optline = \preg_split('#:#', $option, 2);
         list($name, $value) = $optline + [1 => null];

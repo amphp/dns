@@ -62,7 +62,7 @@ class UnixConfigLoaderTest extends TestCase
 
         $this->assertSame(3000, $result->getTimeout());
         $this->assertSame(2, $result->getAttempts());
-        $this->assertSame(true, $result->shouldRotate());
+        $this->assertTrue($result->shouldRotate());
     }
 
     public function testWithEnvironmentOverride()
@@ -85,7 +85,7 @@ class UnixConfigLoaderTest extends TestCase
         $this->assertSame(1000, $result->getTimeout());
         $this->assertSame(10, $result->getAttempts());
         $this->assertSame(10, $result->getNdots());
-        $this->assertSame(true, $result->shouldRotate());
+        $this->assertTrue($result->shouldRotate());
 
     }
 
