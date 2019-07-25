@@ -293,7 +293,7 @@ final class Rfc1035StubResolver implements Resolver
                 return $this->decodeCachedResult($name, $type, $cachedValue);
             }
 
-            $nameserver = $this->getNameserver(0, __METHOD__ . '@' . __LINE__);
+            $nameserver = $this->getNameserver();
             $attempts = $this->config->getAttempts();
             $protocol = "udp";
             $attempt = 0;
@@ -378,7 +378,7 @@ final class Rfc1035StubResolver implements Resolver
                         $socket->close();
                     });
 
-                    $nameserver = $this->getNameserver(++$attempt, __METHOD__ . '@' . __LINE__);
+                    $nameserver = $this->getNameserver(++$attempt);
                     $uri = $protocol . "://" . $nameserver;
                     $socket = yield $this->getSocket($uri);
 
@@ -517,7 +517,7 @@ final class Rfc1035StubResolver implements Resolver
         }
     }
 
-    private function getNameserver(int $attempt = 0, string $from = null): string
+    private function getNameserver(int $attempt = 0): string
     {
         $nameservers = $this->config->getNameservers();
         $nameserversCount = \count($nameservers);
