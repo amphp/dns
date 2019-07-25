@@ -9,6 +9,7 @@ use function Amp\call;
 
 class UnixConfigLoader implements ConfigLoader
 {
+    const MAXNS = 3;
     const MAXDNSRCH = 6;
     private $path;
     private $hostLoader;
@@ -67,6 +68,9 @@ class UnixConfigLoader implements ConfigLoader
                     if ($ip === false) {
                         continue;
                     }
+                    if (\count($nameservers) === self::MAXNS) {
+                        continue;
+                    }
 
                     if (isset($ip[15])) { // IPv6
                         $nameservers[] = "[" . $value . "]:53";
@@ -74,7 +78,7 @@ class UnixConfigLoader implements ConfigLoader
                         $nameservers[] = $value . ":53";
                     }
                 } elseif ($type === "search") {
-                    $searchList = \array_slice(\explode(" ", $value), 0, self::MAXDNSRCH);
+                    $searchList = \array_slice(\preg_split('#\s+#', $value), 0, self::MAXDNSRCH);
                 } elseif ($type === "options") {
                     $optline = \preg_split('#:#', $value, 2);
 
