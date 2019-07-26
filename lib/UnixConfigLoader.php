@@ -12,9 +12,13 @@ class UnixConfigLoader implements ConfigLoader
     const MAXNS = 3;
     const MAXDNSRCH = 6;
     const RES_MAXNDOTS = 15;
+    const RES_MAXRETRANS = 30 * 1000;
+    const RES_MAXRETRY = 5;
+    const RES_TIMEOUT = 5 * 1000;
+    const RES_DFLRETRY = 2;
     const DEFAULT_OPTIONS = [
-        "timeout" => 3000,
-        "attempts" => 2,
+        "timeout" => self::RES_TIMEOUT,
+        "attempts" => self::RES_DFLRETRY,
         "ndots" => 1,
         "rotate" => false,
     ];
@@ -148,10 +152,12 @@ class UnixConfigLoader implements ConfigLoader
 
         switch ($name) {
             case "timeout":
-                return ["timeout", (int) $value];
+                // The value for this option is silently capped to 5s
+                return ["timeout", (int) \min((int) $value * 1000, self::RES_TIMEOUT)];
 
             case "attempts":
-                return ["attempts", (int) $value];
+                // The value for this option is silently capped to 5
+                return ["attempts", (int) \min((int) $value, self::RES_MAXRETRY)];
 
             case "ndots":
                 // The value for this option is silently capped to 15

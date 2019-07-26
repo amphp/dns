@@ -60,7 +60,7 @@ class UnixConfigLoaderTest extends TestCase
             "[2001:4860:4860::8888]:53",
         ], $result->getNameservers());
 
-        $this->assertSame(3000, $result->getTimeout());
+        $this->assertSame(5000, $result->getTimeout());
         $this->assertSame(2, $result->getAttempts());
         $this->assertTrue($result->shouldRotate());
     }
@@ -68,7 +68,7 @@ class UnixConfigLoaderTest extends TestCase
     public function testWithEnvironmentOverride()
     {
         \putenv("LOCALDOMAIN=local");
-        \putenv("RES_OPTIONS=timeout:1000 attempts:10 ndots:10 rotate");
+        \putenv("RES_OPTIONS=timeout:1 attempts:10 ndots:10 rotate");
 
         $loader = new UnixConfigLoader(__DIR__ . "/data/resolv.conf");
 
@@ -83,7 +83,7 @@ class UnixConfigLoaderTest extends TestCase
         $this->assertSame(['local'], $result->getSearchList());
 
         $this->assertSame(1000, $result->getTimeout());
-        $this->assertSame(10, $result->getAttempts());
+        $this->assertSame(5, $result->getAttempts());
         $this->assertSame(10, $result->getNdots());
         $this->assertTrue($result->shouldRotate());
 
