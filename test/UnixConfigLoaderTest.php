@@ -86,7 +86,6 @@ class UnixConfigLoaderTest extends TestCase
         $this->assertSame(5, $result->getAttempts());
         $this->assertSame(10, $result->getNdots());
         $this->assertTrue($result->shouldRotate());
-
     }
 
     public function testNoDefaultsOnConfNotFound()
