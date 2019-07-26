@@ -26,7 +26,7 @@ class UnixConfigLoaderTest extends TestCase
         $this->assertSame(3, $result->getAttempts());
         $this->assertEmpty($result->getSearchList());
         $this->assertSame(1, $result->getNdots());
-        $this->assertFalse($result->shouldRotate());
+        $this->assertFalse($result->isRotationEnabled());
     }
 
     public function testWithSearchList()
@@ -45,7 +45,7 @@ class UnixConfigLoaderTest extends TestCase
         $this->assertSame(3, $result->getAttempts());
         $this->assertSame(['local', 'local1', 'local2', 'local3', 'local4', 'local5'], $result->getSearchList());
         $this->assertSame(15, $result->getNdots());
-        $this->assertFalse($result->shouldRotate());
+        $this->assertFalse($result->isRotationEnabled());
     }
 
     public function testWithRotateOption()
@@ -62,7 +62,7 @@ class UnixConfigLoaderTest extends TestCase
 
         $this->assertSame(5000, $result->getTimeout());
         $this->assertSame(2, $result->getAttempts());
-        $this->assertTrue($result->shouldRotate());
+        $this->assertTrue($result->isRotationEnabled());
     }
 
     public function testWithEnvironmentOverride()
@@ -85,7 +85,7 @@ class UnixConfigLoaderTest extends TestCase
         $this->assertSame(1000, $result->getTimeout());
         $this->assertSame(5, $result->getAttempts());
         $this->assertSame(10, $result->getNdots());
-        $this->assertTrue($result->shouldRotate());
+        $this->assertTrue($result->isRotationEnabled());
     }
 
     public function testNoDefaultsOnConfNotFound()

@@ -141,7 +141,7 @@ final class Config
         return $this->ndots;
     }
 
-    public function shouldRotate(): bool
+    public function isRotationEnabled(): bool
     {
         return $this->rotate;
     }
