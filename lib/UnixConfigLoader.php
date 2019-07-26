@@ -9,17 +9,21 @@ use function Amp\call;
 
 class UnixConfigLoader implements ConfigLoader
 {
-    const MAXNS = 3;
-    const MAXDNSRCH = 6;
-    const RES_MAXNDOTS = 15;
-    const RES_MAXRETRANS = 30 * 1000;
-    const RES_MAXRETRY = 5;
-    const RES_TIMEOUT = 5 * 1000;
-    const RES_DFLRETRY = 2;
+    const MAX_NAMESERVERS = 3;
+    const MAX_DNS_SEARCH = 6;
+
+    const MAX_TIMEOUT = 30 * 1000;
+    const MAX_ATTEMPTS = 5;
+    const MAX_NDOTS = 15;
+
+    const DEFAULT_TIMEOUT = 5 * 1000;
+    const DEFAULT_ATTEMPTS = 2;
+    const DEFAULT_NDOTS = 1;
+
     const DEFAULT_OPTIONS = [
-        "timeout" => self::RES_TIMEOUT,
-        "attempts" => self::RES_DFLRETRY,
-        "ndots" => 1,
+        "timeout" => self::DEFAULT_TIMEOUT,
+        "attempts" => self::DEFAULT_ATTEMPTS,
+        "ndots" => self::DEFAULT_NDOTS,
         "rotate" => false,
     ];
     private $path;
@@ -80,7 +84,7 @@ class UnixConfigLoader implements ConfigLoader
                 list($type, $value) = $line;
 
                 if ($type === "nameserver") {
-                    if (\count($nameservers) === self::MAXNS) {
+                    if (\count($nameservers) === self::MAX_NAMESERVERS) {
                         continue;
                     }
                     $value = \trim($value);
@@ -114,8 +118,8 @@ class UnixConfigLoader implements ConfigLoader
                     $searchList = \substr($hostname, $dot);
                 }
             }
-            if (\count($searchList) > self::MAXDNSRCH) {
-                $searchList = \array_slice($searchList, 0, self::MAXDNSRCH);
+            if (\count($searchList) > self::MAX_DNS_SEARCH) {
+                $searchList = \array_slice($searchList, 0, self::MAX_DNS_SEARCH);
             }
 
             $resOptions = \getenv("RES_OPTIONS");
@@ -153,15 +157,15 @@ class UnixConfigLoader implements ConfigLoader
         switch ($name) {
             case "timeout":
                 // The value for this option is silently capped to 5s
-                return ["timeout", (int) \min((int) $value * 1000, self::RES_TIMEOUT)];
+                return ["timeout", (int) \min((int) $value * 1000, self::DEFAULT_TIMEOUT)];
 
             case "attempts":
                 // The value for this option is silently capped to 5
-                return ["attempts", (int) \min((int) $value, self::RES_MAXRETRY)];
+                return ["attempts", (int) \min((int) $value, self::MAX_ATTEMPTS)];
 
             case "ndots":
                 // The value for this option is silently capped to 15
-                return ["ndots", (int) \min((int) $value, self::RES_MAXNDOTS)];
+                return ["ndots", (int) \min((int) $value, self::MAX_NDOTS)];
 
             case "rotate":
                 return ["rotate", true];
