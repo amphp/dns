@@ -168,7 +168,7 @@ final class Rfc1035StubResolver implements Resolver
             foreach ($searchList as $search) {
                 for ($redirects = 0; $redirects < 5; $redirects++) {
                     if ($search !== null) {
-                        $searchName = $trailingDot ? $name . $search : $name . "." . $search;
+                        $searchName = $name . "." . $search;
                     }
 
                     try {
