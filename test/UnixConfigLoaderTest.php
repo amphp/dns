@@ -74,6 +74,7 @@ class UnixConfigLoaderTest extends TestCase
 
         $this->assertSame([
             "127.0.0.1:53",
+            "[2001:4860:4860::8888]:53",
         ], $result->getNameservers());
 
         $this->assertSame(5000, $result->getTimeout());
