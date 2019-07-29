@@ -65,6 +65,22 @@ class UnixConfigLoaderTest extends TestCase
         $this->assertTrue($result->isRotationEnabled());
     }
 
+    public function testWithNegativeOption()
+    {
+        $loader = new UnixConfigLoader(__DIR__ . "/data/resolv-negative-option-values.conf");
+
+        /** @var Config $result */
+        $result = wait($loader->loadConfig());
+
+        $this->assertSame([
+            "127.0.0.1:53",
+        ], $result->getNameservers());
+
+        $this->assertSame(5000, $result->getTimeout());
+        $this->assertSame(2, $result->getAttempts());
+        $this->assertSame(1, $result->getNdots());
+    }
+
     public function testWithEnvironmentOverride()
     {
         \putenv("LOCALDOMAIN=local");

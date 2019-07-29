@@ -156,16 +156,28 @@ class UnixConfigLoader implements ConfigLoader
 
         switch ($name) {
             case "timeout":
+                $value = (int) $value;
+                if ($value < 0) {
+                    return []; // don't overwrite option value
+                }
                 // The value for this option is silently capped to 5s
-                return ["timeout", (int) \max(\min((int) $value * 1000, self::DEFAULT_TIMEOUT), 0)];
+                return ["timeout", (int) \min($value * 1000, self::DEFAULT_TIMEOUT)];
 
             case "attempts":
+                $value = (int) $value;
+                if ($value < 0) {
+                    return []; // don't overwrite option value
+                }
                 // The value for this option is silently capped to 5
-                return ["attempts", (int) \max(\min((int) $value, self::MAX_ATTEMPTS), 0)];
+                return ["attempts", (int) \min($value, self::MAX_ATTEMPTS)];
 
             case "ndots":
+                $value = (int) $value;
+                if ($value < 0) {
+                    return []; // don't overwrite option value
+                }
                 // The value for this option is silently capped to 15
-                return ["ndots", (int) \max(\min((int) $value, self::MAX_NDOTS), 0)];
+                return ["ndots", (int) \min($value, self::MAX_NDOTS)];
 
             case "rotate":
                 return ["rotate", true];
