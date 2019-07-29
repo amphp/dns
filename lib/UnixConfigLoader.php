@@ -157,15 +157,15 @@ class UnixConfigLoader implements ConfigLoader
         switch ($name) {
             case "timeout":
                 // The value for this option is silently capped to 5s
-                return ["timeout", (int) \min((int) $value * 1000, self::DEFAULT_TIMEOUT)];
+                return ["timeout", (int) \max(\min((int) $value * 1000, self::DEFAULT_TIMEOUT), 0)];
 
             case "attempts":
                 // The value for this option is silently capped to 5
-                return ["attempts", (int) \min((int) $value, self::MAX_ATTEMPTS)];
+                return ["attempts", (int) \max(\min((int) $value, self::MAX_ATTEMPTS), 0)];
 
             case "ndots":
                 // The value for this option is silently capped to 15
-                return ["ndots", (int) \min((int) $value, self::MAX_NDOTS)];
+                return ["ndots", (int) \max(\min((int) $value, self::MAX_NDOTS), 0)];
 
             case "rotate":
                 return ["rotate", true];
