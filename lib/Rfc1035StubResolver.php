@@ -290,12 +290,13 @@ final class Rfc1035StubResolver implements Resolver
             }
 
             $nameservers = $this->selectNameservers();
+            $nameserversCount = \count($nameservers);
             $attempts = $this->config->getAttempts();
             $protocol = "udp";
             $attempt = 0;
 
             /** @var Socket $socket */
-            $uri = $protocol . "://" . $nameservers[$attempt];
+            $uri = $protocol . "://" . $nameservers[0];
             $socket = yield $this->getSocket($uri);
 
             $attemptDescription = [];
@@ -306,7 +307,7 @@ final class Rfc1035StubResolver implements Resolver
                         unset($this->sockets[$uri]);
                         $socket->close();
 
-                        $uri = $protocol . "://" . $nameservers[$attempt];
+                        $uri = $protocol . "://" . $nameservers[$attempt % $nameserversCount];
                         $socket = yield $this->getSocket($uri);
                     }
 
@@ -374,7 +375,7 @@ final class Rfc1035StubResolver implements Resolver
                         $socket->close();
                     });
 
-                    $uri = $protocol . "://" . $nameservers[++$attempt];
+                    $uri = $protocol . "://" . $nameservers[++$attempt % $nameserversCount];
                     $socket = yield $this->getSocket($uri);
 
                     continue;
