@@ -289,13 +289,13 @@ final class Rfc1035StubResolver implements Resolver
                 return $this->decodeCachedResult($name, $type, $cachedValue);
             }
 
-            $nameserver = $this->selectNameserver();
+            $nameservers = $this->selectNameservers();
             $attempts = $this->config->getAttempts();
             $protocol = "udp";
             $attempt = 0;
 
             /** @var Socket $socket */
-            $uri = $protocol . "://" . $nameserver;
+            $uri = $protocol . "://" . $nameservers[$attempt];
             $socket = yield $this->getSocket($uri);
 
             $attemptDescription = [];
@@ -306,7 +306,7 @@ final class Rfc1035StubResolver implements Resolver
                         unset($this->sockets[$uri]);
                         $socket->close();
 
-                        $uri = $protocol . "://" . $nameserver;
+                        $uri = $protocol . "://" . $nameservers[$attempt];
                         $socket = yield $this->getSocket($uri);
                     }
 
@@ -328,7 +328,7 @@ final class Rfc1035StubResolver implements Resolver
                         if ($protocol !== "tcp") {
                             // Retry with TCP, don't count attempt
                             $protocol = "tcp";
-                            $uri = $protocol . "://" . $nameserver;
+                            $uri = $protocol . "://" . $nameservers[$attempt];
                             $socket = yield $this->getSocket($uri);
                             continue;
                         }
@@ -374,8 +374,7 @@ final class Rfc1035StubResolver implements Resolver
                         $socket->close();
                     });
 
-                    $nameserver = $this->selectNameserver(++$attempt);
-                    $uri = $protocol . "://" . $nameserver;
+                    $uri = $protocol . "://" . $nameservers[++$attempt];
                     $socket = yield $this->getSocket($uri);
 
                     continue;
@@ -513,18 +512,19 @@ final class Rfc1035StubResolver implements Resolver
         }
     }
 
-    private function selectNameserver(int $attempt = 0): string
+    private function selectNameservers(): array
     {
         $nameservers = $this->config->getNameservers();
         $nameserversCount = \count($nameservers);
 
-        if ($this->config->isRotationEnabled()) {
-            $nameserver = $nameservers[$this->nextNameserver];
+        if ($this->config->isRotationEnabled() && $nameserversCount > 1) {
+            $nameservers = \array_merge(
+                \array_slice($nameservers, $this->nextNameserver),
+                \array_slice($nameservers, 0, $this->nextNameserver)
+            );
             $this->nextNameserver = ++$this->nextNameserver % $nameserversCount;
-
-            return $nameserver;
         }
 
-        return $nameservers[$attempt % $nameserversCount];
+        return $nameservers;
     }
 }
