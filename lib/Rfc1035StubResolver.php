@@ -506,6 +506,9 @@ final class Rfc1035StubResolver implements Resolver
         return $server;
     }
 
+    /**
+     * @throws DnsException
+     */
     private function assertAcceptableResponse(Message $response)
     {
         if ($response->getResponseCode() !== 0) {
