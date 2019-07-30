@@ -74,4 +74,38 @@ class ConfigTest extends TestCase
         $this->expectException(ConfigException::class);
         new Config(["127.0.0.1"], [], 500, 0);
     }
+
+    public function testInvalidNtods()
+    {
+        $this->expectException(ConfigException::class);
+        $config = new Config(["127.0.0.1"]);
+        $config->withNdots(-1);
+    }
+
+    public function testNdots()
+    {
+        $config = new Config(["127.0.0.1"]);
+        $config = $config->withNdots(1);
+        $this->assertSame(1, $config->getNdots());
+    }
+
+    public function testSearchList()
+    {
+        $config = new Config(["127.0.0.1"]);
+        $config = $config->withSearchList(['local']);
+        $this->assertSame(['local'], $config->getSearchList());
+    }
+
+    public function testRotationEnabled()
+    {
+        $config = new Config(["127.0.0.1"]);
+        $config = $config->withRotationEnabled(true);
+        $this->assertTrue($config->isRotationEnabled());
+    }
+
+    public function testRotationDisabled()
+    {
+        $config = new Config(["127.0.0.1"]);
+        $this->assertFalse($config->isRotationEnabled());
+    }
 }

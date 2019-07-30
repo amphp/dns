@@ -4,10 +4,20 @@ namespace Amp\Dns;
 
 final class Config
 {
+    /** @var array */
     private $nameservers;
+    /** @var array */
     private $knownHosts;
+    /** @var int */
     private $timeout;
+    /** @var int */
     private $attempts;
+    /** @var array */
+    private $searchList = [];
+    /** @var int */
+    private $ndots = 1;
+    /** @var bool */
+    private $rotation = false;
 
     public function __construct(array $nameservers, array $knownHosts = [], int $timeout = 3000, int $attempts = 2)
     {
@@ -42,6 +52,39 @@ final class Config
         $this->knownHosts = $knownHosts;
         $this->timeout = $timeout;
         $this->attempts = $attempts;
+    }
+
+    public function withSearchList(array $searchList): self
+    {
+        $self = clone $this;
+        $self->searchList = $searchList;
+
+        return $self;
+    }
+
+    /**
+     * @throws ConfigException
+     */
+    public function withNdots(int $ndots): self
+    {
+        if ($ndots < 0) {
+            throw new ConfigException("Invalid ndots ({$ndots}), must be greater or equal to 0");
+        }
+        if ($ndots > 15) {
+            $ndots = 15;
+        }
+        $self = clone $this;
+        $self->ndots = $ndots;
+
+        return $self;
+    }
+
+    public function withRotationEnabled(bool $enabled = true): self
+    {
+        $self = clone $this;
+        $self->rotation = $enabled;
+
+        return $self;
     }
 
     private function validateNameserver($nameserver)
@@ -100,5 +143,20 @@ final class Config
     public function getAttempts(): int
     {
         return $this->attempts;
+    }
+
+    public function getSearchList(): array
+    {
+        return $this->searchList;
+    }
+
+    public function getNdots(): int
+    {
+        return $this->ndots;
+    }
+
+    public function isRotationEnabled(): bool
+    {
+        return $this->rotation;
     }
 }
