@@ -68,7 +68,7 @@ class UnixConfigLoader implements ConfigLoader
                    search list, and anyone to set the one that they want to use
                    as an individual (even more important now that the rfc1535
                    stuff restricts searches).  */
-                $searchList = $this->splitNames($localdomain);
+                $searchList = $this->splitOnWhitespace($localdomain);
                 $haveLocaldomainEnv = true;
             }
 
@@ -78,9 +78,11 @@ class UnixConfigLoader implements ConfigLoader
 
             foreach ($lines as $line) {
                 $line = \preg_split('#\s+#', $line, 2);
+
                 if (\count($line) !== 2) {
                     continue;
                 }
+
                 list($type, $value) = $line;
 
                 if ($type === "nameserver") {
@@ -89,18 +91,20 @@ class UnixConfigLoader implements ConfigLoader
                     }
                     $value = \trim($value);
                     $ip = @\inet_pton($value);
+
                     if ($ip === false) {
                         continue;
                     }
+
                     if (isset($ip[15])) { // IPv6
                         $nameservers[] = "[" . $value . "]:53";
                     } else { // IPv4
                         $nameservers[] = $value . ":53";
                     }
                 } elseif ($type === "domain" && !$haveLocaldomainEnv) { // LOCALDOMAIN env overrides config
-                    $searchList = $this->splitNames($value);
+                    $searchList = $this->splitOnWhitespace($value);
                 } elseif ($type === "search" && !$haveLocaldomainEnv) { // LOCALDOMAIN env overrides config
-                    $searchList = $this->splitNames($value);
+                    $searchList = $this->splitOnWhitespace($value);
                 } elseif ($type === "options") {
                     $option = $this->parseOption($value);
                     if (\count($option) === 2) {
@@ -115,7 +119,9 @@ class UnixConfigLoader implements ConfigLoader
                 $hostname = \gethostname();
                 $dot = \strpos(".", $hostname);
                 if ($dot !== false && $dot < \strlen($hostname)) {
-                    $searchList = \substr($hostname, $dot);
+                    $searchList = [
+                        \substr($hostname, $dot),
+                    ];
                 }
             }
             if (\count($searchList) > self::MAX_DNS_SEARCH) {
@@ -124,7 +130,7 @@ class UnixConfigLoader implements ConfigLoader
 
             $resOptions = \getenv("RES_OPTIONS");
             if ($resOptions) {
-                foreach ($this->splitNames($resOptions) as $option) {
+                foreach ($this->splitOnWhitespace($resOptions) as $option) {
                     $option = $this->parseOption($option);
                     if (\count($option) === 2) {
                         $options[$option[0]] = $option[1];
@@ -140,14 +146,14 @@ class UnixConfigLoader implements ConfigLoader
         });
     }
 
-    private function splitNames(string $names): array
+    private function splitOnWhitespace(string $names): array
     {
         return \preg_split("#\s+#", \trim($names));
     }
 
     private function parseOption(string $option): array
     {
-        $optline = \preg_split('#:#', $option, 2);
+        $optline = \explode(':', $option, 2);
         list($name, $value) = $optline + [1 => null];
 
         switch ($name) {
@@ -156,8 +162,8 @@ class UnixConfigLoader implements ConfigLoader
                 if ($value < 0) {
                     return []; // don't overwrite option value
                 }
-                // The value for this option is silently capped to 5s
-                return ["timeout", (int) \min($value * 1000, self::DEFAULT_TIMEOUT)];
+                // The value for this option is silently capped to 30s
+                return ["timeout", (int) \min($value * 1000, self::MAX_TIMEOUT)];
 
             case "attempts":
                 $value = (int) $value;

@@ -22,7 +22,7 @@ class UnixConfigLoaderTest extends TestCase
             "[2001:4860:4860::8888]:53",
         ], $result->getNameservers());
 
-        $this->assertSame(5000, $result->getTimeout());
+        $this->assertSame(30000, $result->getTimeout());
         $this->assertSame(3, $result->getAttempts());
         $this->assertEmpty($result->getSearchList());
         $this->assertSame(1, $result->getNdots());
@@ -41,7 +41,7 @@ class UnixConfigLoaderTest extends TestCase
             "[2001:4860:4860::8888]:53",
         ], $result->getNameservers());
 
-        $this->assertSame(5000, $result->getTimeout());
+        $this->assertSame(30000, $result->getTimeout());
         $this->assertSame(3, $result->getAttempts());
         $this->assertSame(['local', 'local1', 'local2', 'local3', 'local4', 'local5'], $result->getSearchList());
         $this->assertSame(15, $result->getNdots());
