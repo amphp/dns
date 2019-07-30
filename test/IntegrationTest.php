@@ -89,18 +89,13 @@ class IntegrationTest extends TestCase
                 : new UnixConfigLoader();
             /** @var Dns\Config $config */
             $config = yield $configLoader->loadConfig();
+            $config = $config->withSearchList(['kelunik.com']);
+            $config = $config->withNdots(1);
             /** @var Dns\ConfigLoader|MockObject $configLoader */
             $configLoader = $this->createMock(Dns\ConfigLoader::class);
             $configLoader->expects($this->once())
                 ->method('loadConfig')
-                ->willReturn(new Success(new Dns\Config(
-                    $config->getNameservers(),
-                    $config->getKnownHosts(),
-                    $config->getTimeout(),
-                    $config->getAttempts(),
-                    ['kelunik.com'],
-                    1
-                )));
+                ->willReturn(new Success($config));
 
             Dns\resolver(new Dns\Rfc1035StubResolver(null, $configLoader));
             $result = yield Dns\resolve('blog');
@@ -123,18 +118,13 @@ class IntegrationTest extends TestCase
                 : new UnixConfigLoader();
             /** @var Dns\Config $config */
             $config = yield $configLoader->loadConfig();
+            $config = $config->withSearchList(['kelunik.com']);
+            $config = $config->withNdots(1);
             /** @var Dns\ConfigLoader|MockObject $configLoader */
             $configLoader = $this->createMock(Dns\ConfigLoader::class);
             $configLoader->expects($this->once())
                 ->method('loadConfig')
-                ->willReturn(new Success(new Dns\Config(
-                    $config->getNameservers(),
-                    $config->getKnownHosts(),
-                    $config->getTimeout(),
-                    $config->getAttempts(),
-                    ['kelunik.com'],
-                    1
-                )));
+                ->willReturn(new Success($config));
 
             Dns\resolver(new Dns\Rfc1035StubResolver(null, $configLoader));
             $this->expectException(DnsException::class);
@@ -147,20 +137,14 @@ class IntegrationTest extends TestCase
         Loop::run(function () {
             /** @var Dns\ConfigLoader|MockObject $configLoader */
             $configLoader = $this->createMock(Dns\ConfigLoader::class);
+            $config = new Dns\Config([
+                '208.67.222.220:53', // Opendns, US
+                '195.243.214.4:53', // Deutche Telecom AG, DE
+            ]);
+            $config = $config->withRotationEnabled(true);
             $configLoader->expects($this->once())
                 ->method('loadConfig')
-                ->willReturn(new Success(new Dns\Config(
-                    [
-                        '208.67.222.220:53', // Opendns
-                        '195.243.214.4:53', // Deutche Telecom AG
-                    ],
-                    [],
-                    5000,
-                    3,
-                    [],
-                    1,
-                    true
-                )));
+                ->willReturn(new Success($config));
 
             $resolver = new Dns\Rfc1035StubResolver(new NullCache(), $configLoader);
 
@@ -168,7 +152,6 @@ class IntegrationTest extends TestCase
             list($record1) = yield $resolver->query('facebook.com', Dns\Record::A);
             /** @var Record $record2 */
             list($record2) = yield $resolver->query('facebook.com', Dns\Record::A);
-
 
             $this->assertNotSame($record1->getValue(), $record2->getValue());
         });

@@ -13,21 +13,14 @@ final class Config
     /** @var int */
     private $attempts;
     /** @var array */
-    private $searchList;
+    private $searchList = [];
     /** @var int */
-    private $ndots;
+    private $ndots = 1;
     /** @var bool */
-    private $rotate;
+    private $rotation = false;
 
-    public function __construct(
-        array $nameservers,
-        array $knownHosts = [],
-        int $timeout = 3000,
-        int $attempts = 2,
-        array $searchList = [],
-        int $ndots = 1,
-        bool $rotate = false
-    ) {
+    public function __construct(array $nameservers, array $knownHosts = [], int $timeout = 3000, int $attempts = 2)
+    {
         if (\count($nameservers) < 1) {
             throw new ConfigException("At least one nameserver is required for a valid config");
         }
@@ -42,15 +35,6 @@ final class Config
 
         if ($attempts < 1) {
             throw new ConfigException("Invalid attempt count ({$attempts}), must be 1 or greater");
-        }
-        if ($ndots > 1 && \count($searchList) === 0) {
-            throw new ConfigException("Invalid ndots count ({$ndots}), must be 1 if search list is empty");
-        }
-        if ($ndots < 1) {
-            throw new ConfigException("Invalid ndots ({$timeout}), must be 1 or greater");
-        }
-        if ($ndots > 15) {
-            $ndots = 15;
         }
 
         // Windows does not include localhost in its host file. Fetch it from the system instead
@@ -68,9 +52,39 @@ final class Config
         $this->knownHosts = $knownHosts;
         $this->timeout = $timeout;
         $this->attempts = $attempts;
-        $this->searchList = $searchList;
-        $this->ndots = $ndots;
-        $this->rotate = $rotate;
+    }
+
+    public function withSearchList(array $searchList): self
+    {
+        $self = clone $this;
+        $self->searchList = $searchList;
+
+        return $self;
+    }
+
+    /**
+     * @throws ConfigException
+     */
+    public function withNdots(int $ndots): self
+    {
+        if ($ndots < 0) {
+            throw new ConfigException("Invalid ndots ({$ndots}), must be greater or equal to 0");
+        }
+        if ($ndots > 15) {
+            $ndots = 15;
+        }
+        $self = clone $this;
+        $self->ndots = $ndots;
+
+        return $self;
+    }
+
+    public function withRotationEnabled(bool $enabled = true): self
+    {
+        $self = clone $this;
+        $self->rotation = $enabled;
+
+        return $self;
     }
 
     private function validateNameserver($nameserver)
@@ -143,6 +157,6 @@ final class Config
 
     public function isRotationEnabled(): bool
     {
-        return $this->rotate;
+        return $this->rotation;
     }
 }

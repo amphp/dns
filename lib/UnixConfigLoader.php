@@ -132,15 +132,11 @@ class UnixConfigLoader implements ConfigLoader
                 }
             }
 
-            return new Config(
-                $nameservers,
-                $hosts,
-                $options["timeout"],
-                $options["attempts"],
-                $searchList,
-                $options["ndots"],
-                $options["rotate"]
-            );
+            $config = new Config($nameservers, $hosts, $options["timeout"], $options["attempts"]);
+
+            return $config->withSearchList($searchList)
+                ->withNdots($options["ndots"])
+                ->withRotationEnabled($options["rotate"]);
         });
     }
 
