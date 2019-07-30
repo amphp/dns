@@ -107,6 +107,11 @@ class IntegrationTest extends TestCase
                 $inAddr,
                 "Server name blog.kelunik.com did not resolve to a valid IP address"
             );
+
+            $result = yield Dns\query('blog.kelunik.com', Dns\Record::A);
+            /** @var Record $record */
+            $record = $result[0];
+            $this->assertSame($inAddr, @\inet_pton($record->getValue()));
         });
     }
 
