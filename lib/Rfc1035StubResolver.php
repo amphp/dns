@@ -163,10 +163,10 @@ final class Rfc1035StubResolver implements Resolver
                 $searchList = \array_merge($this->config->getSearchList(), $searchList);
             }
 
-            $searchName = $name;
-
             foreach ($searchList as $search) {
                 for ($redirects = 0; $redirects < 5; $redirects++) {
+                    $searchName = $name;
+
                     if ($search !== null) {
                         $searchName = $name . "." . $search;
                     }
@@ -329,7 +329,7 @@ final class Rfc1035StubResolver implements Resolver
                         if ($protocol !== "tcp") {
                             // Retry with TCP, don't count attempt
                             $protocol = "tcp";
-                            $uri = $protocol . "://" . $nameservers[$attempt];
+                            $uri = $protocol . "://" . $nameservers[$attempt % $nameserversCount];
                             $socket = yield $this->getSocket($uri);
                             continue;
                         }
@@ -516,9 +516,8 @@ final class Rfc1035StubResolver implements Resolver
     private function selectNameservers(): array
     {
         $nameservers = $this->config->getNameservers();
-        $nameserversCount = \count($nameservers);
 
-        if ($this->config->isRotationEnabled() && $nameserversCount > 1) {
+        if ($this->config->isRotationEnabled() && ($nameserversCount = \count($nameservers)) > 1) {
             $nameservers = \array_merge(
                 \array_slice($nameservers, $this->nextNameserver),
                 \array_slice($nameservers, 0, $this->nextNameserver)
