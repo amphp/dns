@@ -97,7 +97,7 @@ class NativeDecoder
     {
         /** @var \LibDNS\Records\Types\DomainName $domainName */
         $domainName = $this->typeBuilder->build(Types::DOMAIN_NAME);
-        $labels = \explode('.', rtrim($name, '.'));
+        $labels = \explode('.', \rtrim($name, '.'));
         $domainName->setLabels($labels);
 
         $question = $this->questionFactory->create($type);
@@ -187,7 +187,7 @@ class NativeDecoder
         if (!$encodingContext->isTruncated()) {
             /** @var \LibDNS\Records\Types\DomainName $domainName */
             $domainName = $this->typeBuilder->build(Types::DOMAIN_NAME);
-            $labels = \explode('.', rtrim($record['host'], '.'));
+            $labels = \explode('.', \rtrim($record['host'], '.'));
             $domainName->setLabels($labels);
 
             $packet = $encodingContext->getPacket();
