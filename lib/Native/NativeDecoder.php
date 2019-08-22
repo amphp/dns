@@ -12,6 +12,7 @@ use LibDNS\Packets\PacketFactory;
 use LibDNS\Records\Question;
 use LibDNS\Records\QuestionFactory;
 use LibDNS\Records\Resource;
+use LibDNS\Records\ResourceClasses;
 use LibDNS\Records\Types\DomainName;
 use LibDNS\Records\Types\Type;
 use LibDNS\Records\Types\TypeBuilder;
@@ -80,7 +81,7 @@ class NativeDecoder
         $this->encodingContextFactory = $encodingContextFactory;
         $this->decoderFactory = $decoderFactory;
 
-        $classes = new \ReflectionClass('\\LibDNS\\Records\\ResourceClasses');
+        $classes = new \ReflectionClass(ResourceClasses::class);
         foreach ($classes->getConstants() as $name => $value) {
             $this->classMap[$name] = $value;
         }
@@ -97,7 +98,7 @@ class NativeDecoder
         /** @var \LibDNS\Records\Types\DomainName $domainName */
         $domainName = $this->typeBuilder->build(Types::DOMAIN_NAME);
         $labels = \explode('.', $name);
-        if (!empty($last = \array_pop($labels))) {
+        if ('' !== $last = \array_pop($labels)) {
             $labels[] = $last;
         }
         $domainName->setLabels($labels);
@@ -190,7 +191,7 @@ class NativeDecoder
             /** @var \LibDNS\Records\Types\DomainName $domainName */
             $domainName = $this->typeBuilder->build(Types::DOMAIN_NAME);
             $labels = \explode('.', $record['host']);
-            if (!empty($last = \array_pop($labels))) {
+            if ('' !== $last = \array_pop($labels)) {
                 $labels[] = $last;
             }
             $domainName->setLabels($labels);
