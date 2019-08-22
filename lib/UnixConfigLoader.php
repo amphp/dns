@@ -9,6 +9,23 @@ use function Amp\call;
 
 class UnixConfigLoader implements ConfigLoader
 {
+    const MAX_NAMESERVERS = 3;
+    const MAX_DNS_SEARCH = 6;
+
+    const MAX_TIMEOUT = 30 * 1000;
+    const MAX_ATTEMPTS = 5;
+    const MAX_NDOTS = 15;
+
+    const DEFAULT_TIMEOUT = 5 * 1000;
+    const DEFAULT_ATTEMPTS = 2;
+    const DEFAULT_NDOTS = 1;
+
+    const DEFAULT_OPTIONS = [
+        "timeout" => self::DEFAULT_TIMEOUT,
+        "attempts" => self::DEFAULT_ATTEMPTS,
+        "ndots" => self::DEFAULT_NDOTS,
+        "rotate" => false,
+    ];
     private $path;
     private $hostLoader;
 
@@ -40,8 +57,20 @@ class UnixConfigLoader implements ConfigLoader
     {
         return call(function () {
             $nameservers = [];
-            $timeout = 3000;
-            $attempts = 2;
+            $searchList = [];
+            $options = self::DEFAULT_OPTIONS;
+            $haveLocaldomainEnv = false;
+
+            /* Allow user to override the local domain definition.  */
+            if ($localdomain = \getenv("LOCALDOMAIN")) {
+                /* Set search list to be blank-separated strings from rest of
+                   env value.  Permits users of LOCALDOMAIN to still have a
+                   search list, and anyone to set the one that they want to use
+                   as an individual (even more important now that the rfc1535
+                   stuff restricts searches).  */
+                $searchList = $this->splitOnWhitespace($localdomain);
+                $haveLocaldomainEnv = true;
+            }
 
             $fileContent = yield $this->readFile($this->path);
 
@@ -57,6 +86,9 @@ class UnixConfigLoader implements ConfigLoader
                 list($type, $value) = $line;
 
                 if ($type === "nameserver") {
+                    if (\count($nameservers) === self::MAX_NAMESERVERS) {
+                        continue;
+                    }
                     $value = \trim($value);
                     $ip = @\inet_pton($value);
 
@@ -69,29 +101,90 @@ class UnixConfigLoader implements ConfigLoader
                     } else { // IPv4
                         $nameservers[] = $value . ":53";
                     }
+                } elseif ($type === "domain" && !$haveLocaldomainEnv) { // LOCALDOMAIN env overrides config
+                    $searchList = $this->splitOnWhitespace($value);
+                } elseif ($type === "search" && !$haveLocaldomainEnv) { // LOCALDOMAIN env overrides config
+                    $searchList = $this->splitOnWhitespace($value);
                 } elseif ($type === "options") {
-                    $optline = \preg_split('#\s+#', $value, 2);
-
-                    if (\count($optline) !== 2) {
-                        continue;
-                    }
-
-                    list($option, $value) = $optline;
-
-                    switch ($option) {
-                        case "timeout":
-                            $timeout = (int) $value;
-                            break;
-
-                        case "attempts":
-                            $attempts = (int) $value;
+                    $option = $this->parseOption($value);
+                    if (\count($option) === 2) {
+                        $options[$option[0]] = $option[1];
                     }
                 }
             }
 
             $hosts = yield $this->hostLoader->loadHosts();
 
-            return new Config($nameservers, $hosts, $timeout, $attempts);
+            if (\count($searchList) === 0) {
+                $hostname = \gethostname();
+                $dot = \strpos(".", $hostname);
+                if ($dot !== false && $dot < \strlen($hostname)) {
+                    $searchList = [
+                        \substr($hostname, $dot),
+                    ];
+                }
+            }
+            if (\count($searchList) > self::MAX_DNS_SEARCH) {
+                $searchList = \array_slice($searchList, 0, self::MAX_DNS_SEARCH);
+            }
+
+            $resOptions = \getenv("RES_OPTIONS");
+            if ($resOptions) {
+                foreach ($this->splitOnWhitespace($resOptions) as $option) {
+                    $option = $this->parseOption($option);
+                    if (\count($option) === 2) {
+                        $options[$option[0]] = $option[1];
+                    }
+                }
+            }
+
+            $config = new Config($nameservers, $hosts, $options["timeout"], $options["attempts"]);
+
+            return $config->withSearchList($searchList)
+                ->withNdots($options["ndots"])
+                ->withRotationEnabled($options["rotate"]);
         });
+    }
+
+    private function splitOnWhitespace(string $names): array
+    {
+        return \preg_split("#\s+#", \trim($names));
+    }
+
+    private function parseOption(string $option): array
+    {
+        $optline = \explode(':', $option, 2);
+        list($name, $value) = $optline + [1 => null];
+
+        switch ($name) {
+            case "timeout":
+                $value = (int) $value;
+                if ($value < 0) {
+                    return []; // don't overwrite option value
+                }
+                // The value for this option is silently capped to 30s
+                return ["timeout", (int) \min($value * 1000, self::MAX_TIMEOUT)];
+
+            case "attempts":
+                $value = (int) $value;
+                if ($value < 0) {
+                    return []; // don't overwrite option value
+                }
+                // The value for this option is silently capped to 5
+                return ["attempts", (int) \min($value, self::MAX_ATTEMPTS)];
+
+            case "ndots":
+                $value = (int) $value;
+                if ($value < 0) {
+                    return []; // don't overwrite option value
+                }
+                // The value for this option is silently capped to 15
+                return ["ndots", (int) \min($value, self::MAX_NDOTS)];
+
+            case "rotate":
+                return ["rotate", true];
+        }
+
+        return [];
     }
 }

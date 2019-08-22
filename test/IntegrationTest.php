@@ -2,11 +2,17 @@
 
 namespace Amp\Dns\Test;
 
+use Amp\Cache\NullCache;
 use Amp\Dns;
 use Amp\Dns\BlockingFallbackResolver;
+use Amp\Dns\DnsException;
 use Amp\Dns\Record;
+use Amp\Dns\UnixConfigLoader;
+use Amp\Dns\WindowsConfigLoader;
 use Amp\Loop;
 use Amp\PHPUnit\TestCase;
+use Amp\Success;
+use PHPUnit\Framework\MockObject\MockObject;
 
 class IntegrationTest extends TestCase
 {
@@ -25,7 +31,7 @@ class IntegrationTest extends TestCase
             $inAddr = @\inet_pton($record->getValue());
             $this->assertNotFalse(
                 $inAddr,
-                "Server name $hostname did not resolve to a valid IP address"
+                "Server name {$hostname} did not resolve to a valid IP address"
             );
         });
     }
@@ -92,6 +98,87 @@ class IntegrationTest extends TestCase
                     "Server name google.com did not resolve to a valid IP address"
                 );
             }
+        });
+    }
+
+    public function testResolveUsingSearchList()
+    {
+        Loop::run(function () {
+            $configLoader = \stripos(PHP_OS, "win") === 0
+                ? new WindowsConfigLoader()
+                : new UnixConfigLoader();
+            /** @var Dns\Config $config */
+            $config = yield $configLoader->loadConfig();
+            $config = $config->withSearchList(['kelunik.com']);
+            $config = $config->withNdots(1);
+            /** @var Dns\ConfigLoader|MockObject $configLoader */
+            $configLoader = $this->createMock(Dns\ConfigLoader::class);
+            $configLoader->expects($this->once())
+                ->method('loadConfig')
+                ->willReturn(new Success($config));
+
+            Dns\resolver(new Dns\Rfc1035StubResolver(null, $configLoader));
+            $result = yield Dns\resolve('blog');
+
+            /** @var Record $record */
+            $record = $result[0];
+            $inAddr = @\inet_pton($record->getValue());
+            $this->assertNotFalse(
+                $inAddr,
+                "Server name blog.kelunik.com did not resolve to a valid IP address"
+            );
+
+            $result = yield Dns\query('blog.kelunik.com', Dns\Record::A);
+            /** @var Record $record */
+            $record = $result[0];
+            $this->assertSame($inAddr, @\inet_pton($record->getValue()));
+        });
+    }
+
+    public function testFailResolveRootedDomainWhenSearchListDefined()
+    {
+        Loop::run(function () {
+            $configLoader = \stripos(PHP_OS, "win") === 0
+                ? new WindowsConfigLoader()
+                : new UnixConfigLoader();
+            /** @var Dns\Config $config */
+            $config = yield $configLoader->loadConfig();
+            $config = $config->withSearchList(['kelunik.com']);
+            $config = $config->withNdots(1);
+            /** @var Dns\ConfigLoader|MockObject $configLoader */
+            $configLoader = $this->createMock(Dns\ConfigLoader::class);
+            $configLoader->expects($this->once())
+                ->method('loadConfig')
+                ->willReturn(new Success($config));
+
+            Dns\resolver(new Dns\Rfc1035StubResolver(null, $configLoader));
+            $this->expectException(DnsException::class);
+            yield Dns\resolve('blog.');
+        });
+    }
+
+    public function testResolveWithRotateList()
+    {
+        Loop::run(function () {
+            /** @var Dns\ConfigLoader|MockObject $configLoader */
+            $configLoader = $this->createMock(Dns\ConfigLoader::class);
+            $config = new Dns\Config([
+                '208.67.222.220:53', // Opendns, US
+                '195.243.214.4:53', // Deutche Telecom AG, DE
+            ]);
+            $config = $config->withRotationEnabled(true);
+            $configLoader->expects($this->once())
+                ->method('loadConfig')
+                ->willReturn(new Success($config));
+
+            $resolver = new Dns\Rfc1035StubResolver(new NullCache(), $configLoader);
+
+            /** @var Record $record1 */
+            list($record1) = yield $resolver->query('facebook.com', Dns\Record::A);
+            /** @var Record $record2 */
+            list($record2) = yield $resolver->query('facebook.com', Dns\Record::A);
+
+            $this->assertNotSame($record1->getValue(), $record2->getValue());
         });
     }
 
@@ -179,6 +266,7 @@ class IntegrationTest extends TestCase
             ["localhost"],
             ["192.168.0.1"],
             ["::1"],
+            ["dns.google."], /* that's rooted domain name - cannot use searchList */
         ];
     }
 
