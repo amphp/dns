@@ -42,8 +42,7 @@
         "amphp/parser": "^1",
         "amphp/windows-registry": "^0.3",
         "daverandom/libdns": "^2.0.1",
-        "ext-filter": "*",
-        "danog/libdns-native": "^0.1.0"
+        "ext-filter": "*"
     },
     "require-dev": {
         "amphp/phpunit-util": "^1",

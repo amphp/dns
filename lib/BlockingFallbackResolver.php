@@ -2,11 +2,11 @@
 
 namespace Amp\Dns;
 
+use Amp\Dns\Native\NativeDecoderFactory;
+use Amp\Dns\Native\NativeEncoderFactory;
 use Amp\Failure;
 use Amp\Promise;
 use Amp\Success;
-use danog\LibDNSNative\NativeDecoderFactory;
-use danog\LibDNSNative\NativeEncoderFactory;
 use LibDNS\Messages\MessageFactory;
 use LibDNS\Messages\MessageTypes;
 use LibDNS\Records\Question;
