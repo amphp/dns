@@ -6,6 +6,7 @@
  * @copyright Copyright (c) Chris Wright <https://github.com/DaveRandom>,
  * @license http://www.opensource.org/licenses/mit-license.html MIT License
  */
+
 namespace Amp\Dns\Native;
 
 use \LibDNS\Messages\MessageFactory;
