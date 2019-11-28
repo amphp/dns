@@ -154,10 +154,6 @@ final class Rfc1035StubResolver implements Resolver
                     : [new Record('127.0.0.1', Record::A, null)];
             }
 
-            if (!$dots && \count($this->config->getSearchList()) === 0) {
-                throw new DnsException("Giving up resolution of '{$name}', unknown host");
-            }
-
             $searchList = [null];
             if (!$trailingDot && $dots < $this->config->getNdots()) {
                 $searchList = \array_merge($this->config->getSearchList(), $searchList);
