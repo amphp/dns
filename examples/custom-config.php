@@ -22,8 +22,8 @@ $customConfigLoader = new class implements Dns\ConfigLoader {
 
 Dns\resolver(new Dns\Rfc1035StubResolver(null, $customConfigLoader));
 
-Loop::run(function () {
-    $hostname = "amphp.org";
+Loop::run(function () use ($argv) {
+    $hostname = $argv[1] ?? "amphp.org";
 
     try {
         pretty_print_records($hostname, yield Dns\resolve($hostname));
