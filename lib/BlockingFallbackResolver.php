@@ -106,9 +106,23 @@ class BlockingFallbackResolver implements Resolver
         $encoder = $this->encoderFactory->create();
         $question = $encoder->encode($request);
 
-        $result = \dns_get_record(...$question);
+        $result = @\dns_get_record(...$question);
         if ($result === false) {
-            return new Failure(new DnsException("Query for '{$name}' failed, because loading the system's DNS configuration failed and blocking fallback via dns_get_record() failed, too."));
+            if ($type !== Record::A) {
+                return new Failure(new DnsException("Query for '{$name}' failed, because loading the system's DNS configuration failed and querying records other than A records isn't supported in blocking fallback mode."));
+            }
+            $result = \gethostbynamel($name);
+            if ($result === false) {
+                return new Failure(new DnsException("Query for '{$name}' failed, because loading the system's DNS configuration failed and blocking fallback via gethostbynamel() failed, too."));
+            }
+            if ($result === []) {
+                return new Failure(new NoRecordException("No records returned for '{$name}' using blocking fallback mode."));
+            }
+            $records = [];
+            foreach ($result as $record) {
+                $records[] = new Record($record, Record::A, null);
+            }
+            return new Success($records);
         }
 
         $decoder = $this->decoderFactory->create();
