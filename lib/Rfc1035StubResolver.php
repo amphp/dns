@@ -159,7 +159,7 @@ final class Rfc1035StubResolver implements Resolver
                 $searchList = \array_merge($this->config->getSearchList(), $searchList);
             }
 
-            foreach ($searchList as $search) {
+            foreach ($searchList as $searchIndex => $search) {
                 for ($redirects = 0; $redirects < 5; $redirects++) {
                     $searchName = $name;
 
@@ -187,6 +187,10 @@ final class Rfc1035StubResolver implements Resolver
                                     throw $reason;
                                 }
 
+                                if ($searchIndex < \count($searchList) - 1 && \in_array($reason->getCode(), [2, 3], true)) {
+                                    continue 2;
+                                }
+
                                 $errors[] = $reason->getMessage();
                             }
 
@@ -208,6 +212,12 @@ final class Rfc1035StubResolver implements Resolver
                             $name = $dnameRecords[0]->getValue();
                             continue;
                         }
+                    } catch (DnsException $e) {
+                        if ($searchIndex < \count($searchList) - 1 && \in_array($e->getCode(), [2, 3], true)) {
+                            continue 2;
+                        }
+
+                        throw $e;
                     }
                 }
             }
@@ -311,7 +321,7 @@ final class Rfc1035StubResolver implements Resolver
 
                     /** @var Message $response */
                     $response = yield $socket->ask($question, $this->config->getTimeout());
-                    $this->assertAcceptableResponse($response);
+                    $this->assertAcceptableResponse($response, $name);
 
                     // UDP sockets are never reused, they're not in the $this->sockets map
                     if ($protocol === "udp") {
@@ -505,10 +515,38 @@ final class Rfc1035StubResolver implements Resolver
     /**
      * @throws DnsException
      */
-    private function assertAcceptableResponse(Message $response)
+    private function assertAcceptableResponse(Message $response, string $name)
     {
         if ($response->getResponseCode() !== 0) {
-            throw new DnsException(\sprintf("Server returned error code: %d", $response->getResponseCode()));
+            // https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml
+            $errors = [
+                1 => 'FormErr',
+                2 => 'ServFail',
+                3 => 'NXDomain',
+                4 => 'NotImp',
+                5 => 'Refused',
+                6 => 'YXDomain',
+                7 => 'YXRRSet',
+                8 => 'NXRRSet',
+                9 => 'NotAuth',
+                10 => 'NotZone',
+                11 => 'DSOTYPENI',
+                16 => 'BADVERS',
+                17 => 'BADKEY',
+                18 => 'BADTIME',
+                19 => 'BADMODE',
+                20 => 'BADNAME',
+                21 => 'BADALG',
+                22 => 'BADTRUNC',
+                23 => 'BADCOOKIE',
+            ];
+
+            throw new DnsException(\sprintf(
+                "Name resolution failed for '%s'; server returned error code: %d (%s)",
+                $name,
+                $response->getResponseCode(),
+                $errors[$response->getResponseCode()] ?? 'UNKNOWN'
+            ), $response->getResponseCode());
         }
     }
 

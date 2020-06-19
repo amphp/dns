@@ -49,7 +49,12 @@ class TcpSocketTest extends SocketTest
             yield new Delayed(3000);
 
             $this->expectException(Dns\DnsException::class);
-            $this->expectExceptionMessageRegExp("(Sending the request failed|Reading from the server failed)");
+
+            if (\method_exists($this, 'expectExceptionMessageMatches')) {
+                $this->expectExceptionMessageMatches("(Sending the request failed|Reading from the server failed)");
+            } else {
+                $this->expectExceptionMessageRegExp("(Sending the request failed|Reading from the server failed)");
+            }
 
             yield $socket->ask($question, 3000);
         });

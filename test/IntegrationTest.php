@@ -43,7 +43,12 @@ class IntegrationTest extends TestCase
         Loop::run(function () {
             yield Dns\query("google.com", Record::A);
             $this->assertNull(yield Dns\resolver()->reloadConfig());
-            $this->assertInternalType("array", yield Dns\query("example.com", Record::A));
+
+            if (\method_exists($this, 'assertIsArray')) {
+                $this->assertIsArray(yield Dns\query("example.com", Record::A));
+            } else {
+                $this->assertInternalType('array', yield Dns\query("example.com", Record::A));
+            }
         });
     }
 
@@ -89,7 +94,7 @@ class IntegrationTest extends TestCase
                 : new UnixConfigLoader();
             /** @var Dns\Config $config */
             $config = yield $configLoader->loadConfig();
-            $config = $config->withSearchList(['kelunik.com']);
+            $config = $config->withSearchList(['foobar.invalid', 'kelunik.com']);
             $config = $config->withNdots(1);
             /** @var Dns\ConfigLoader|MockObject $configLoader */
             $configLoader = $this->createMock(Dns\ConfigLoader::class);
