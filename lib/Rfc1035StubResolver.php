@@ -389,9 +389,10 @@ final class Rfc1035StubResolver implements Resolver
             }
 
             throw new TimeoutException(\sprintf(
-                "No response for '%s' (%s) from any nameserver after %d attempts, tried %s",
+                "No response for '%s' (%s) from any nameserver within %d ms after %d attempts, tried %s",
                 $name,
                 Record::getName($type),
+                $this->config->getTimeout(),
                 $attempts,
                 \implode(", ", $attemptDescription)
             ));
