@@ -2,11 +2,11 @@
 
 namespace Amp\Dns\Test;
 
-use Amp\PHPUnit\TestCase;
+use Amp\PHPUnit\AsyncTestCase;
 use LibDNS\Decoder\DecoderFactory;
 use LibDNS\Messages\Message;
 
-class DecodeTest extends TestCase
+class DecodeTest extends AsyncTestCase
 {
     /**
      * Regression test for https://github.com/amphp/dns/issues/53 and other reported issues.

@@ -3,9 +3,9 @@
 namespace Amp\Dns\Test;
 
 use Amp\Dns\Record;
-use Amp\PHPUnit\TestCase;
+use Amp\PHPUnit\AsyncTestCase;
 
-class RecordTest extends TestCase
+class RecordTest extends AsyncTestCase
 {
     public function testGetName()
     {

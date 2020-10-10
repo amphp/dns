@@ -4,20 +4,19 @@ namespace Amp\Dns;
 
 final class Config
 {
-    /** @var array */
-    private $nameservers;
-    /** @var array */
-    private $knownHosts;
-    /** @var int */
-    private $timeout;
-    /** @var int */
-    private $attempts;
-    /** @var array */
-    private $searchList = [];
-    /** @var int */
-    private $ndots = 1;
-    /** @var bool */
-    private $rotation = false;
+    private array $nameservers;
+
+    private array $knownHosts;
+
+    private int $timeout;
+
+    private int $attempts;
+
+    private array $searchList = [];
+
+    private int $ndots = 1;
+
+    private bool $rotation = false;
 
     public function __construct(array $nameservers, array $knownHosts = [], int $timeout = 3000, int $attempts = 2)
     {

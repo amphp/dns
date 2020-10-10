@@ -10,11 +10,11 @@ use Amp\Dns\Internal\UdpSocket;
 use Amp\Loop;
 use Amp\MultiReasonException;
 use Amp\Promise;
-use Amp\Success;
 use LibDNS\Messages\Message;
 use LibDNS\Records\Question;
 use LibDNS\Records\QuestionFactory;
-use function Amp\call;
+use function Amp\async;
+use function Amp\await;
 
 final class Rfc1035StubResolver implements Resolver
 {
@@ -23,40 +23,32 @@ final class Rfc1035StubResolver implements Resolver
     const CONFIG_LOADED = 1;
     const CONFIG_FAILED = 2;
 
-    /** @var ConfigLoader */
-    private $configLoader;
+    private ConfigLoader $configLoader;
 
-    /** @var QuestionFactory */
-    private $questionFactory;
+    private QuestionFactory $questionFactory;
 
-    /** @var Config|null */
-    private $config;
+    private ?Config $config = null;
 
-    /** @var int */
-    private $configStatus = self::CONFIG_NOT_LOADED;
+    private  int$configStatus = self::CONFIG_NOT_LOADED;
 
-    /** @var Promise|null */
-    private $pendingConfig;
+    private ?Promise $pendingConfig = null;
 
-    /** @var Cache */
-    private $cache;
+    private Cache $cache;
 
     /** @var Socket[] */
-    private $sockets = [];
+    private array $sockets = [];
 
     /** @var Promise[] */
-    private $pendingSockets = [];
+    private array $pendingSockets = [];
 
     /** @var Promise[] */
-    private $pendingQueries = [];
+    private array $pendingQueries = [];
 
-    /** @var string */
-    private $gcWatcher;
+    private string $gcWatcher;
 
-    /** @var BlockingFallbackResolver */
-    private $blockingFallbackResolver;
-    /** @var int */
-    private $nextNameserver = 0;
+    private BlockingFallbackResolver$blockingFallbackResolver;
+
+    private int $nextNameserver = 0;
 
     public function __construct(Cache $cache = null, ConfigLoader $configLoader = null)
     {
@@ -93,137 +85,133 @@ final class Rfc1035StubResolver implements Resolver
     }
 
     /** @inheritdoc */
-    public function resolve(string $name, int $typeRestriction = null): Promise
+    public function resolve(string $name, int $typeRestriction = null): array
     {
         if ($typeRestriction !== null && $typeRestriction !== Record::A && $typeRestriction !== Record::AAAA) {
             throw new \Error("Invalid value for parameter 2: null|Record::A|Record::AAAA expected");
         }
 
-        return call(function () use ($name, $typeRestriction) {
-            if ($this->configStatus === self::CONFIG_NOT_LOADED) {
-                yield $this->reloadConfig();
-            }
+        if ($this->configStatus === self::CONFIG_NOT_LOADED) {
+            $this->reloadConfig();
+        }
 
-            if ($this->configStatus === self::CONFIG_FAILED) {
-                return $this->blockingFallbackResolver->resolve($name, $typeRestriction);
-            }
+        if ($this->configStatus === self::CONFIG_FAILED) {
+            return $this->blockingFallbackResolver->resolve($name, $typeRestriction);
+        }
 
-            switch ($typeRestriction) {
-                case Record::A:
-                    if (\filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
-                        return [new Record($name, Record::A, null)];
-                    }
+        switch ($typeRestriction) {
+            case Record::A:
+                if (\filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+                    return [new Record($name, Record::A, null)];
+                }
 
-                    if (\filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
-                        throw new DnsException("Got an IPv6 address, but type is restricted to IPv4");
-                    }
-                    break;
-                case Record::AAAA:
-                    if (\filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
-                        return [new Record($name, Record::AAAA, null)];
-                    }
+                if (\filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+                    throw new DnsException("Got an IPv6 address, but type is restricted to IPv4");
+                }
+                break;
+            case Record::AAAA:
+                if (\filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+                    return [new Record($name, Record::AAAA, null)];
+                }
 
-                    if (\filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
-                        throw new DnsException("Got an IPv4 address, but type is restricted to IPv6");
-                    }
-                    break;
-                default:
-                    if (\filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
-                        return [new Record($name, Record::A, null)];
-                    }
+                if (\filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+                    throw new DnsException("Got an IPv4 address, but type is restricted to IPv6");
+                }
+                break;
+            default:
+                if (\filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+                    return [new Record($name, Record::A, null)];
+                }
 
-                    if (\filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
-                        return [new Record($name, Record::AAAA, null)];
-                    }
-                    break;
-            }
-            $dots = \substr_count($name, ".");
-            // Should be replaced with $name[-1] from 7.1
-            $trailingDot = \substr($name, -1, 1) === ".";
-            $name = normalizeName($name);
+                if (\filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+                    return [new Record($name, Record::AAAA, null)];
+                }
+                break;
+        }
+        $dots = \substr_count($name, ".");
+        // Should be replaced with $name[-1] from 7.1
+        $trailingDot = \substr($name, -1, 1) === ".";
+        $name = normalizeName($name);
 
-            if ($records = $this->queryHosts($name, $typeRestriction)) {
-                return $records;
-            }
+        if ($records = $this->queryHosts($name, $typeRestriction)) {
+            return $records;
+        }
 
-            // Follow RFC 6761 and never send queries for localhost to the caching DNS server
-            // Usually, these queries are already resolved via queryHosts()
-            if ($name === 'localhost') {
-                return $typeRestriction === Record::AAAA
-                    ? [new Record('::1', Record::AAAA, null)]
-                    : [new Record('127.0.0.1', Record::A, null)];
-            }
+        // Follow RFC 6761 and never send queries for localhost to the caching DNS server
+        // Usually, these queries are already resolved via queryHosts()
+        if ($name === 'localhost') {
+            return $typeRestriction === Record::AAAA
+                ? [new Record('::1', Record::AAAA, null)]
+                : [new Record('127.0.0.1', Record::A, null)];
+        }
 
-            $searchList = [null];
-            if (!$trailingDot && $dots < $this->config->getNdots()) {
-                $searchList = \array_merge($this->config->getSearchList(), $searchList);
-            }
+        $searchList = [null];
+        if (!$trailingDot && $dots < $this->config->getNdots()) {
+            $searchList = \array_merge($this->config->getSearchList(), $searchList);
+        }
 
-            foreach ($searchList as $searchIndex => $search) {
-                for ($redirects = 0; $redirects < 5; $redirects++) {
-                    $searchName = $name;
+        foreach ($searchList as $searchIndex => $search) {
+            for ($redirects = 0; $redirects < 5; $redirects++) {
+                $searchName = $name;
 
-                    if ($search !== null) {
-                        $searchName = $name . "." . $search;
+                if ($search !== null) {
+                    $searchName = $name . "." . $search;
+                }
+
+                try {
+                    if ($typeRestriction) {
+                        return $this->query($searchName, $typeRestriction);
                     }
 
                     try {
-                        if ($typeRestriction) {
-                            return yield $this->query($searchName, $typeRestriction);
-                        }
+                        list(, $records) = await(Promise\some([
+                            async(fn() => $this->query($searchName, Record::A)),
+                            async(fn() => $this->query($searchName, Record::AAAA)),
+                        ]));
 
-                        try {
-                            list(, $records) = yield Promise\some([
-                                $this->query($searchName, Record::A),
-                                $this->query($searchName, Record::AAAA),
-                            ]);
+                        return \array_merge(...$records);
+                    } catch (MultiReasonException $e) {
+                        $errors = [];
 
-                            return \array_merge(...$records);
-                        } catch (MultiReasonException $e) {
-                            $errors = [];
-
-                            foreach ($e->getReasons() as $reason) {
-                                if ($reason instanceof NoRecordException) {
-                                    throw $reason;
-                                }
-
-                                if ($searchIndex < \count($searchList) - 1 && \in_array($reason->getCode(), [2, 3], true)) {
-                                    continue 2;
-                                }
-
-                                $errors[] = $reason->getMessage();
+                        foreach ($e->getReasons() as $reason) {
+                            if ($reason instanceof NoRecordException) {
+                                throw $reason;
                             }
 
-                            throw new DnsException(
-                                "All query attempts failed for {$searchName}: " . \implode(", ", $errors),
-                                0,
-                                $e
-                            );
-                        }
-                    } catch (NoRecordException $e) {
-                        try {
-                            /** @var Record[] $cnameRecords */
-                            $cnameRecords = yield $this->query($searchName, Record::CNAME);
-                            $name = $cnameRecords[0]->getValue();
-                            continue;
-                        } catch (NoRecordException $e) {
-                            /** @var Record[] $dnameRecords */
-                            $dnameRecords = yield $this->query($searchName, Record::DNAME);
-                            $name = $dnameRecords[0]->getValue();
-                            continue;
-                        }
-                    } catch (DnsException $e) {
-                        if ($searchIndex < \count($searchList) - 1 && \in_array($e->getCode(), [2, 3], true)) {
-                            continue 2;
+                            if ($searchIndex < \count($searchList) - 1 && \in_array($reason->getCode(), [2, 3], true)) {
+                                continue 2;
+                            }
+
+                            $errors[] = $reason->getMessage();
                         }
 
-                        throw $e;
+                        throw new DnsException(
+                            "All query attempts failed for {$searchName}: " . \implode(", ", $errors),
+                            0,
+                            $e
+                        );
                     }
+                } catch (NoRecordException $e) {
+                    try {
+                        $cnameRecords = $this->query($searchName, Record::CNAME);
+                        $name = $cnameRecords[0]->getValue();
+                        continue;
+                    } catch (NoRecordException $e) {
+                        $dnameRecords = $this->query($searchName, Record::DNAME);
+                        $name = $dnameRecords[0]->getValue();
+                        continue;
+                    }
+                } catch (DnsException $e) {
+                    if ($searchIndex < \count($searchList) - 1 && \in_array($e->getCode(), [2, 3], true)) {
+                        continue 2;
+                    }
+
+                    throw $e;
                 }
             }
+        }
 
-            throw new DnsException("Giving up resolution of '{$searchName}', too many redirects");
-        });
+        throw new DnsException("Giving up resolution of '{$searchName}', too many redirects");
     }
 
     /**
@@ -231,17 +219,17 @@ final class Rfc1035StubResolver implements Resolver
      *
      * Once it's finished, the configuration will be used for new requests.
      *
-     * @return Promise
+     * @return Config
      */
-    public function reloadConfig(): Promise
+    public function reloadConfig(): Config
     {
         if ($this->pendingConfig) {
-            return $this->pendingConfig;
+            return await($this->pendingConfig);
         }
 
-        $promise = call(function () {
+        $promise = async(function (): Config {
             try {
-                $this->config = yield $this->configLoader->loadConfig();
+                $this->config = $this->configLoader->loadConfig();
                 $this->configStatus = self::CONFIG_LOADED;
             } catch (ConfigException $e) {
                 $this->configStatus = self::CONFIG_FAILED;
@@ -260,29 +248,31 @@ final class Rfc1035StubResolver implements Resolver
                     \restore_error_handler();
                 }
             }
+
+            return $this->config;
         });
 
         $this->pendingConfig = $promise;
 
-        $promise->onResolve(function () {
+        $promise->onResolve(function (): void {
             $this->pendingConfig = null;
         });
 
-        return $promise;
+        return await($promise);
     }
 
     /** @inheritdoc */
-    public function query(string $name, int $type): Promise
+    public function query(string $name, int $type): array
     {
         $pendingQueryKey = $type . " " . $name;
 
         if (isset($this->pendingQueries[$pendingQueryKey])) {
-            return $this->pendingQueries[$pendingQueryKey];
+            return await($this->pendingQueries[$pendingQueryKey]);
         }
 
-        $promise = call(function () use ($name, $type) {
+        $promise = async(function () use ($name, $type): array {
             if ($this->configStatus === self::CONFIG_NOT_LOADED) {
-                yield $this->reloadConfig();
+                $this->reloadConfig();
             }
             if ($this->configStatus === self::CONFIG_FAILED) {
                 return $this->blockingFallbackResolver->query($name, $type);
@@ -291,7 +281,7 @@ final class Rfc1035StubResolver implements Resolver
             $name = $this->normalizeName($name, $type);
             $question = $this->createQuestion($name, $type);
 
-            if (null !== $cachedValue = yield $this->cache->get($this->getCacheKey($name, $type))) {
+            if (null !== $cachedValue = $this->cache->get($this->getCacheKey($name, $type))) {
                 return $this->decodeCachedResult($name, $type, $cachedValue);
             }
 
@@ -303,7 +293,7 @@ final class Rfc1035StubResolver implements Resolver
 
             /** @var Socket $socket */
             $uri = $protocol . "://" . $nameservers[0];
-            $socket = yield $this->getSocket($uri);
+            $socket = $this->getSocket($uri);
 
             $attemptDescription = [];
 
@@ -314,19 +304,18 @@ final class Rfc1035StubResolver implements Resolver
                         $socket->close();
 
                         $uri = $protocol . "://" . $nameservers[$attempt % $nameserversCount];
-                        $socket = yield $this->getSocket($uri);
+                        $socket = $this->getSocket($uri);
                     }
 
                     $attemptDescription[] = $uri;
 
-                    /** @var Message $response */
-                    $response = yield $socket->ask($question, $this->config->getTimeout());
+                    $response = $socket->ask($question, $this->config->getTimeout());
                     $this->assertAcceptableResponse($response, $name);
 
                     // UDP sockets are never reused, they're not in the $this->sockets map
                     if ($protocol === "udp") {
                         // Defer call, because it interferes with the unreference() call in Internal\Socket otherwise
-                        Loop::defer(static function () use ($socket) {
+                        Loop::defer(static function () use ($socket): void {
                             $socket->close();
                         });
                     }
@@ -336,7 +325,7 @@ final class Rfc1035StubResolver implements Resolver
                             // Retry with TCP, don't count attempt
                             $protocol = "tcp";
                             $uri = $protocol . "://" . $nameservers[$attempt % $nameserversCount];
-                            $socket = yield $this->getSocket($uri);
+                            $socket = $this->getSocket($uri);
                             continue;
                         }
 
@@ -376,13 +365,13 @@ final class Rfc1035StubResolver implements Resolver
                     }, $result[$type]);
                 } catch (TimeoutException $e) {
                     // Defer call, because it might interfere with the unreference() call in Internal\Socket otherwise
-                    Loop::defer(function () use ($socket, $uri) {
+                    Loop::defer(function () use ($socket, $uri): void {
                         unset($this->sockets[$uri]);
                         $socket->close();
                     });
 
                     $uri = $protocol . "://" . $nameservers[++$attempt % $nameserversCount];
-                    $socket = yield $this->getSocket($uri);
+                    $socket = $this->getSocket($uri);
 
                     continue;
                 }
@@ -403,7 +392,7 @@ final class Rfc1035StubResolver implements Resolver
             unset($this->pendingQueries[$type . " " . $name]);
         });
 
-        return $promise;
+        return await($promise);
     }
 
     private function queryHosts(string $name, int $typeRestriction = null): array
@@ -483,7 +472,7 @@ final class Rfc1035StubResolver implements Resolver
         return $result;
     }
 
-    private function getSocket($uri): Promise
+    private function getSocket($uri): Internal\Socket
     {
         // We use a new socket for each UDP request, as that increases the entropy and mitigates response forgery.
         if (\substr($uri, 0, 3) === "udp") {
@@ -493,16 +482,16 @@ final class Rfc1035StubResolver implements Resolver
         // Over TCP we might reuse sockets if the server allows to keep them open. Sequence IDs in TCP are already
         // better than a random port. Additionally, a TCP connection is more expensive.
         if (isset($this->sockets[$uri])) {
-            return new Success($this->sockets[$uri]);
+            return $this->sockets[$uri];
         }
 
         if (isset($this->pendingSockets[$uri])) {
-            return $this->pendingSockets[$uri];
+            return await($this->pendingSockets[$uri]);
         }
 
-        $server = TcpSocket::connect($uri);
+        $promise = async(fn() => TcpSocket::connect($uri));
 
-        $server->onResolve(function ($error, $server) use ($uri) {
+        $promise->onResolve(function (?\Throwable $error, TcpSocket $server) use ($uri): void {
             unset($this->pendingSockets[$uri]);
 
             if (!$error) {
@@ -510,13 +499,13 @@ final class Rfc1035StubResolver implements Resolver
             }
         });
 
-        return $server;
+        return await($promise);
     }
 
     /**
      * @throws DnsException
      */
-    private function assertAcceptableResponse(Message $response, string $name)
+    private function assertAcceptableResponse(Message $response, string $name): void
     {
         if ($response->getResponseCode() !== 0) {
             // https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml

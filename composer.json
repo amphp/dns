@@ -34,21 +34,23 @@
         }
     ],
     "require": {
-        "php": ">=7.0",
+        "php": ">=8",
         "ext-json": "*",
-        "amphp/amp": "^2",
-        "amphp/byte-stream": "^1.1",
-        "amphp/cache": "^1.2",
+        "amphp/amp": "^3-dev",
+        "amphp/byte-stream": "^2-dev",
+        "amphp/cache": "^2-dev",
         "amphp/parser": "^1",
-        "amphp/windows-registry": "^0.3",
+        "amphp/windows-registry": "^1-dev",
         "daverandom/libdns": "^2.0.1",
         "ext-filter": "*"
     },
     "require-dev": {
-        "amphp/phpunit-util": "^1",
-        "phpunit/phpunit": "^6 || ^7 || ^8 || ^9",
+        "amphp/phpunit-util": "^2-dev",
+        "phpunit/phpunit": "^9",
         "amphp/php-cs-fixer-config": "dev-master"
     },
+    "minimum-stability": "dev",
+    "prefer-stable": true,
     "autoload": {
         "psr-4": {
             "Amp\\Dns\\": "lib"

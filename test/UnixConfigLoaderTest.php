@@ -2,20 +2,17 @@
 
 namespace Amp\Dns\Test;
 
-use Amp\Dns\Config;
 use Amp\Dns\ConfigException;
 use Amp\Dns\UnixConfigLoader;
-use Amp\PHPUnit\TestCase;
-use function Amp\Promise\wait;
+use Amp\PHPUnit\AsyncTestCase;
 
-class UnixConfigLoaderTest extends TestCase
+class UnixConfigLoaderTest extends AsyncTestCase
 {
     public function test()
     {
         $loader = new UnixConfigLoader(__DIR__ . "/data/resolv.conf");
 
-        /** @var Config $result */
-        $result = wait($loader->loadConfig());
+        $result = $loader->loadConfig();
 
         $this->assertSame([
             "127.0.0.1:53",
@@ -33,8 +30,7 @@ class UnixConfigLoaderTest extends TestCase
     {
         $loader = new UnixConfigLoader(__DIR__ . "/data/resolv-search.conf");
 
-        /** @var Config $result */
-        $result = wait($loader->loadConfig());
+        $result = $loader->loadConfig();
 
         $this->assertSame([
             "127.0.0.1:53",
@@ -52,8 +48,7 @@ class UnixConfigLoaderTest extends TestCase
     {
         $loader = new UnixConfigLoader(__DIR__ . "/data/resolv-rotate.conf");
 
-        /** @var Config $result */
-        $result = wait($loader->loadConfig());
+        $result = $loader->loadConfig();
 
         $this->assertSame([
             "127.0.0.1:53",
@@ -69,8 +64,7 @@ class UnixConfigLoaderTest extends TestCase
     {
         $loader = new UnixConfigLoader(__DIR__ . "/data/resolv-negative-option-values.conf");
 
-        /** @var Config $result */
-        $result = wait($loader->loadConfig());
+        $result = $loader->loadConfig();
 
         $this->assertSame([
             "127.0.0.1:53",
@@ -89,8 +83,7 @@ class UnixConfigLoaderTest extends TestCase
 
         $loader = new UnixConfigLoader(__DIR__ . "/data/resolv.conf");
 
-        /** @var Config $result */
-        $result = wait($loader->loadConfig());
+        $result = $loader->loadConfig();
 
         $this->assertSame([
             "127.0.0.1:53",
@@ -108,6 +101,6 @@ class UnixConfigLoaderTest extends TestCase
     public function testNoDefaultsOnConfNotFound()
     {
         $this->expectException(ConfigException::class);
-        wait((new UnixConfigLoader(__DIR__ . "/data/non-existent.conf"))->loadConfig());
+        (new UnixConfigLoader(__DIR__ . "/data/non-existent.conf"))->loadConfig();
     }
 }

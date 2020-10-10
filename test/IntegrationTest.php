@@ -8,31 +8,35 @@ use Amp\Dns\DnsException;
 use Amp\Dns\Record;
 use Amp\Dns\UnixConfigLoader;
 use Amp\Dns\WindowsConfigLoader;
-use Amp\Loop;
-use Amp\PHPUnit\TestCase;
-use Amp\Success;
+use Amp\PHPUnit\AsyncTestCase;
 use PHPUnit\Framework\MockObject\MockObject;
+use function Amp\async;
+use function Amp\await;
 
-class IntegrationTest extends TestCase
+class IntegrationTest extends AsyncTestCase
 {
+    public function setUp(): void
+    {
+        parent::setUp();
+
+        $this->ignoreLoopWatchers();
+    }
+
     /**
      * @param string $hostname
      * @group internet
      * @dataProvider provideHostnames
      */
-    public function testResolve($hostname)
+    public function testResolve(string $hostname)
     {
-        Loop::run(function () use ($hostname) {
-            $result = yield Dns\resolve($hostname);
+        $result = Dns\resolve($hostname);
 
-            /** @var Record $record */
-            $record = $result[0];
-            $inAddr = @\inet_pton($record->getValue());
-            $this->assertNotFalse(
-                $inAddr,
-                "Server name {$hostname} did not resolve to a valid IP address"
-            );
-        });
+        $record = $result[0];
+        $inAddr = @\inet_pton($record->getValue());
+        $this->assertNotFalse(
+            $inAddr,
+            "Server name {$hostname} did not resolve to a valid IP address"
+        );
     }
 
     /**
@@ -40,144 +44,118 @@ class IntegrationTest extends TestCase
      */
     public function testWorksAfterConfigReload()
     {
-        Loop::run(function () {
-            yield Dns\query("google.com", Record::A);
-            $this->assertNull(yield Dns\resolver()->reloadConfig());
-
-            if (\method_exists($this, 'assertIsArray')) {
-                $this->assertIsArray(yield Dns\query("example.com", Record::A));
-            } else {
-                $this->assertInternalType('array', yield Dns\query("example.com", Record::A));
-            }
-        });
+        Dns\query("google.com", Record::A);
+        $this->assertInstanceOf(Dns\Config::class, Dns\resolver()->reloadConfig());
+        $this->assertIsArray(Dns\query("example.com", Record::A));
     }
 
     public function testResolveIPv4only()
     {
-        Loop::run(function () {
-            $records = yield Dns\resolve("google.com", Record::A);
+        $records = Dns\resolve("google.com", Record::A);
 
-            /** @var Record $record */
-            foreach ($records as $record) {
-                $this->assertSame(Record::A, $record->getType());
-                $inAddr = @\inet_pton($record->getValue());
-                $this->assertNotFalse(
-                    $inAddr,
-                    "Server name google.com did not resolve to a valid IP address"
-                );
-            }
-        });
+        foreach ($records as $record) {
+            $this->assertSame(Record::A, $record->getType());
+            $inAddr = @\inet_pton($record->getValue());
+            $this->assertNotFalse(
+                $inAddr,
+                "Server name google.com did not resolve to a valid IP address"
+            );
+        }
     }
 
     public function testResolveIPv6only()
     {
-        Loop::run(function () {
-            $records = yield Dns\resolve("google.com", Record::AAAA);
+        $records = Dns\resolve("google.com", Record::AAAA);
 
-            /** @var Record $record */
-            foreach ($records as $record) {
-                $this->assertSame(Record::AAAA, $record->getType());
-                $inAddr = @\inet_pton($record->getValue());
-                $this->assertNotFalse(
-                    $inAddr,
-                    "Server name google.com did not resolve to a valid IP address"
-                );
-            }
-        });
+        foreach ($records as $record) {
+            $this->assertSame(Record::AAAA, $record->getType());
+            $inAddr = @\inet_pton($record->getValue());
+            $this->assertNotFalse(
+                $inAddr,
+                "Server name google.com did not resolve to a valid IP address"
+            );
+        }
     }
 
     public function testResolveUsingSearchList()
     {
-        Loop::run(function () {
-            $configLoader = \stripos(PHP_OS, "win") === 0
-                ? new WindowsConfigLoader()
-                : new UnixConfigLoader();
-            /** @var Dns\Config $config */
-            $config = yield $configLoader->loadConfig();
-            $config = $config->withSearchList(['foobar.invalid', 'kelunik.com']);
-            $config = $config->withNdots(1);
-            /** @var Dns\ConfigLoader|MockObject $configLoader */
-            $configLoader = $this->createMock(Dns\ConfigLoader::class);
-            $configLoader->expects($this->once())
-                ->method('loadConfig')
-                ->willReturn(new Success($config));
+        $configLoader = \stripos(PHP_OS, "win") === 0
+            ? new WindowsConfigLoader()
+            : new UnixConfigLoader();
+        $config = $configLoader->loadConfig();
+        $config = $config->withSearchList(['foobar.invalid', 'kelunik.com']);
+        $config = $config->withNdots(1);
+        /** @var Dns\ConfigLoader|MockObject $configLoader */
+        $configLoader = $this->createMock(Dns\ConfigLoader::class);
+        $configLoader->expects($this->once())
+            ->method('loadConfig')
+            ->willReturn($config);
 
-            Dns\resolver(new Dns\Rfc1035StubResolver(null, $configLoader));
-            $result = yield Dns\resolve('blog');
+        Dns\resolver(new Dns\Rfc1035StubResolver(null, $configLoader));
+        $result = Dns\resolve('blog');
 
-            /** @var Record $record */
-            $record = $result[0];
-            $inAddr = @\inet_pton($record->getValue());
-            $this->assertNotFalse(
-                $inAddr,
-                "Server name blog.kelunik.com did not resolve to a valid IP address"
-            );
+        $record = $result[0];
+        $inAddr = @\inet_pton($record->getValue());
+        $this->assertNotFalse(
+            $inAddr,
+            "Server name blog.kelunik.com did not resolve to a valid IP address"
+        );
 
-            $result = yield Dns\query('blog.kelunik.com', Dns\Record::A);
-            /** @var Record $record */
-            $record = $result[0];
-            $this->assertSame($inAddr, @\inet_pton($record->getValue()));
-        });
+        $result = Dns\query('blog.kelunik.com', Dns\Record::A);
+        $record = $result[0];
+        $this->assertSame($inAddr, @\inet_pton($record->getValue()));
     }
 
     public function testFailResolveRootedDomainWhenSearchListDefined()
     {
-        Loop::run(function () {
-            $configLoader = \stripos(PHP_OS, "win") === 0
-                ? new WindowsConfigLoader()
-                : new UnixConfigLoader();
-            /** @var Dns\Config $config */
-            $config = yield $configLoader->loadConfig();
-            $config = $config->withSearchList(['kelunik.com']);
-            $config = $config->withNdots(1);
-            /** @var Dns\ConfigLoader|MockObject $configLoader */
-            $configLoader = $this->createMock(Dns\ConfigLoader::class);
-            $configLoader->expects($this->once())
-                ->method('loadConfig')
-                ->willReturn(new Success($config));
+        $configLoader = \stripos(PHP_OS, "win") === 0
+            ? new WindowsConfigLoader()
+            : new UnixConfigLoader();
+        $config = $configLoader->loadConfig();
+        $config = $config->withSearchList(['kelunik.com']);
+        $config = $config->withNdots(1);
+        /** @var Dns\ConfigLoader|MockObject $configLoader */
+        $configLoader = $this->createMock(Dns\ConfigLoader::class);
+        $configLoader->expects($this->once())
+            ->method('loadConfig')
+            ->willReturn($config);
 
-            Dns\resolver(new Dns\Rfc1035StubResolver(null, $configLoader));
-            $this->expectException(DnsException::class);
-            yield Dns\resolve('blog.');
-        });
+        Dns\resolver(new Dns\Rfc1035StubResolver(null, $configLoader));
+        $this->expectException(DnsException::class);
+        Dns\resolve('blog.');
     }
 
     public function testResolveWithRotateList()
     {
-        Loop::run(function () {
-            /** @var Dns\ConfigLoader|MockObject $configLoader */
-            $configLoader = $this->createMock(Dns\ConfigLoader::class);
-            $config = new Dns\Config([
-                '208.67.222.220:53', // Opendns, US
-                '195.243.214.4:53', // Deutche Telecom AG, DE
-            ]);
-            $config = $config->withRotationEnabled(true);
-            $configLoader->expects($this->once())
-                ->method('loadConfig')
-                ->willReturn(new Success($config));
+        /** @var Dns\ConfigLoader|MockObject $configLoader */
+        $configLoader = $this->createMock(Dns\ConfigLoader::class);
+        $config = new Dns\Config([
+            '208.67.222.220:53', // Opendns, US
+            '195.243.214.4:53', // Deutche Telecom AG, DE
+        ]);
+        $config = $config->withRotationEnabled(true);
+        $configLoader->expects($this->once())
+            ->method('loadConfig')
+            ->willReturn($config);
 
-            $resolver = new Dns\Rfc1035StubResolver(new NullCache(), $configLoader);
+        $resolver = new Dns\Rfc1035StubResolver(new NullCache(), $configLoader);
 
-            /** @var Record $record1 */
-            list($record1) = yield $resolver->query('facebook.com', Dns\Record::A);
-            /** @var Record $record2 */
-            list($record2) = yield $resolver->query('facebook.com', Dns\Record::A);
+        /** @var Record $record1 */
+        list($record1) = $resolver->query('facebook.com', Dns\Record::A);
+        /** @var Record $record2 */
+        list($record2) = $resolver->query('facebook.com', Dns\Record::A);
 
-            $this->assertNotSame($record1->getValue(), $record2->getValue());
-        });
+        $this->assertNotSame($record1->getValue(), $record2->getValue());
     }
 
     public function testPtrLookup()
     {
-        Loop::run(function () {
-            $result = yield Dns\query("8.8.4.4", Record::PTR);
+        $result = Dns\query("8.8.4.4", Record::PTR);
 
-            /** @var Record $record */
-            $record = $result[0];
-            $this->assertSame("dns.google", $record->getValue());
-            $this->assertNotNull($record->getTtl());
-            $this->assertSame(Record::PTR, $record->getType());
-        });
+        $record = $result[0];
+        $this->assertSame("dns.google", $record->getValue());
+        $this->assertNotNull($record->getTtl());
+        $this->assertSame(Record::PTR, $record->getType());
     }
 
     /**
@@ -186,13 +164,10 @@ class IntegrationTest extends TestCase
      */
     public function testRequestSharing()
     {
-        Loop::run(function () {
-            $promise1 = Dns\query("example.com", Record::A);
-            $promise2 = Dns\query("example.com", Record::A);
+        $promise1 = async(fn() => Dns\query("example.com", Record::A));
+        $promise2 = async(fn() => Dns\query("example.com", Record::A));
 
-            $this->assertSame($promise1, $promise2);
-            $this->assertSame(yield $promise1, yield $promise2);
-        });
+        $this->assertSame(await($promise1), await($promise2));
     }
 
     public function provideHostnames()

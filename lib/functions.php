@@ -3,16 +3,15 @@
 namespace Amp\Dns;
 
 use Amp\Loop;
-use Amp\Promise;
 
 const LOOP_STATE_IDENTIFIER = Resolver::class;
 
 /**
  * Retrieve the application-wide dns resolver instance.
  *
- * @param \Amp\Dns\Resolver $resolver Optionally specify a new default dns resolver instance
+ * @param Resolver|null $resolver Optionally specify a new default dns resolver instance
  *
- * @return \Amp\Dns\Resolver Returns the application-wide dns resolver instance
+ * @return Resolver Returns the application-wide dns resolver instance
  */
 function resolver(Resolver $resolver = null): Resolver
 {
@@ -34,7 +33,7 @@ function resolver(Resolver $resolver = null): Resolver
 /**
  * Create a new dns resolver best-suited for the current environment.
  *
- * @return \Amp\Dns\Resolver
+ * @return Resolver
  */
 function createDefaultResolver(): Resolver
 {
@@ -44,7 +43,7 @@ function createDefaultResolver(): Resolver
 /**
  * @see Resolver::resolve()
  */
-function resolve(string $name, int $typeRestriction = null): Promise
+function resolve(string $name, int $typeRestriction = null): array
 {
     return resolver()->resolve($name, $typeRestriction);
 }
@@ -52,7 +51,7 @@ function resolve(string $name, int $typeRestriction = null): Promise
 /**
  * @see Resolver::query()
  */
-function query(string $name, int $type): Promise
+function query(string $name, int $type): array
 {
     return resolver()->query($name, $type);
 }
@@ -64,7 +63,7 @@ function query(string $name, int $type): Promise
  *
  * @return bool
  */
-function isValidName(string $name)
+function isValidName(string $name): bool
 {
     try {
         normalizeName($name);

@@ -4,9 +4,9 @@ namespace Amp\Dns\Test;
 
 use Amp\Dns\Config;
 use Amp\Dns\ConfigException;
-use Amp\PHPUnit\TestCase;
+use Amp\PHPUnit\AsyncTestCase;
 
-class ConfigTest extends TestCase
+class ConfigTest extends AsyncTestCase
 {
     /**
      * @param string[] $nameservers Valid server array.

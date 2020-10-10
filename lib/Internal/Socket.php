@@ -2,7 +2,6 @@
 
 namespace Amp\Dns\Internal;
 
-use Amp;
 use Amp\ByteStream\ResourceInputStream;
 use Amp\ByteStream\ResourceOutputStream;
 use Amp\ByteStream\StreamException;
@@ -10,63 +9,51 @@ use Amp\Deferred;
 use Amp\Dns\DnsException;
 use Amp\Dns\TimeoutException;
 use Amp\Promise;
+use Amp\Struct;
+use Amp\TimeoutException as PromiseTimeoutException;
 use LibDNS\Messages\Message;
 use LibDNS\Messages\MessageFactory;
 use LibDNS\Messages\MessageTypes;
 use LibDNS\Records\Question;
-use function Amp\call;
+use function Amp\async;
+use function Amp\await;
 
 /** @internal */
 abstract class Socket
 {
-    const MAX_CONCURRENT_REQUESTS = 500;
+    private const MAX_CONCURRENT_REQUESTS = 500;
 
-    /** @var ResourceInputStream */
-    private $input;
+    private ResourceInputStream $input;
 
-    /** @var ResourceOutputStream */
-    private $output;
+    private ResourceOutputStream $output;
 
     /** @var array Contains already sent queries with no response yet. For UDP this is exactly zero or one item. */
-    private $pending = [];
+    private array $pending = [];
 
-    /** @var MessageFactory */
-    private $messageFactory;
+    private MessageFactory $messageFactory;
 
     /** @var callable */
     private $onResolve;
 
     /** @var int Used for determining whether the socket can be garbage collected, because it's inactive. */
-    private $lastActivity;
+    private int $lastActivity;
 
-    /** @var bool */
-    private $receiving = false;
+    private bool $receiving = false;
 
     /** @var array Queued requests if the number of concurrent requests is too large. */
-    private $queue = [];
+    private array $queue = [];
 
     /**
      * @param string $uri
      *
-     * @return Promise<self>
+     * @return self
      */
-    abstract public static function connect(string $uri): Promise;
+    abstract public static function connect(string $uri): self;
 
-    /**
-     * @param Message $message
-     *
-     * @return Promise<int>
-     */
-    abstract protected function send(Message $message): Promise;
+    abstract protected function send(Message $message): void;
 
-    /**
-     * @return Promise<Message>
-     */
-    abstract protected function receive(): Promise;
+    abstract protected function receive(): Message;
 
-    /**
-     * @return bool
-     */
     abstract public function isAlive(): bool;
 
     public function getLastActivity(): int
@@ -106,94 +93,85 @@ abstract class Socket
             } elseif (!$this->receiving) {
                 $this->input->reference();
                 $this->receiving = true;
-                $this->receive()->onResolve($this->onResolve);
+                async(fn() => $this->receive())->onResolve($this->onResolve);
             }
         };
     }
 
     /**
-     * @param \LibDNS\Records\Question $question
+     * @param Question $question
      * @param int $timeout
      *
-     * @return \Amp\Promise<\LibDNS\Messages\Message>
+     * @return Message
      */
-    final public function ask(Question $question, int $timeout): Promise
+    final public function ask(Question $question, int $timeout): Message
     {
-        return call(function () use ($question, $timeout) {
-            $this->lastActivity = \time();
+        $this->lastActivity = \time();
 
-            if (\count($this->pending) > self::MAX_CONCURRENT_REQUESTS) {
-                $deferred = new Deferred;
-                $this->queue[] = $deferred;
-                yield $deferred->promise();
-            }
-
-            do {
-                $id = \random_int(0, 0xffff);
-            } while (isset($this->pending[$id]));
-
+        if (\count($this->pending) > self::MAX_CONCURRENT_REQUESTS) {
             $deferred = new Deferred;
-            $pending = new class {
-                use Amp\Struct;
+            $this->queue[] = $deferred;
+            await($deferred->promise());
+        }
 
-                public $deferred;
-                public $question;
-            };
+        do {
+            $id = \random_int(0, 0xffff);
+        } while (isset($this->pending[$id]));
 
-            $pending->deferred = $deferred;
-            $pending->question = $question;
-            $this->pending[$id] = $pending;
+        $deferred = new Deferred;
+        $pending = new class {
+            use Struct;
 
-            $message = $this->createMessage($question, $id);
+            public Deferred $deferred;
+            public Question $question;
+        };
 
-            try {
-                yield $this->send($message);
-            } catch (StreamException $exception) {
-                $exception = new DnsException("Sending the request failed", 0, $exception);
-                $this->error($exception);
-                throw $exception;
+        $pending->deferred = $deferred;
+        $pending->question = $question;
+        $this->pending[$id] = $pending;
+
+        $message = $this->createMessage($question, $id);
+
+        try {
+            $this->send($message);
+        } catch (StreamException $exception) {
+            $exception = new DnsException("Sending the request failed", 0, $exception);
+            $this->error($exception);
+            throw $exception;
+        }
+
+        $this->input->reference();
+
+        if (!$this->receiving) {
+            $this->receiving = true;
+            async(fn() => $this->receive())->onResolve($this->onResolve);
+        }
+
+        try {
+            return await(Promise\timeout($deferred->promise(), $timeout));
+        } catch (PromiseTimeoutException $exception) {
+            unset($this->pending[$id]);
+
+            if (empty($this->pending)) {
+                $this->input->unreference();
             }
 
-            $this->input->reference();
-
-            if (!$this->receiving) {
-                $this->receiving = true;
-                $this->receive()->onResolve($this->onResolve);
+            throw new TimeoutException("Didn't receive a response within {$timeout} milliseconds.");
+        } finally {
+            if ($this->queue) {
+                $deferred = \array_shift($this->queue);
+                $deferred->resolve();
             }
-
-            try {
-                // Work around an OPCache issue that returns an empty array with "return yield ...",
-                // so assign to a variable first and return after the try block.
-                //
-                // See https://github.com/amphp/dns/issues/58.
-                // See https://bugs.php.net/bug.php?id=74840.
-                $result = yield Promise\timeout($deferred->promise(), $timeout);
-            } catch (Amp\TimeoutException $exception) {
-                unset($this->pending[$id]);
-
-                if (empty($this->pending)) {
-                    $this->input->unreference();
-                }
-
-                throw new TimeoutException("Didn't receive a response within {$timeout} milliseconds.");
-            } finally {
-                if ($this->queue) {
-                    $deferred = \array_shift($this->queue);
-                    $deferred->resolve();
-                }
-            }
-
-            return $result;
-        });
+        }
     }
 
-    final public function close()
+    final public function close(): void
     {
         $this->input->close();
         $this->output->close();
     }
 
-    private function error(\Throwable $exception)
+    private function error(\Throwable $exception): void
     {
         $this->close();
 
@@ -216,14 +194,14 @@ abstract class Socket
         }
     }
 
-    final protected function read(): Promise
+    final protected function read(): ?string
     {
         return $this->input->read();
     }
 
-    final protected function write(string $data): Promise
+    final protected function write(string $data): void
     {
-        return $this->output->write($data);
+        $this->output->write($data);
     }
 
     final protected function createMessage(Question $question, int $id): Message

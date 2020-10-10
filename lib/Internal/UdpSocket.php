@@ -3,23 +3,20 @@
 namespace Amp\Dns\Internal;
 
 use Amp\Dns\DnsException;
-use Amp\Promise;
-use Amp\Success;
+use LibDNS\Decoder\Decoder;
 use LibDNS\Decoder\DecoderFactory;
+use LibDNS\Encoder\Encoder;
 use LibDNS\Encoder\EncoderFactory;
 use LibDNS\Messages\Message;
-use function Amp\call;
 
 /** @internal */
 final class UdpSocket extends Socket
 {
-    /** @var \LibDNS\Encoder\Encoder */
-    private $encoder;
+    private Encoder $encoder;
 
-    /** @var \LibDNS\Decoder\Decoder */
-    private $decoder;
+    private Decoder $decoder;
 
-    public static function connect(string $uri): Promise
+    public static function connect(string $uri): self
     {
         if (!$socket = @\stream_socket_client($uri, $errno, $errstr, 0, STREAM_CLIENT_ASYNC_CONNECT)) {
             throw new DnsException(\sprintf(
@@ -30,7 +27,7 @@ final class UdpSocket extends Socket
             ));
         }
 
-        return new Success(new self($socket));
+        return new self($socket);
     }
 
     protected function __construct($socket)
@@ -41,23 +38,21 @@ final class UdpSocket extends Socket
         $this->decoder = (new DecoderFactory)->create();
     }
 
-    protected function send(Message $message): Promise
+    protected function send(Message $message): void
     {
         $data = $this->encoder->encode($message);
-        return $this->write($data);
+        $this->write($data);
     }
 
-    protected function receive(): Promise
+    protected function receive(): Message
     {
-        return call(function () {
-            $data = yield $this->read();
+        $data = $this->read();
 
-            if ($data === null) {
-                throw new DnsException("Reading from the server failed");
-            }
+        if ($data === null) {
+            throw new DnsException("Reading from the server failed");
+        }
 
-            return $this->decoder->decode($data);
-        });
+        return $this->decoder->decode($data);
     }
 
     public function isAlive(): bool

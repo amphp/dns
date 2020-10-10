@@ -2,12 +2,7 @@
 
 namespace Amp\Dns;
 
-use Amp\Failure;
-use Amp\Promise;
-use Amp\Success;
-use function Amp\call;
-
-class UnixConfigLoader implements ConfigLoader
+final class UnixConfigLoader implements ConfigLoader
 {
     const MAX_NAMESERVERS = 3;
     const MAX_DNS_SEARCH = 6;
@@ -26,8 +21,8 @@ class UnixConfigLoader implements ConfigLoader
         "ndots" => self::DEFAULT_NDOTS,
         "rotate" => false,
     ];
-    private $path;
-    private $hostLoader;
+    private string $path;
+    private HostLoader $hostLoader;
 
     public function __construct(string $path = "/etc/resolv.conf", HostLoader $hostLoader = null)
     {
@@ -35,7 +30,7 @@ class UnixConfigLoader implements ConfigLoader
         $this->hostLoader = $hostLoader ?? new HostLoader;
     }
 
-    protected function readFile(string $path): Promise
+    protected function readFile(string $path): string
     {
         \set_error_handler(function (int $errno, string $message) use ($path) {
             throw new ConfigException("Could not read configuration file '{$path}' ({$errno}) $message");
@@ -43,107 +38,101 @@ class UnixConfigLoader implements ConfigLoader
 
         try {
             // Blocking file access, but this file should be local and usually loaded only once.
-            $fileContent = \file_get_contents($path);
-        } catch (ConfigException $exception) {
-            return new Failure($exception);
+            return \file_get_contents($path);
         } finally {
             \restore_error_handler();
         }
-
-        return new Success($fileContent);
     }
 
-    final public function loadConfig(): Promise
+    final public function loadConfig(): Config
     {
-        return call(function () {
-            $nameservers = [];
-            $searchList = [];
-            $options = self::DEFAULT_OPTIONS;
-            $haveLocaldomainEnv = false;
+        $nameservers = [];
+        $searchList = [];
+        $options = self::DEFAULT_OPTIONS;
+        $haveLocaldomainEnv = false;
 
-            /* Allow user to override the local domain definition.  */
-            if ($localdomain = \getenv("LOCALDOMAIN")) {
-                /* Set search list to be blank-separated strings from rest of
-                   env value.  Permits users of LOCALDOMAIN to still have a
-                   search list, and anyone to set the one that they want to use
-                   as an individual (even more important now that the rfc1535
-                   stuff restricts searches).  */
-                $searchList = $this->splitOnWhitespace($localdomain);
-                $haveLocaldomainEnv = true;
+        /* Allow user to override the local domain definition.  */
+        if ($localdomain = \getenv("LOCALDOMAIN")) {
+            /* Set search list to be blank-separated strings from rest of
+               env value.  Permits users of LOCALDOMAIN to still have a
+               search list, and anyone to set the one that they want to use
+               as an individual (even more important now that the rfc1535
+               stuff restricts searches).  */
+            $searchList = $this->splitOnWhitespace($localdomain);
+            $haveLocaldomainEnv = true;
+        }
+
+        $fileContent = $this->readFile($this->path);
+
+        $lines = \explode("\n", $fileContent);
+
+        foreach ($lines as $line) {
+            $line = \preg_split('#\s+#', $line, 2);
+
+            if (\count($line) !== 2) {
+                continue;
             }
 
-            $fileContent = yield $this->readFile($this->path);
+            list($type, $value) = $line;
 
-            $lines = \explode("\n", $fileContent);
+            if ($type === "nameserver") {
+                if (\count($nameservers) === self::MAX_NAMESERVERS) {
+                    continue;
+                }
+                $value = \trim($value);
+                $ip = @\inet_pton($value);
 
-            foreach ($lines as $line) {
-                $line = \preg_split('#\s+#', $line, 2);
-
-                if (\count($line) !== 2) {
+                if ($ip === false) {
                     continue;
                 }
 
-                list($type, $value) = $line;
-
-                if ($type === "nameserver") {
-                    if (\count($nameservers) === self::MAX_NAMESERVERS) {
-                        continue;
-                    }
-                    $value = \trim($value);
-                    $ip = @\inet_pton($value);
-
-                    if ($ip === false) {
-                        continue;
-                    }
-
-                    if (isset($ip[15])) { // IPv6
-                        $nameservers[] = "[" . $value . "]:53";
-                    } else { // IPv4
-                        $nameservers[] = $value . ":53";
-                    }
-                } elseif ($type === "domain" && !$haveLocaldomainEnv) { // LOCALDOMAIN env overrides config
-                    $searchList = $this->splitOnWhitespace($value);
-                } elseif ($type === "search" && !$haveLocaldomainEnv) { // LOCALDOMAIN env overrides config
-                    $searchList = $this->splitOnWhitespace($value);
-                } elseif ($type === "options") {
-                    $option = $this->parseOption($value);
-                    if (\count($option) === 2) {
-                        $options[$option[0]] = $option[1];
-                    }
+                if (isset($ip[15])) { // IPv6
+                    $nameservers[] = "[" . $value . "]:53";
+                } else { // IPv4
+                    $nameservers[] = $value . ":53";
+                }
+            } elseif ($type === "domain" && !$haveLocaldomainEnv) { // LOCALDOMAIN env overrides config
+                $searchList = $this->splitOnWhitespace($value);
+            } elseif ($type === "search" && !$haveLocaldomainEnv) { // LOCALDOMAIN env overrides config
+                $searchList = $this->splitOnWhitespace($value);
+            } elseif ($type === "options") {
+                $option = $this->parseOption($value);
+                if (\count($option) === 2) {
+                    $options[$option[0]] = $option[1];
                 }
             }
+        }
 
-            $hosts = yield $this->hostLoader->loadHosts();
+        $hosts = $this->hostLoader->loadHosts();
 
-            if (\count($searchList) === 0) {
-                $hostname = \gethostname();
-                $dot = \strpos(".", $hostname);
-                if ($dot !== false && $dot < \strlen($hostname)) {
-                    $searchList = [
-                        \substr($hostname, $dot),
-                    ];
+        if (\count($searchList) === 0) {
+            $hostname = \gethostname();
+            $dot = \strpos(".", $hostname);
+            if ($dot !== false && $dot < \strlen($hostname)) {
+                $searchList = [
+                    \substr($hostname, $dot),
+                ];
+            }
+        }
+        if (\count($searchList) > self::MAX_DNS_SEARCH) {
+            $searchList = \array_slice($searchList, 0, self::MAX_DNS_SEARCH);
+        }
+
+        $resOptions = \getenv("RES_OPTIONS");
+        if ($resOptions) {
+            foreach ($this->splitOnWhitespace($resOptions) as $option) {
+                $option = $this->parseOption($option);
+                if (\count($option) === 2) {
+                    $options[$option[0]] = $option[1];
                 }
             }
-            if (\count($searchList) > self::MAX_DNS_SEARCH) {
-                $searchList = \array_slice($searchList, 0, self::MAX_DNS_SEARCH);
-            }
+        }
 
-            $resOptions = \getenv("RES_OPTIONS");
-            if ($resOptions) {
-                foreach ($this->splitOnWhitespace($resOptions) as $option) {
-                    $option = $this->parseOption($option);
-                    if (\count($option) === 2) {
-                        $options[$option[0]] = $option[1];
-                    }
-                }
-            }
+        $config = new Config($nameservers, $hosts, $options["timeout"], $options["attempts"]);
 
-            $config = new Config($nameservers, $hosts, $options["timeout"], $options["attempts"]);
-
-            return $config->withSearchList($searchList)
-                ->withNdots($options["ndots"])
-                ->withRotationEnabled($options["rotate"]);
-        });
+        return $config->withSearchList($searchList)
+            ->withNdots($options["ndots"])
+            ->withRotationEnabled($options["rotate"]);
     }
 
     private function splitOnWhitespace(string $names): array

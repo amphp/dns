@@ -2,8 +2,6 @@
 
 namespace Amp\Dns;
 
-use Amp\Promise;
-
 interface Resolver
 {
     /**
@@ -16,9 +14,9 @@ interface Resolver
      * @param string $name The hostname to resolve.
      * @param int    $typeRestriction Optional type restriction to `Record::A` or `Record::AAAA`, otherwise `null`.
      *
-     * @return Promise
+     * @return array<Record>
      */
-    public function resolve(string $name, int $typeRestriction = null): Promise;
+    public function resolve(string $name, int $typeRestriction = null): array;
 
     /**
      * Query specific DNS records.
@@ -28,7 +26,7 @@ interface Resolver
      * @param string $name Record to question, A, AAAA and PTR queries are automatically normalized.
      * @param int    $type Use constants of Amp\Dns\Record.
      *
-     * @return Promise
+     * @return array<Record>
      */
-    public function query(string $name, int $type): Promise;
+    public function query(string $name, int $type): array;
 }
