@@ -7,12 +7,12 @@ use Amp\PHPUnit\AsyncTestCase;
 
 class RecordTest extends AsyncTestCase
 {
-    public function testGetName()
+    public function testGetName(): void
     {
-        $this->assertSame("A", Record::getName(Record::A));
+        self::assertSame("A", Record::getName(Record::A));
     }
 
-    public function testGetNameOnInvalidRecordType()
+    public function testGetNameOnInvalidRecordType(): void
     {
         $this->expectException(\Error::class);
         $this->expectExceptionMessage("65536 does not correspond to a valid record type (must be between 0 and 65535).");
@@ -20,8 +20,8 @@ class RecordTest extends AsyncTestCase
         Record::getName(65536);
     }
 
-    public function testGetNameOnUnknownRecordType()
+    public function testGetNameOnUnknownRecordType(): void
     {
-        $this->assertSame("unknown (1000)", Record::getName(1000));
+        self::assertSame("unknown (1000)", Record::getName(1000));
     }
 }

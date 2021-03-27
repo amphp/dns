@@ -4,23 +4,24 @@ namespace Amp\Dns;
 
 final class UnixConfigLoader implements ConfigLoader
 {
-    const MAX_NAMESERVERS = 3;
-    const MAX_DNS_SEARCH = 6;
+    public const MAX_NAMESERVERS = 3;
+    public const MAX_DNS_SEARCH = 6;
 
-    const MAX_TIMEOUT = 30 * 1000;
-    const MAX_ATTEMPTS = 5;
-    const MAX_NDOTS = 15;
+    public const MAX_TIMEOUT = 30 * 1000;
+    public const MAX_ATTEMPTS = 5;
+    public const MAX_NDOTS = 15;
 
-    const DEFAULT_TIMEOUT = 5 * 1000;
-    const DEFAULT_ATTEMPTS = 2;
-    const DEFAULT_NDOTS = 1;
+    public const DEFAULT_TIMEOUT = 5 * 1000;
+    public const DEFAULT_ATTEMPTS = 2;
+    public const DEFAULT_NDOTS = 1;
 
-    const DEFAULT_OPTIONS = [
+    public const DEFAULT_OPTIONS = [
         "timeout" => self::DEFAULT_TIMEOUT,
         "attempts" => self::DEFAULT_ATTEMPTS,
         "ndots" => self::DEFAULT_NDOTS,
         "rotate" => false,
     ];
+
     private string $path;
     private HostLoader $hostLoader;
 
@@ -28,20 +29,6 @@ final class UnixConfigLoader implements ConfigLoader
     {
         $this->path = $path;
         $this->hostLoader = $hostLoader ?? new HostLoader;
-    }
-
-    protected function readFile(string $path): string
-    {
-        \set_error_handler(function (int $errno, string $message) use ($path) {
-            throw new ConfigException("Could not read configuration file '{$path}' ({$errno}) $message");
-        });
-
-        try {
-            // Blocking file access, but this file should be local and usually loaded only once.
-            return \file_get_contents($path);
-        } finally {
-            \restore_error_handler();
-        }
     }
 
     final public function loadConfig(): Config
@@ -73,7 +60,7 @@ final class UnixConfigLoader implements ConfigLoader
                 continue;
             }
 
-            list($type, $value) = $line;
+            [$type, $value] = $line;
 
             if ($type === "nameserver") {
                 if (\count($nameservers) === self::MAX_NAMESERVERS) {
@@ -135,6 +122,20 @@ final class UnixConfigLoader implements ConfigLoader
             ->withRotationEnabled($options["rotate"]);
     }
 
+    protected function readFile(string $path): string
+    {
+        \set_error_handler(static function (int $errno, string $message) use ($path) {
+            throw new ConfigException("Could not read configuration file '{$path}' ({$errno}) $message");
+        });
+
+        try {
+            // Blocking file access, but this file should be local and usually loaded only once.
+            return \file_get_contents($path);
+        } finally {
+            \restore_error_handler();
+        }
+    }
+
     private function splitOnWhitespace(string $names): array
     {
         return \preg_split("#\s+#", \trim($names));
@@ -143,7 +144,7 @@ final class UnixConfigLoader implements ConfigLoader
     private function parseOption(string $option): array
     {
         $optline = \explode(':', $option, 2);
-        list($name, $value) = $optline + [1 => null];
+        [$name, $value] = $optline + [1 => null];
 
         switch ($name) {
             case "timeout":

@@ -2,7 +2,7 @@
 
 namespace Amp\Dns;
 
-use Amp\Loop;
+use Revolt\EventLoop\Loop;
 
 const LOOP_STATE_IDENTIFIER = Resolver::class;
 
@@ -101,7 +101,7 @@ function normalizeName(string $name): string
     if (isset($name[253]) || !\preg_match($pattern, $name)) {
         throw new InvalidNameException("Name '{$name}' is not a valid hostname.");
     }
-    if ($name[\strlen($name)-1] === '.') {
+    if ($name[\strlen($name) - 1] === '.') {
         $name = \substr($name, 0, -1);
     }
     return $name;

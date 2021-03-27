@@ -2,10 +2,8 @@
 
 namespace Amp\Dns;
 
-use Amp\Promise;
 use Amp\WindowsRegistry\KeyNotFoundException;
 use Amp\WindowsRegistry\WindowsRegistry;
-use function Amp\call;
 
 final class WindowsConfigLoader implements ConfigLoader
 {

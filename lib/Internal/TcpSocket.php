@@ -5,7 +5,6 @@ namespace Amp\Dns\Internal;
 use Amp\Deferred;
 use Amp\Dns\DnsException;
 use Amp\Dns\TimeoutException;
-use Amp\Loop;
 use Amp\Parser\Parser;
 use Amp\Promise;
 use Amp\TimeoutException as PromiseTimeoutException;
@@ -13,19 +12,12 @@ use LibDNS\Decoder\DecoderFactory;
 use LibDNS\Encoder\Encoder;
 use LibDNS\Encoder\EncoderFactory;
 use LibDNS\Messages\Message;
+use Revolt\EventLoop\Loop;
 use function Amp\await;
 
 /** @internal */
 final class TcpSocket extends Socket
 {
-    private Encoder $encoder;
-
-    private \SplQueue $queue;
-
-    private Parser $parser;
-
-    private bool $isAlive = true;
-
     public static function connect(string $uri, int $timeout = 5000): self
     {
         if (!$socket = @\stream_socket_client($uri, $errno, $errstr, 0, STREAM_CLIENT_ASYNC_CONNECT)) {
@@ -67,6 +59,11 @@ final class TcpSocket extends Socket
         }
     }
 
+    private Encoder $encoder;
+    private \SplQueue $queue;
+    private Parser $parser;
+    private bool $isAlive = true;
+
     protected function __construct($socket)
     {
         parent::__construct($socket);
@@ -74,6 +71,11 @@ final class TcpSocket extends Socket
         $this->encoder = (new EncoderFactory)->create();
         $this->queue = new \SplQueue;
         $this->parser = new Parser(self::parser([$this->queue, 'push']));
+    }
+
+    public function isAlive(): bool
+    {
+        return $this->isAlive;
     }
 
     protected function send(Message $message): void
@@ -105,10 +107,5 @@ final class TcpSocket extends Socket
         }
 
         return $this->queue->shift();
-    }
-
-    public function isAlive(): bool
-    {
-        return $this->isAlive;
     }
 }

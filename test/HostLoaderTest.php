@@ -8,26 +8,26 @@ use Amp\PHPUnit\AsyncTestCase;
 
 class HostLoaderTest extends AsyncTestCase
 {
-    public function testIgnoresCommentsAndParsesBasicEntry()
+    public function testIgnoresCommentsAndParsesBasicEntry(): void
     {
         $loader = new HostLoader(__DIR__ . "/data/hosts");
-        $this->assertSame([
+        self::assertSame([
             Record::A => [
                 "localhost" => "127.0.0.1",
             ],
         ], $loader->loadHosts());
     }
 
-    public function testReturnsEmptyErrorOnFileNotFound()
+    public function testReturnsEmptyErrorOnFileNotFound(): void
     {
         $loader = new HostLoader(__DIR__ . "/data/hosts.not.found");
-        $this->assertSame([], $loader->loadHosts());
+        self::assertSame([], $loader->loadHosts());
     }
 
-    public function testIgnoresInvalidNames()
+    public function testIgnoresInvalidNames(): void
     {
         $loader = new HostLoader(__DIR__ . "/data/hosts.invalid.name");
-        $this->assertSame([
+        self::assertSame([
             Record::A => [
                 "localhost" => "127.0.0.1",
             ],

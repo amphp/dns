@@ -86,44 +86,6 @@ final class Config
         return $self;
     }
 
-    private function validateNameserver($nameserver)
-    {
-        if (!$nameserver || !\is_string($nameserver)) {
-            throw new ConfigException("Invalid nameserver: {$nameserver}");
-        }
-
-        if ($nameserver[0] === "[") { // IPv6
-            $addr = \strstr(\substr($nameserver, 1), "]", true);
-            $port = \substr($nameserver, \strrpos($nameserver, "]") + 1);
-
-            if ($port !== "" && !\preg_match("(^:(\\d+)$)", $port, $match)) {
-                throw new ConfigException("Invalid nameserver: {$nameserver}");
-            }
-
-            $port = $port === "" ? 53 : \substr($port, 1);
-        } else { // IPv4
-            $arr = \explode(":", $nameserver, 2);
-
-            if (\count($arr) === 2) {
-                list($addr, $port) = $arr;
-            } else {
-                $addr = $arr[0];
-                $port = 53;
-            }
-        }
-
-        $addr = \trim($addr, "[]");
-        $port = (int) $port;
-
-        if (!$inAddr = @\inet_pton($addr)) {
-            throw new ConfigException("Invalid server IP: {$addr}");
-        }
-
-        if ($port < 1 || $port > 65535) {
-            throw new ConfigException("Invalid server port: {$port}");
-        }
-    }
-
     public function getNameservers(): array
     {
         return $this->nameservers;
@@ -157,5 +119,43 @@ final class Config
     public function isRotationEnabled(): bool
     {
         return $this->rotation;
+    }
+
+    private function validateNameserver($nameserver)
+    {
+        if (!$nameserver || !\is_string($nameserver)) {
+            throw new ConfigException("Invalid nameserver: {$nameserver}");
+        }
+
+        if ($nameserver[0] === "[") { // IPv6
+            $addr = \strstr(\substr($nameserver, 1), "]", true);
+            $port = \substr($nameserver, \strrpos($nameserver, "]") + 1);
+
+            if ($port !== "" && !\preg_match("(^:(\\d+)$)", $port, $match)) {
+                throw new ConfigException("Invalid nameserver: {$nameserver}");
+            }
+
+            $port = $port === "" ? 53 : \substr($port, 1);
+        } else { // IPv4
+            $arr = \explode(":", $nameserver, 2);
+
+            if (\count($arr) === 2) {
+                [$addr, $port] = $arr;
+            } else {
+                $addr = $arr[0];
+                $port = 53;
+            }
+        }
+
+        $addr = \trim($addr, "[]");
+        $port = (int) $port;
+
+        if (!$inAddr = @\inet_pton($addr)) {
+            throw new ConfigException("Invalid server IP: {$addr}");
+        }
+
+        if ($port < 1 || $port > 65535) {
+            throw new ConfigException("Invalid server port: {$port}");
+        }
     }
 }

@@ -12,10 +12,6 @@ use LibDNS\Messages\Message;
 /** @internal */
 final class UdpSocket extends Socket
 {
-    private Encoder $encoder;
-
-    private Decoder $decoder;
-
     public static function connect(string $uri): self
     {
         if (!$socket = @\stream_socket_client($uri, $errno, $errstr, 0, STREAM_CLIENT_ASYNC_CONNECT)) {
@@ -30,12 +26,20 @@ final class UdpSocket extends Socket
         return new self($socket);
     }
 
+    private Encoder $encoder;
+    private Decoder $decoder;
+
     protected function __construct($socket)
     {
         parent::__construct($socket);
 
         $this->encoder = (new EncoderFactory)->create();
         $this->decoder = (new DecoderFactory)->create();
+    }
+
+    public function isAlive(): bool
+    {
+        return true;
     }
 
     protected function send(Message $message): void
@@ -53,10 +57,5 @@ final class UdpSocket extends Socket
         }
 
         return $this->decoder->decode($data);
-    }
-
-    public function isAlive(): bool
-    {
-        return true;
     }
 }

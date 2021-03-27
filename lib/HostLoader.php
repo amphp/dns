@@ -11,27 +11,6 @@ final class HostLoader
         $this->path = $path ?? $this->getDefaultPath();
     }
 
-    private function getDefaultPath(): string
-    {
-        return \stripos(PHP_OS, "win") === 0
-            ? 'C:\Windows\system32\drivers\etc\hosts'
-            : '/etc/hosts';
-    }
-
-    protected function readFile(string $path): string
-    {
-        \set_error_handler(function (int $errno, string $message) use ($path) {
-            throw new ConfigException("Could not read configuration file '{$path}' ({$errno}) $message");
-        });
-
-        try {
-            // Blocking file access, but this file should be local and usually loaded only once.
-            return \file_get_contents($path);
-        } finally {
-            \restore_error_handler();
-        }
-    }
-
     public function loadHosts(): array
     {
         try {
@@ -53,7 +32,9 @@ final class HostLoader
 
             if (!($ip = @\inet_pton($parts[0]))) {
                 continue;
-            } elseif (isset($ip[4])) {
+            }
+
+            if (isset($ip[4])) {
                 $key = Record::AAAA;
             } else {
                 $key = Record::A;
@@ -70,5 +51,26 @@ final class HostLoader
         }
 
         return $data;
+    }
+
+    protected function readFile(string $path): string
+    {
+        \set_error_handler(function (int $errno, string $message) use ($path) {
+            throw new ConfigException("Could not read configuration file '{$path}' ({$errno}) $message");
+        });
+
+        try {
+            // Blocking file access, but this file should be local and usually loaded only once.
+            return \file_get_contents($path);
+        } finally {
+            \restore_error_handler();
+        }
+    }
+
+    private function getDefaultPath(): string
+    {
+        return \stripos(PHP_OS, "win") === 0
+            ? 'C:\Windows\system32\drivers\etc\hosts'
+            : '/etc/hosts';
     }
 }

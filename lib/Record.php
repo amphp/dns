@@ -56,32 +56,6 @@ final class Record
     public const MAILA = ResourceQTypes::MAILA;
     public const ALL = ResourceQTypes::ALL;
 
-    private string $value;
-    private int $type;
-    private ?int $ttl;
-
-    public function __construct(string $value, int $type, int $ttl = null)
-    {
-        $this->value = $value;
-        $this->type = $type;
-        $this->ttl = $ttl;
-    }
-
-    public function getValue(): string
-    {
-        return $this->value;
-    }
-
-    public function getType(): int
-    {
-        return $this->type;
-    }
-
-    public function getTtl(): ?int
-    {
-        return $this->ttl;
-    }
-
     /**
      * Converts an record type integer back into its name as defined in this class.
      *
@@ -108,5 +82,30 @@ final class Record
         }
 
         return $types[$type] ?? "unknown ({$type})";
+    }
+    private string $value;
+    private int $type;
+    private ?int $ttl;
+
+    public function __construct(string $value, int $type, int $ttl = null)
+    {
+        $this->value = $value;
+        $this->type = $type;
+        $this->ttl = $ttl;
+    }
+
+    public function getValue(): string
+    {
+        return $this->value;
+    }
+
+    public function getType(): int
+    {
+        return $this->type;
+    }
+
+    public function getTtl(): ?int
+    {
+        return $this->ttl;
     }
 }

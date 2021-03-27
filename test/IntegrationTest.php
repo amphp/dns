@@ -24,16 +24,17 @@ class IntegrationTest extends AsyncTestCase
 
     /**
      * @param string $hostname
+     *
      * @group internet
      * @dataProvider provideHostnames
      */
-    public function testResolve(string $hostname)
+    public function testResolve(string $hostname): void
     {
         $result = Dns\resolve($hostname);
 
         $record = $result[0];
         $inAddr = @\inet_pton($record->getValue());
-        $this->assertNotFalse(
+        self::assertNotFalse(
             $inAddr,
             "Server name {$hostname} did not resolve to a valid IP address"
         );
@@ -42,42 +43,42 @@ class IntegrationTest extends AsyncTestCase
     /**
      * @group internet
      */
-    public function testWorksAfterConfigReload()
+    public function testWorksAfterConfigReload(): void
     {
         Dns\query("google.com", Record::A);
-        $this->assertInstanceOf(Dns\Config::class, Dns\resolver()->reloadConfig());
-        $this->assertIsArray(Dns\query("example.com", Record::A));
+        self::assertInstanceOf(Dns\Config::class, Dns\resolver()->reloadConfig());
+        self::assertIsArray(Dns\query("example.com", Record::A));
     }
 
-    public function testResolveIPv4only()
+    public function testResolveIPv4only(): void
     {
         $records = Dns\resolve("google.com", Record::A);
 
         foreach ($records as $record) {
-            $this->assertSame(Record::A, $record->getType());
+            self::assertSame(Record::A, $record->getType());
             $inAddr = @\inet_pton($record->getValue());
-            $this->assertNotFalse(
+            self::assertNotFalse(
                 $inAddr,
                 "Server name google.com did not resolve to a valid IP address"
             );
         }
     }
 
-    public function testResolveIPv6only()
+    public function testResolveIPv6only(): void
     {
         $records = Dns\resolve("google.com", Record::AAAA);
 
         foreach ($records as $record) {
-            $this->assertSame(Record::AAAA, $record->getType());
+            self::assertSame(Record::AAAA, $record->getType());
             $inAddr = @\inet_pton($record->getValue());
-            $this->assertNotFalse(
+            self::assertNotFalse(
                 $inAddr,
                 "Server name google.com did not resolve to a valid IP address"
             );
         }
     }
 
-    public function testResolveUsingSearchList()
+    public function testResolveUsingSearchList(): void
     {
         $configLoader = \stripos(PHP_OS, "win") === 0
             ? new WindowsConfigLoader()
@@ -87,7 +88,7 @@ class IntegrationTest extends AsyncTestCase
         $config = $config->withNdots(1);
         /** @var Dns\ConfigLoader|MockObject $configLoader */
         $configLoader = $this->createMock(Dns\ConfigLoader::class);
-        $configLoader->expects($this->once())
+        $configLoader->expects(self::once())
             ->method('loadConfig')
             ->willReturn($config);
 
@@ -96,17 +97,17 @@ class IntegrationTest extends AsyncTestCase
 
         $record = $result[0];
         $inAddr = @\inet_pton($record->getValue());
-        $this->assertNotFalse(
+        self::assertNotFalse(
             $inAddr,
             "Server name blog.kelunik.com did not resolve to a valid IP address"
         );
 
         $result = Dns\query('blog.kelunik.com', Dns\Record::A);
         $record = $result[0];
-        $this->assertSame($inAddr, @\inet_pton($record->getValue()));
+        self::assertSame($inAddr, @\inet_pton($record->getValue()));
     }
 
-    public function testFailResolveRootedDomainWhenSearchListDefined()
+    public function testFailResolveRootedDomainWhenSearchListDefined(): void
     {
         $configLoader = \stripos(PHP_OS, "win") === 0
             ? new WindowsConfigLoader()
@@ -116,7 +117,7 @@ class IntegrationTest extends AsyncTestCase
         $config = $config->withNdots(1);
         /** @var Dns\ConfigLoader|MockObject $configLoader */
         $configLoader = $this->createMock(Dns\ConfigLoader::class);
-        $configLoader->expects($this->once())
+        $configLoader->expects(self::once())
             ->method('loadConfig')
             ->willReturn($config);
 
@@ -125,7 +126,7 @@ class IntegrationTest extends AsyncTestCase
         Dns\resolve('blog.');
     }
 
-    public function testResolveWithRotateList()
+    public function testResolveWithRotateList(): void
     {
         /** @var Dns\ConfigLoader|MockObject $configLoader */
         $configLoader = $this->createMock(Dns\ConfigLoader::class);
@@ -134,43 +135,43 @@ class IntegrationTest extends AsyncTestCase
             '195.243.214.4:53', // Deutche Telecom AG, DE
         ]);
         $config = $config->withRotationEnabled(true);
-        $configLoader->expects($this->once())
+        $configLoader->expects(self::once())
             ->method('loadConfig')
             ->willReturn($config);
 
         $resolver = new Dns\Rfc1035StubResolver(new NullCache(), $configLoader);
 
         /** @var Record $record1 */
-        list($record1) = $resolver->query('facebook.com', Dns\Record::A);
+        [$record1] = $resolver->query('facebook.com', Dns\Record::A);
         /** @var Record $record2 */
-        list($record2) = $resolver->query('facebook.com', Dns\Record::A);
+        [$record2] = $resolver->query('facebook.com', Dns\Record::A);
 
-        $this->assertNotSame($record1->getValue(), $record2->getValue());
+        self::assertNotSame($record1->getValue(), $record2->getValue());
     }
 
-    public function testPtrLookup()
+    public function testPtrLookup(): void
     {
         $result = Dns\query("8.8.4.4", Record::PTR);
 
         $record = $result[0];
-        $this->assertSame("dns.google", $record->getValue());
-        $this->assertNotNull($record->getTtl());
-        $this->assertSame(Record::PTR, $record->getType());
+        self::assertSame("dns.google", $record->getValue());
+        self::assertNotNull($record->getTtl());
+        self::assertSame(Record::PTR, $record->getType());
     }
 
     /**
      * Test that two concurrent requests to the same resource share the same request and do not result in two requests
      * being sent.
      */
-    public function testRequestSharing()
+    public function testRequestSharing(): void
     {
-        $promise1 = async(fn() => Dns\query("example.com", Record::A));
-        $promise2 = async(fn() => Dns\query("example.com", Record::A));
+        $promise1 = async(fn () => Dns\query("example.com", Record::A));
+        $promise2 = async(fn () => Dns\query("example.com", Record::A));
 
-        $this->assertSame(await($promise1), await($promise2));
+        self::assertSame(await($promise1), await($promise2));
     }
 
-    public function provideHostnames()
+    public function provideHostnames(): array
     {
         return [
             ["google.com"],
@@ -184,7 +185,7 @@ class IntegrationTest extends AsyncTestCase
         ];
     }
 
-    public function provideServers()
+    public function provideServers(): array
     {
         return [
             ["8.8.8.8"],

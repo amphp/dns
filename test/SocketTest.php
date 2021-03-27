@@ -10,9 +10,7 @@ use LibDNS\Records\QuestionFactory;
 
 abstract class SocketTest extends AsyncTestCase
 {
-    abstract protected function connect(): Dns\Internal\Socket;
-
-    public function testAsk()
+    public function testAsk(): void
     {
         $question = (new QuestionFactory)->create(Dns\Record::A);
         $question->setName("google.com");
@@ -21,17 +19,19 @@ abstract class SocketTest extends AsyncTestCase
 
         $result = $socket->ask($question, 5000);
 
-        $this->assertInstanceOf(Message::class, $result);
-        $this->assertSame(MessageTypes::RESPONSE, $result->getType());
+        self::assertInstanceOf(Message::class, $result);
+        self::assertSame(MessageTypes::RESPONSE, $result->getType());
     }
 
-    public function testGetLastActivity()
+    public function testGetLastActivity(): void
     {
         $question = (new QuestionFactory)->create(Dns\Record::A);
         $question->setName("google.com");
 
         $socket = $this->connect();
 
-        $this->assertLessThan(\time() + 1, $socket->getLastActivity());
+        self::assertLessThan(\time() + 1, $socket->getLastActivity());
     }
+
+    abstract protected function connect(): Dns\Internal\Socket;
 }

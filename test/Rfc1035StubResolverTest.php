@@ -10,25 +10,25 @@ use Amp\PHPUnit\AsyncTestCase;
 
 class Rfc1035StubResolverTest extends AsyncTestCase
 {
-    public function testResolveSecondParameterAcceptedValues()
+    public function testResolveSecondParameterAcceptedValues(): void
     {
         $this->expectException(\Error::class);
         (new Rfc1035StubResolver)->resolve("abc.de", Record::TXT);
     }
 
-    public function testIpAsArgumentWithIPv4Restriction()
+    public function testIpAsArgumentWithIPv4Restriction(): void
     {
         $this->expectException(DnsException::class);
         (new Rfc1035StubResolver)->resolve("::1", Record::A);
     }
 
-    public function testIpAsArgumentWithIPv6Restriction()
+    public function testIpAsArgumentWithIPv6Restriction(): void
     {
         $this->expectException(DnsException::class);
         (new Rfc1035StubResolver)->resolve("127.0.0.1", Record::AAAA);
     }
 
-    public function testInvalidName()
+    public function testInvalidName(): void
     {
         $this->expectException(InvalidNameException::class);
         (new Rfc1035StubResolver)->resolve("go@gle.com", Record::A);

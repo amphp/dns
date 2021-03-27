@@ -7,12 +7,12 @@ use Amp\Cache\Cache;
 use Amp\Dns\Internal\Socket;
 use Amp\Dns\Internal\TcpSocket;
 use Amp\Dns\Internal\UdpSocket;
-use Amp\Loop;
 use Amp\MultiReasonException;
 use Amp\Promise;
 use LibDNS\Messages\Message;
 use LibDNS\Records\Question;
 use LibDNS\Records\QuestionFactory;
+use Revolt\EventLoop\Loop;
 use function Amp\async;
 use function Amp\await;
 
@@ -29,7 +29,7 @@ final class Rfc1035StubResolver implements Resolver
 
     private ?Config $config = null;
 
-    private  int$configStatus = self::CONFIG_NOT_LOADED;
+    private int $configStatus = self::CONFIG_NOT_LOADED;
 
     private ?Promise $pendingConfig = null;
 
@@ -46,7 +46,7 @@ final class Rfc1035StubResolver implements Resolver
 
     private string $gcWatcher;
 
-    private BlockingFallbackResolver$blockingFallbackResolver;
+    private BlockingFallbackResolver $blockingFallbackResolver;
 
     private int $nextNameserver = 0;
 
@@ -130,7 +130,7 @@ final class Rfc1035StubResolver implements Resolver
         }
         $dots = \substr_count($name, ".");
         // Should be replaced with $name[-1] from 7.1
-        $trailingDot = \substr($name, -1, 1) === ".";
+        $trailingDot = $name[\strlen($name) - 1] === ".";
         $name = normalizeName($name);
 
         if ($records = $this->queryHosts($name, $typeRestriction)) {
@@ -164,9 +164,9 @@ final class Rfc1035StubResolver implements Resolver
                     }
 
                     try {
-                        list(, $records) = await(Promise\some([
-                            async(fn() => $this->query($searchName, Record::A)),
-                            async(fn() => $this->query($searchName, Record::AAAA)),
+                        [, $records] = await(Promise\some([
+                            async(fn () => $this->query($searchName, Record::A)),
+                            async(fn () => $this->query($searchName, Record::AAAA)),
                         ]));
 
                         return \array_merge(...$records);
@@ -489,7 +489,7 @@ final class Rfc1035StubResolver implements Resolver
             return await($this->pendingSockets[$uri]);
         }
 
-        $promise = async(fn() => TcpSocket::connect($uri));
+        $promise = async(fn () => TcpSocket::connect($uri));
 
         $promise->onResolve(function (?\Throwable $error, TcpSocket $server) use ($uri): void {
             unset($this->pendingSockets[$uri]);

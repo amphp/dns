@@ -9,12 +9,12 @@ use Amp\Deferred;
 use Amp\Dns\DnsException;
 use Amp\Dns\TimeoutException;
 use Amp\Promise;
-use Amp\Struct;
 use Amp\TimeoutException as PromiseTimeoutException;
 use LibDNS\Messages\Message;
 use LibDNS\Messages\MessageFactory;
 use LibDNS\Messages\MessageTypes;
 use LibDNS\Records\Question;
+use Revolt\EventLoop\Internal\Struct;
 use function Amp\async;
 use function Amp\await;
 
@@ -23,26 +23,6 @@ abstract class Socket
 {
     private const MAX_CONCURRENT_REQUESTS = 500;
 
-    private ResourceInputStream $input;
-
-    private ResourceOutputStream $output;
-
-    /** @var array Contains already sent queries with no response yet. For UDP this is exactly zero or one item. */
-    private array $pending = [];
-
-    private MessageFactory $messageFactory;
-
-    /** @var callable */
-    private $onResolve;
-
-    /** @var int Used for determining whether the socket can be garbage collected, because it's inactive. */
-    private int $lastActivity;
-
-    private bool $receiving = false;
-
-    /** @var array Queued requests if the number of concurrent requests is too large. */
-    private array $queue = [];
-
     /**
      * @param string $uri
      *
@@ -50,16 +30,18 @@ abstract class Socket
      */
     abstract public static function connect(string $uri): self;
 
-    abstract protected function send(Message $message): void;
-
-    abstract protected function receive(): Message;
-
-    abstract public function isAlive(): bool;
-
-    public function getLastActivity(): int
-    {
-        return $this->lastActivity;
-    }
+    private ResourceInputStream $input;
+    private ResourceOutputStream $output;
+    /** @var array Contains already sent queries with no response yet. For UDP this is exactly zero or one item. */
+    private array $pending = [];
+    private MessageFactory $messageFactory;
+    /** @var callable */
+    private $onResolve;
+    /** @var int Used for determining whether the socket can be garbage collected, because it's inactive. */
+    private int $lastActivity;
+    private bool $receiving = false;
+    /** @var array Queued requests if the number of concurrent requests is too large. */
+    private array $queue = [];
 
     protected function __construct($socket)
     {
@@ -93,14 +75,21 @@ abstract class Socket
             } elseif (!$this->receiving) {
                 $this->input->reference();
                 $this->receiving = true;
-                async(fn() => $this->receive())->onResolve($this->onResolve);
+                async(fn () => $this->receive())->onResolve($this->onResolve);
             }
         };
     }
 
+    abstract public function isAlive(): bool;
+
+    public function getLastActivity(): int
+    {
+        return $this->lastActivity;
+    }
+
     /**
      * @param Question $question
-     * @param int $timeout
+     * @param int      $timeout
      *
      * @return Message
      */
@@ -144,7 +133,7 @@ abstract class Socket
 
         if (!$this->receiving) {
             $this->receiving = true;
-            async(fn() => $this->receive())->onResolve($this->onResolve);
+            async(fn () => $this->receive())->onResolve($this->onResolve);
         }
 
         try {
@@ -171,6 +160,29 @@ abstract class Socket
         $this->output->close();
     }
 
+    abstract protected function send(Message $message): void;
+
+    abstract protected function receive(): Message;
+
+    final protected function read(): ?string
+    {
+        return $this->input->read();
+    }
+
+    final protected function write(string $data): void
+    {
+        $this->output->write($data);
+    }
+
+    final protected function createMessage(Question $question, int $id): Message
+    {
+        $request = $this->messageFactory->create(MessageTypes::QUERY);
+        $request->getQuestionRecords()->add($question);
+        $request->isRecursionDesired(true);
+        $request->setID($id);
+        return $request;
+    }
+
     private function error(\Throwable $exception): void
     {
         $this->close();
@@ -192,25 +204,6 @@ abstract class Socket
             $deferred = $pendingQuestion->deferred;
             $deferred->fail($exception);
         }
-    }
-
-    final protected function read(): ?string
-    {
-        return $this->input->read();
-    }
-
-    final protected function write(string $data): void
-    {
-        $this->output->write($data);
-    }
-
-    final protected function createMessage(Question $question, int $id): Message
-    {
-        $request = $this->messageFactory->create(MessageTypes::QUERY);
-        $request->getQuestionRecords()->add($question);
-        $request->isRecursionDesired(true);
-        $request->setID($id);
-        return $request;
     }
 
     private function matchesQuestion(Message $message, Question $question): bool

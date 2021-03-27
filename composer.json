@@ -33,24 +33,30 @@
             "email": "aaron@trowski.com"
         }
     ],
+    "prefer-stable": true,
+    "minimum-stability": "dev",
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "git@github.com:revolt-php/event-loop.git"
+        }
+    ],
     "require": {
         "php": ">=8",
         "ext-json": "*",
-        "amphp/amp": "^3-dev",
-        "amphp/byte-stream": "^2-dev",
-        "amphp/cache": "^2-dev",
+        "ext-filter": "*",
+        "amphp/amp": "dev-v3-revolt",
+        "amphp/byte-stream": "dev-v2-revolt",
+        "amphp/cache": "dev-v2-revolt",
         "amphp/parser": "^1",
-        "amphp/windows-registry": "^1-dev",
-        "daverandom/libdns": "^2.0.1",
-        "ext-filter": "*"
+        "amphp/windows-registry": "dev-v1-revolt",
+        "daverandom/libdns": "^2.0.1"
     },
     "require-dev": {
-        "amphp/phpunit-util": "^2-dev",
+        "amphp/phpunit-util": "dev-v2-revolt",
         "phpunit/phpunit": "^9",
         "amphp/php-cs-fixer-config": "dev-master"
     },
-    "minimum-stability": "dev",
-    "prefer-stable": true,
     "autoload": {
         "psr-4": {
             "Amp\\Dns\\": "lib"

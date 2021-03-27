@@ -13,12 +13,12 @@ class ConfigTest extends AsyncTestCase
      *
      * @dataProvider provideValidServers
      */
-    public function testAcceptsValidServers(array $nameservers)
+    public function testAcceptsValidServers(array $nameservers): void
     {
-        $this->assertInstanceOf(Config::class, new Config($nameservers));
+        self::assertInstanceOf(Config::class, new Config($nameservers));
     }
 
-    public function provideValidServers()
+    public function provideValidServers(): array
     {
         return [
             [["127.1.1.1"]],
@@ -33,13 +33,13 @@ class ConfigTest extends AsyncTestCase
      *
      * @dataProvider provideInvalidServers
      */
-    public function testRejectsInvalidServers(array $nameservers)
+    public function testRejectsInvalidServers(array $nameservers): void
     {
         $this->expectException(ConfigException::class);
         new Config($nameservers);
     }
 
-    public function provideInvalidServers()
+    public function provideInvalidServers(): array
     {
         return [
             [[]],
@@ -63,49 +63,49 @@ class ConfigTest extends AsyncTestCase
         ];
     }
 
-    public function testInvalidTimeout()
+    public function testInvalidTimeout(): void
     {
         $this->expectException(ConfigException::class);
         new Config(["127.0.0.1"], [], -1);
     }
 
-    public function testInvalidAttempts()
+    public function testInvalidAttempts(): void
     {
         $this->expectException(ConfigException::class);
         new Config(["127.0.0.1"], [], 500, 0);
     }
 
-    public function testInvalidNtods()
+    public function testInvalidNdots(): void
     {
         $this->expectException(ConfigException::class);
         $config = new Config(["127.0.0.1"]);
         $config->withNdots(-1);
     }
 
-    public function testNdots()
+    public function testNdots(): void
     {
         $config = new Config(["127.0.0.1"]);
         $config = $config->withNdots(1);
-        $this->assertSame(1, $config->getNdots());
+        self::assertSame(1, $config->getNdots());
     }
 
-    public function testSearchList()
+    public function testSearchList(): void
     {
         $config = new Config(["127.0.0.1"]);
         $config = $config->withSearchList(['local']);
-        $this->assertSame(['local'], $config->getSearchList());
+        self::assertSame(['local'], $config->getSearchList());
     }
 
-    public function testRotationEnabled()
+    public function testRotationEnabled(): void
     {
         $config = new Config(["127.0.0.1"]);
         $config = $config->withRotationEnabled(true);
-        $this->assertTrue($config->isRotationEnabled());
+        self::assertTrue($config->isRotationEnabled());
     }
 
-    public function testRotationDisabled()
+    public function testRotationDisabled(): void
     {
         $config = new Config(["127.0.0.1"]);
-        $this->assertFalse($config->isRotationEnabled());
+        self::assertFalse($config->isRotationEnabled());
     }
 }
