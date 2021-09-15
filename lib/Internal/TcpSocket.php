@@ -2,18 +2,17 @@
 
 namespace Amp\Dns\Internal;
 
+use Amp\CancelledException;
 use Amp\Deferred;
 use Amp\Dns\DnsException;
 use Amp\Dns\TimeoutException;
 use Amp\Parser\Parser;
-use Amp\Promise;
-use Amp\TimeoutException as PromiseTimeoutException;
+use Amp\TimeoutCancellationToken;
 use LibDNS\Decoder\DecoderFactory;
 use LibDNS\Encoder\Encoder;
 use LibDNS\Encoder\EncoderFactory;
 use LibDNS\Messages\Message;
 use Revolt\EventLoop\Loop;
-use function Amp\await;
 
 /** @internal */
 final class TcpSocket extends Socket
@@ -35,12 +34,12 @@ final class TcpSocket extends Socket
 
         $watcher = Loop::onWritable($socket, static function (string $watcher) use ($socket, $deferred): void {
             Loop::cancel($watcher);
-            $deferred->resolve(new self($socket));
+            $deferred->complete(new self($socket));
         });
 
         try {
-            return await(Promise\timeout($deferred->promise(), $timeout));
-        } catch (PromiseTimeoutException $e) {
+            return $deferred->getFuture()->join(new TimeoutCancellationToken($timeout));
+        } catch (CancelledException $e) {
             Loop::cancel($watcher);
             throw new TimeoutException("Name resolution timed out, could not connect to server at $uri");
         }

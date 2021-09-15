@@ -19,7 +19,7 @@ class UnixConfigLoaderTest extends AsyncTestCase
             "[2001:4860:4860::8888]:53",
         ], $result->getNameservers());
 
-        self::assertSame(30000, $result->getTimeout());
+        self::assertSame(30.0, $result->getTimeout());
         self::assertSame(3, $result->getAttempts());
         self::assertEmpty($result->getSearchList());
         self::assertSame(1, $result->getNdots());
@@ -37,7 +37,7 @@ class UnixConfigLoaderTest extends AsyncTestCase
             "[2001:4860:4860::8888]:53",
         ], $result->getNameservers());
 
-        self::assertSame(30000, $result->getTimeout());
+        self::assertSame(30.0, $result->getTimeout());
         self::assertSame(3, $result->getAttempts());
         self::assertSame(['local', 'local1', 'local2', 'local3', 'local4', 'local5'], $result->getSearchList());
         self::assertSame(15, $result->getNdots());
@@ -55,7 +55,7 @@ class UnixConfigLoaderTest extends AsyncTestCase
             "[2001:4860:4860::8888]:53",
         ], $result->getNameservers());
 
-        self::assertSame(5000, $result->getTimeout());
+        self::assertSame(5.0, $result->getTimeout());
         self::assertSame(2, $result->getAttempts());
         self::assertTrue($result->isRotationEnabled());
     }
@@ -71,7 +71,7 @@ class UnixConfigLoaderTest extends AsyncTestCase
             "[2001:4860:4860::8888]:53",
         ], $result->getNameservers());
 
-        self::assertSame(5000, $result->getTimeout());
+        self::assertSame(5.0, $result->getTimeout());
         self::assertSame(2, $result->getAttempts());
         self::assertSame(1, $result->getNdots());
     }
@@ -92,7 +92,7 @@ class UnixConfigLoaderTest extends AsyncTestCase
 
         self::assertSame(['local'], $result->getSearchList());
 
-        self::assertSame(1000, $result->getTimeout());
+        self::assertSame(1.0, $result->getTimeout());
         self::assertSame(5, $result->getAttempts());
         self::assertSame(10, $result->getNdots());
         self::assertTrue($result->isRotationEnabled());

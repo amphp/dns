@@ -18,7 +18,7 @@ final class Config
 
     private bool $rotation = false;
 
-    public function __construct(array $nameservers, array $knownHosts = [], int $timeout = 3000, int $attempts = 2)
+    public function __construct(array $nameservers, array $knownHosts = [], float $timeout = 3, int $attempts = 2)
     {
         if (\count($nameservers) < 1) {
             throw new ConfigException("At least one nameserver is required for a valid config");
@@ -96,7 +96,7 @@ final class Config
         return $this->knownHosts;
     }
 
-    public function getTimeout(): int
+    public function getTimeout(): float
     {
         return $this->timeout;
     }

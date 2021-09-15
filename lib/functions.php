@@ -4,8 +4,6 @@ namespace Amp\Dns;
 
 use Revolt\EventLoop\Loop;
 
-const LOOP_STATE_IDENTIFIER = Resolver::class;
-
 /**
  * Retrieve the application-wide dns resolver instance.
  *
@@ -15,19 +13,15 @@ const LOOP_STATE_IDENTIFIER = Resolver::class;
  */
 function resolver(Resolver $resolver = null): Resolver
 {
-    if ($resolver === null) {
-        $resolver = Loop::getState(LOOP_STATE_IDENTIFIER);
+    static $map;
+    $map ??= new \WeakMap();
+    $driver = Loop::getDriver();
 
-        if ($resolver) {
-            return $resolver;
-        }
-
-        $resolver = createDefaultResolver();
+    if ($resolver) {
+        return $map[$driver] = $resolver;
     }
 
-    Loop::setState(LOOP_STATE_IDENTIFIER, $resolver);
-
-    return $resolver;
+    return $map[$driver] ??= createDefaultResolver();
 }
 
 /**

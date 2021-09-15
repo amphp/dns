@@ -4,17 +4,15 @@ namespace Amp\Dns;
 
 use Amp\Cache\ArrayCache;
 use Amp\Cache\Cache;
+use Amp\CompositeException;
 use Amp\Dns\Internal\Socket;
 use Amp\Dns\Internal\TcpSocket;
 use Amp\Dns\Internal\UdpSocket;
-use Amp\MultiReasonException;
-use Amp\Promise;
+use Amp\Future;
 use LibDNS\Messages\Message;
 use LibDNS\Records\Question;
 use LibDNS\Records\QuestionFactory;
 use Revolt\EventLoop\Loop;
-use function Amp\async;
-use function Amp\await;
 
 final class Rfc1035StubResolver implements Resolver
 {
@@ -31,17 +29,17 @@ final class Rfc1035StubResolver implements Resolver
 
     private int $configStatus = self::CONFIG_NOT_LOADED;
 
-    private ?Promise $pendingConfig = null;
+    private ?Future $pendingConfig = null;
 
     private Cache $cache;
 
     /** @var Socket[] */
     private array $sockets = [];
 
-    /** @var Promise[] */
+    /** @var Future[] */
     private array $pendingSockets = [];
 
-    /** @var Promise[] */
+    /** @var Future[] */
     private array $pendingQueries = [];
 
     private string $gcWatcher;
@@ -164,13 +162,11 @@ final class Rfc1035StubResolver implements Resolver
                     }
 
                     try {
-                        [, $records] = await(Promise\some([
-                            async(fn () => $this->query($searchName, Record::A)),
-                            async(fn () => $this->query($searchName, Record::AAAA)),
-                        ]));
-
-                        return \array_merge(...$records);
-                    } catch (MultiReasonException $e) {
+                        return Future\any([
+                            Future\spawn(fn () => $this->query($searchName, Record::A)),
+                            Future\spawn(fn () => $this->query($searchName, Record::AAAA)),
+                        ]);
+                    } catch (CompositeException $e) {
                         $errors = [];
 
                         foreach ($e->getReasons() as $reason) {
@@ -228,10 +224,10 @@ final class Rfc1035StubResolver implements Resolver
     public function reloadConfig(): Config
     {
         if ($this->pendingConfig) {
-            return await($this->pendingConfig);
+            $this->pendingConfig->join();
         }
 
-        $promise = async(function (): Config {
+        $this->pendingConfig = Future\spawn(function (): Config {
             try {
                 $this->config = $this->configLoader->loadConfig();
                 $this->configStatus = self::CONFIG_LOADED;
@@ -255,18 +251,14 @@ final class Rfc1035StubResolver implements Resolver
                     );
                     \restore_error_handler();
                 }
+            } finally {
+                $this->pendingConfig = null;
             }
 
             return $this->config;
         });
 
-        $this->pendingConfig = $promise;
-
-        $promise->onResolve(function (): void {
-            $this->pendingConfig = null;
-        });
-
-        return await($promise);
+        return $this->pendingConfig->join();
     }
 
     /** @inheritdoc */
@@ -275,132 +267,133 @@ final class Rfc1035StubResolver implements Resolver
         $pendingQueryKey = $type . " " . $name;
 
         if (isset($this->pendingQueries[$pendingQueryKey])) {
-            return await($this->pendingQueries[$pendingQueryKey]);
+            return $this->pendingQueries[$pendingQueryKey]->join();
         }
 
-        $promise = async(function () use ($name, $type): array {
-            if ($this->configStatus === self::CONFIG_NOT_LOADED) {
-                $this->reloadConfig();
-            }
-            if ($this->configStatus === self::CONFIG_FAILED) {
-                return $this->blockingFallbackResolver->query($name, $type);
-            }
+        $future = Future\spawn(function () use ($name, $type): array {
+            try {
+                if ($this->configStatus === self::CONFIG_NOT_LOADED) {
+                    $this->reloadConfig();
+                }
+                if ($this->configStatus === self::CONFIG_FAILED) {
+                    return $this->blockingFallbackResolver->query($name, $type);
+                }
 
-            $name = $this->normalizeName($name, $type);
-            $question = $this->createQuestion($name, $type);
+                $name = $this->normalizeName($name, $type);
+                $question = $this->createQuestion($name, $type);
 
-            if (null !== $cachedValue = $this->cache->get($this->getCacheKey($name, $type))) {
-                return $this->decodeCachedResult($name, $type, $cachedValue);
-            }
+                if (null !== $cachedValue = $this->cache->get($this->getCacheKey($name, $type))) {
+                    return $this->decodeCachedResult($name, $type, $cachedValue);
+                }
 
-            $nameservers = $this->selectNameservers();
-            $nameserversCount = \count($nameservers);
-            $attempts = $this->config->getAttempts();
-            $protocol = "udp";
-            $attempt = 0;
+                $nameservers = $this->selectNameservers();
+                $nameserversCount = \count($nameservers);
+                $attempts = $this->config->getAttempts();
+                $protocol = "udp";
+                $attempt = 0;
 
-            /** @var Socket $socket */
-            $uri = $protocol . "://" . $nameservers[0];
-            $socket = $this->getSocket($uri);
+                /** @var Socket $socket */
+                $uri = $protocol . "://" . $nameservers[0];
+                $socket = $this->getSocket($uri);
 
-            $attemptDescription = [];
+                $attemptDescription = [];
 
-            while ($attempt < $attempts) {
-                try {
-                    if (!$socket->isAlive()) {
-                        unset($this->sockets[$uri]);
-                        $socket->close();
-
-                        $uri = $protocol . "://" . $nameservers[$attempt % $nameserversCount];
-                        $socket = $this->getSocket($uri);
-                    }
-
-                    $attemptDescription[] = $uri;
-
-                    $response = $socket->ask($question, $this->config->getTimeout());
-                    $this->assertAcceptableResponse($response, $name);
-
-                    // UDP sockets are never reused, they're not in the $this->sockets map
-                    if ($protocol === "udp") {
-                        // Defer call, because it interferes with the unreference() call in Internal\Socket otherwise
-                        Loop::defer(static function () use ($socket): void {
+                while ($attempt < $attempts) {
+                    try {
+                        if (!$socket->isAlive()) {
+                            unset($this->sockets[$uri]);
                             $socket->close();
-                        });
-                    }
 
-                    if ($response->isTruncated()) {
-                        if ($protocol !== "tcp") {
-                            // Retry with TCP, don't count attempt
-                            $protocol = "tcp";
                             $uri = $protocol . "://" . $nameservers[$attempt % $nameserversCount];
                             $socket = $this->getSocket($uri);
-                            continue;
                         }
 
-                        throw new DnsException("Server returned a truncated response for '{$name}' (" . Record::getName($type) . ")");
+                        $attemptDescription[] = $uri;
+
+                        $response = $socket->ask($question, $this->config->getTimeout());
+                        $this->assertAcceptableResponse($response, $name);
+
+                        // UDP sockets are never reused, they're not in the $this->sockets map
+                        if ($protocol === "udp") {
+                            // Defer call, because it interferes with the unreference() call in Internal\Socket otherwise
+                            Loop::defer(static function () use ($socket): void {
+                                $socket->close();
+                            });
+                        }
+
+                        if ($response->isTruncated()) {
+                            if ($protocol !== "tcp") {
+                                // Retry with TCP, don't count attempt
+                                $protocol = "tcp";
+                                $uri = $protocol . "://" . $nameservers[$attempt % $nameserversCount];
+                                $socket = $this->getSocket($uri);
+                                continue;
+                            }
+
+                            throw new DnsException("Server returned a truncated response for '{$name}' (" . Record::getName($type) . ")");
+                        }
+
+                        $answers = $response->getAnswerRecords();
+                        $result = [];
+                        $ttls = [];
+
+                        /** @var \LibDNS\Records\Resource $record */
+                        foreach ($answers as $record) {
+                            $recordType = $record->getType();
+                            $result[$recordType][] = (string) $record->getData();
+
+                            // Cache for max one day
+                            $ttls[$recordType] = \min($ttls[$recordType] ?? 86400, $record->getTTL());
+                        }
+
+                        foreach ($result as $recordType => $records) {
+                            // We don't care here whether storing in the cache fails
+                            $this->cache->set(
+                                $this->getCacheKey($name, $recordType),
+                                \json_encode($records),
+                                $ttls[$recordType]
+                            );
+                        }
+
+                        if (!isset($result[$type])) {
+                            // "it MUST NOT cache it for longer than five (5) minutes" per RFC 2308 section 7.1
+                            $this->cache->set($this->getCacheKey($name, $type), \json_encode([]), 300);
+                            throw new NoRecordException("No records returned for '{$name}' (" . Record::getName($type) . ")");
+                        }
+
+                        return \array_map(static function ($data) use ($type, $ttls) {
+                            return new Record($data, $type, $ttls[$type]);
+                        }, $result[$type]);
+                    } catch (TimeoutException $e) {
+                        // Defer call, because it might interfere with the unreference() call in Internal\Socket otherwise
+                        Loop::defer(function () use ($socket, $uri): void {
+                            unset($this->sockets[$uri]);
+                            $socket->close();
+                        });
+
+                        $uri = $protocol . "://" . $nameservers[++$attempt % $nameserversCount];
+                        $socket = $this->getSocket($uri);
+
+                        continue;
                     }
-
-                    $answers = $response->getAnswerRecords();
-                    $result = [];
-                    $ttls = [];
-
-                    /** @var \LibDNS\Records\Resource $record */
-                    foreach ($answers as $record) {
-                        $recordType = $record->getType();
-                        $result[$recordType][] = (string) $record->getData();
-
-                        // Cache for max one day
-                        $ttls[$recordType] = \min($ttls[$recordType] ?? 86400, $record->getTTL());
-                    }
-
-                    foreach ($result as $recordType => $records) {
-                        // We don't care here whether storing in the cache fails
-                        $this->cache->set(
-                            $this->getCacheKey($name, $recordType),
-                            \json_encode($records),
-                            $ttls[$recordType]
-                        );
-                    }
-
-                    if (!isset($result[$type])) {
-                        // "it MUST NOT cache it for longer than five (5) minutes" per RFC 2308 section 7.1
-                        $this->cache->set($this->getCacheKey($name, $type), \json_encode([]), 300);
-                        throw new NoRecordException("No records returned for '{$name}' (" . Record::getName($type) . ")");
-                    }
-
-                    return \array_map(static function ($data) use ($type, $ttls) {
-                        return new Record($data, $type, $ttls[$type]);
-                    }, $result[$type]);
-                } catch (TimeoutException $e) {
-                    // Defer call, because it might interfere with the unreference() call in Internal\Socket otherwise
-                    Loop::defer(function () use ($socket, $uri): void {
-                        unset($this->sockets[$uri]);
-                        $socket->close();
-                    });
-
-                    $uri = $protocol . "://" . $nameservers[++$attempt % $nameserversCount];
-                    $socket = $this->getSocket($uri);
-
-                    continue;
                 }
+
+                throw new TimeoutException(\sprintf(
+                    "No response for '%s' (%s) from any nameserver within %d ms after %d attempts, tried %s",
+                    $name,
+                    Record::getName($type),
+                    $this->config->getTimeout(),
+                    $attempts,
+                    \implode(", ", $attemptDescription)
+                ));
+            } finally {
+                unset($this->pendingQueries[$type . " " . $name]);
             }
-
-            throw new TimeoutException(\sprintf(
-                "No response for '%s' (%s) from any nameserver within %d ms after %d attempts, tried %s",
-                $name,
-                Record::getName($type),
-                $this->config->getTimeout(),
-                $attempts,
-                \implode(", ", $attemptDescription)
-            ));
         });
 
-        $this->pendingQueries[$type . " " . $name] = $promise;
-        $promise->onResolve(function () use ($name, $type) {
-            unset($this->pendingQueries[$type . " " . $name]);
-        });
+        $this->pendingQueries[$type . " " . $name] = $future;
 
-        return await($promise);
+        return $future->join();
     }
 
     private function queryHosts(string $name, int $typeRestriction = null): array
@@ -494,20 +487,22 @@ final class Rfc1035StubResolver implements Resolver
         }
 
         if (isset($this->pendingSockets[$uri])) {
-            return await($this->pendingSockets[$uri]);
+            return $this->pendingSockets[$uri]->join();
         }
 
-        $promise = async(fn () => TcpSocket::connect($uri));
-
-        $promise->onResolve(function (?\Throwable $error, TcpSocket $server) use ($uri): void {
-            unset($this->pendingSockets[$uri]);
-
-            if (!$error) {
-                $this->sockets[$uri] = $server;
+        $future = Future\spawn(function () use ($uri) {
+            try {
+                $socket = TcpSocket::connect($uri);
+                $this->sockets[$uri] = $socket;
+                return $socket;
+            } finally {
+                unset($this->pendingSockets[$uri]);
             }
         });
 
-        return await($promise);
+        $this->pendingSockets[$uri] = $future;
+
+        return $future->join();
     }
 
     /**

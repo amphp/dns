@@ -45,11 +45,11 @@
         "php": ">=8",
         "ext-json": "*",
         "ext-filter": "*",
-        "amphp/amp": "dev-v3-revolt",
-        "amphp/byte-stream": "dev-v2-revolt",
-        "amphp/cache": "dev-v2-revolt",
+        "amphp/amp": "dev-v3-revolt as 3",
+        "amphp/byte-stream": "dev-v2-revolt as 2",
+        "amphp/cache": "dev-v2-revolt as 2",
         "amphp/parser": "^1",
-        "amphp/windows-registry": "dev-v1-revolt",
+        "amphp/windows-registry": "dev-v1-revolt as 1",
         "daverandom/libdns": "^2.0.1"
     },
     "require-dev": {

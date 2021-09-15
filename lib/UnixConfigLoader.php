@@ -7,11 +7,11 @@ final class UnixConfigLoader implements ConfigLoader
     public const MAX_NAMESERVERS = 3;
     public const MAX_DNS_SEARCH = 6;
 
-    public const MAX_TIMEOUT = 30 * 1000;
+    public const MAX_TIMEOUT = 30;
     public const MAX_ATTEMPTS = 5;
     public const MAX_NDOTS = 15;
 
-    public const DEFAULT_TIMEOUT = 5 * 1000;
+    public const DEFAULT_TIMEOUT = 5;
     public const DEFAULT_ATTEMPTS = 2;
     public const DEFAULT_NDOTS = 1;
 
@@ -153,7 +153,7 @@ final class UnixConfigLoader implements ConfigLoader
                     return []; // don't overwrite option value
                 }
                 // The value for this option is silently capped to 30s
-                return ["timeout", (int) \min($value * 1000, self::MAX_TIMEOUT)];
+                return ["timeout", (int) \min($value, self::MAX_TIMEOUT)];
 
             case "attempts":
                 $value = (int) $value;

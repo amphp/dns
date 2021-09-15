@@ -5,18 +5,16 @@ namespace Amp\Dns\Internal;
 use Amp\ByteStream\ResourceInputStream;
 use Amp\ByteStream\ResourceOutputStream;
 use Amp\ByteStream\StreamException;
+use Amp\CancelledException;
 use Amp\Deferred;
 use Amp\Dns\DnsException;
 use Amp\Dns\TimeoutException;
-use Amp\Promise;
-use Amp\TimeoutException as PromiseTimeoutException;
+use Amp\TimeoutCancellationToken;
 use LibDNS\Messages\Message;
 use LibDNS\Messages\MessageFactory;
 use LibDNS\Messages\MessageTypes;
 use LibDNS\Records\Question;
-use Revolt\EventLoop\Internal\Struct;
-use function Amp\async;
-use function Amp\await;
+use function Revolt\EventLoop\defer;
 
 /** @internal */
 abstract class Socket
@@ -35,8 +33,6 @@ abstract class Socket
     /** @var array Contains already sent queries with no response yet. For UDP this is exactly zero or one item. */
     private array $pending = [];
     private MessageFactory $messageFactory;
-    /** @var callable */
-    private $onResolve;
     /** @var int Used for determining whether the socket can be garbage collected, because it's inactive. */
     private int $lastActivity;
     private bool $receiving = false;
@@ -49,35 +45,46 @@ abstract class Socket
         $this->output = new ResourceOutputStream($socket);
         $this->messageFactory = new MessageFactory;
         $this->lastActivity = \time();
+    }
 
-        $this->onResolve = function (\Throwable $exception = null, Message $message = null) {
-            $this->lastActivity = \time();
-            $this->receiving = false;
-
-            if ($exception) {
-                $this->error($exception);
-                return;
+    private function fetch(): void {
+        defer(function (): void {
+            try {
+                $this->handleResolution(null, $this->receive());
+            } catch (\Throwable $exception) {
+                $this->handleResolution($exception);
             }
+        });
+    }
 
-            \assert($message instanceof Message);
-            $id = $message->getId();
+    private function handleResolution(?\Throwable $exception, ?Message $message = null): void
+    {
+        $this->lastActivity = \time();
+        $this->receiving = false;
 
-            // Ignore duplicate and invalid responses.
-            if (isset($this->pending[$id]) && $this->matchesQuestion($message, $this->pending[$id]->question)) {
-                /** @var Deferred $deferred */
-                $deferred = $this->pending[$id]->deferred;
-                unset($this->pending[$id]);
-                $deferred->resolve($message);
-            }
+        if ($exception) {
+            $this->error($exception);
+            return;
+        }
 
-            if (empty($this->pending)) {
-                $this->input->unreference();
-            } elseif (!$this->receiving) {
-                $this->input->reference();
-                $this->receiving = true;
-                async(fn () => $this->receive())->onResolve($this->onResolve);
-            }
-        };
+        \assert($message instanceof Message);
+        $id = $message->getId();
+
+        // Ignore duplicate and invalid responses.
+        if (isset($this->pending[$id]) && $this->matchesQuestion($message, $this->pending[$id]->question)) {
+            /** @var Deferred $deferred */
+            $deferred = $this->pending[$id]->deferred;
+            unset($this->pending[$id]);
+            $deferred->complete($message);
+        }
+
+        if (empty($this->pending)) {
+            $this->input->unreference();
+        } elseif (!$this->receiving) {
+            $this->input->reference();
+            $this->receiving = true;
+            $this->fetch();
+        }
     }
 
     abstract public function isAlive(): bool;
@@ -89,18 +96,18 @@ abstract class Socket
 
     /**
      * @param Question $question
-     * @param int      $timeout
+     * @param float $timeout
      *
      * @return Message
      */
-    final public function ask(Question $question, int $timeout): Message
+    final public function ask(Question $question, float $timeout): Message
     {
         $this->lastActivity = \time();
 
         if (\count($this->pending) > self::MAX_CONCURRENT_REQUESTS) {
             $deferred = new Deferred;
             $this->queue[] = $deferred;
-            await($deferred->promise());
+            $deferred->getFuture()->join();
         }
 
         do {
@@ -109,8 +116,6 @@ abstract class Socket
 
         $deferred = new Deferred;
         $pending = new class {
-            use Struct;
-
             public Deferred $deferred;
             public Question $question;
         };
@@ -133,19 +138,19 @@ abstract class Socket
 
         if (!$this->receiving) {
             $this->receiving = true;
-            async(fn () => $this->receive())->onResolve($this->onResolve);
+            $this->fetch();
         }
 
         try {
-            return await(Promise\timeout($deferred->promise(), $timeout));
-        } catch (PromiseTimeoutException $exception) {
+            return $deferred->getFuture()->join(new TimeoutCancellationToken($timeout));
+        } catch (CancelledException $exception) {
             unset($this->pending[$id]);
 
             if (empty($this->pending)) {
                 $this->input->unreference();
             }
 
-            throw new TimeoutException("Didn't receive a response within {$timeout} milliseconds.");
+            throw new TimeoutException("Didn't receive a response within {$timeout} seconds.");
         } finally {
             if ($this->queue) {
                 $deferred = \array_shift($this->queue);
@@ -202,7 +207,7 @@ abstract class Socket
         foreach ($pending as $pendingQuestion) {
             /** @var Deferred $deferred */
             $deferred = $pendingQuestion->deferred;
-            $deferred->fail($exception);
+            $deferred->error($exception);
         }
     }
 

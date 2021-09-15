@@ -29,19 +29,19 @@ class TcpSocketTest extends SocketTest
 
         $socket = $this->connect();
 
-        $result = $socket->ask($question, 3000);
+        $result = $socket->ask($question, 3);
 
         self::assertInstanceOf(Message::class, $result);
         self::assertSame(MessageTypes::RESPONSE, $result->getType());
 
         // Google's DNS times out really fast
-        delay(3000);
+        delay(3);
 
         $this->expectException(Dns\DnsException::class);
 
         $this->expectExceptionMessageMatches("(Sending the request failed|Reading from the server failed)");
 
-        $socket->ask($question, 3000);
+        $socket->ask($question, 3);
     }
 
     protected function connect(): Dns\Internal\Socket

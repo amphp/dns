@@ -10,18 +10,10 @@ use Amp\Dns\UnixConfigLoader;
 use Amp\Dns\WindowsConfigLoader;
 use Amp\PHPUnit\AsyncTestCase;
 use PHPUnit\Framework\MockObject\MockObject;
-use function Amp\async;
-use function Amp\await;
+use function Amp\Future\spawn;
 
 class IntegrationTest extends AsyncTestCase
 {
-    public function setUp(): void
-    {
-        parent::setUp();
-
-        $this->ignoreLoopWatchers();
-    }
-
     /**
      * @param string $hostname
      *
@@ -165,10 +157,10 @@ class IntegrationTest extends AsyncTestCase
      */
     public function testRequestSharing(): void
     {
-        $promise1 = async(fn () => Dns\query("example.com", Record::A));
-        $promise2 = async(fn () => Dns\query("example.com", Record::A));
+        $promise1 = spawn(fn () => Dns\query("example.com", Record::A));
+        $promise2 = spawn(fn () => Dns\query("example.com", Record::A));
 
-        self::assertSame(await($promise1), await($promise2));
+        self::assertSame($promise1->join(), $promise2->join());
     }
 
     public function provideHostnames(): array
