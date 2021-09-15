@@ -178,7 +178,11 @@ final class Rfc1035StubResolver implements Resolver
                                 throw $reason;
                             }
 
-                            if ($searchIndex < \count($searchList) - 1 && \in_array($reason->getCode(), [2, 3], true)) {
+                            if ($searchIndex < \count($searchList) - 1 && \in_array(
+                                needle: $reason->getCode(),
+                                haystack: [2, 3],
+                                strict: true
+                            )) {
                                 continue 2;
                             }
 
@@ -234,15 +238,19 @@ final class Rfc1035StubResolver implements Resolver
             } catch (ConfigException $e) {
                 $this->configStatus = self::CONFIG_FAILED;
 
+                $message = "Could not load the system's DNS configuration; "
+                    . "falling back to synchronous, blocking resolver; "
+                    . \get_class($e) . ": " . $e->getMessage();
+
                 try {
                     \trigger_error(
-                        "Could not load the system's DNS configuration, using synchronous, blocking fallback",
+                        $message,
                         \E_USER_WARNING
                     );
                 } catch (\Throwable $triggerException) {
                     \set_error_handler(null);
                     \trigger_error(
-                        "Could not load the system's DNS configuration, using synchronous, blocking fallback",
+                        $message,
                         \E_USER_WARNING
                     );
                     \restore_error_handler();
