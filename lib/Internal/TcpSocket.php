@@ -38,8 +38,8 @@ final class TcpSocket extends Socket
         });
 
         try {
-            return $deferred->getFuture()->join(new TimeoutCancellationToken($timeout));
-        } catch (CancelledException $e) {
+            return $deferred->getFuture()->await(new TimeoutCancellationToken($timeout));
+        } catch (CancelledException) {
             Loop::cancel($watcher);
             throw new TimeoutException("Name resolution timed out, could not connect to server at $uri");
         }

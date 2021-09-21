@@ -13,6 +13,7 @@ use LibDNS\Messages\Message;
 use LibDNS\Records\Question;
 use LibDNS\Records\QuestionFactory;
 use Revolt\EventLoop\Loop;
+use function Amp\coroutine;
 
 final class Rfc1035StubResolver implements Resolver
 {
@@ -163,8 +164,8 @@ final class Rfc1035StubResolver implements Resolver
 
                     try {
                         return Future\any([
-                            Future\spawn(fn () => $this->query($searchName, Record::A)),
-                            Future\spawn(fn () => $this->query($searchName, Record::AAAA)),
+                            coroutine(fn () => $this->query($searchName, Record::A)),
+                            coroutine(fn () => $this->query($searchName, Record::AAAA)),
                         ]);
                     } catch (CompositeException $e) {
                         $errors = [];
@@ -224,10 +225,10 @@ final class Rfc1035StubResolver implements Resolver
     public function reloadConfig(): Config
     {
         if ($this->pendingConfig) {
-            $this->pendingConfig->join();
+            $this->pendingConfig->await();
         }
 
-        $this->pendingConfig = Future\spawn(function (): Config {
+        $this->pendingConfig = coroutine(function (): Config {
             try {
                 $this->config = $this->configLoader->loadConfig();
                 $this->configStatus = self::CONFIG_LOADED;
@@ -258,7 +259,7 @@ final class Rfc1035StubResolver implements Resolver
             return $this->config;
         });
 
-        return $this->pendingConfig->join();
+        return $this->pendingConfig->await();
     }
 
     /** @inheritdoc */
@@ -267,10 +268,10 @@ final class Rfc1035StubResolver implements Resolver
         $pendingQueryKey = $type . " " . $name;
 
         if (isset($this->pendingQueries[$pendingQueryKey])) {
-            return $this->pendingQueries[$pendingQueryKey]->join();
+            return $this->pendingQueries[$pendingQueryKey]->await();
         }
 
-        $future = Future\spawn(function () use ($name, $type): array {
+        $future = coroutine(function () use ($name, $type): array {
             try {
                 if ($this->configStatus === self::CONFIG_NOT_LOADED) {
                     $this->reloadConfig();
@@ -393,7 +394,7 @@ final class Rfc1035StubResolver implements Resolver
 
         $this->pendingQueries[$type . " " . $name] = $future;
 
-        return $future->join();
+        return $future->await();
     }
 
     private function queryHosts(string $name, int $typeRestriction = null): array
@@ -487,10 +488,10 @@ final class Rfc1035StubResolver implements Resolver
         }
 
         if (isset($this->pendingSockets[$uri])) {
-            return $this->pendingSockets[$uri]->join();
+            return $this->pendingSockets[$uri]->await();
         }
 
-        $future = Future\spawn(function () use ($uri) {
+        $future = coroutine(function () use ($uri) {
             try {
                 $socket = TcpSocket::connect($uri);
                 $this->sockets[$uri] = $socket;
@@ -502,7 +503,7 @@ final class Rfc1035StubResolver implements Resolver
 
         $this->pendingSockets[$uri] = $future;
 
-        return $future->join();
+        return $future->await();
     }
 
     /**

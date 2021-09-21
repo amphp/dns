@@ -14,7 +14,7 @@ use LibDNS\Messages\Message;
 use LibDNS\Messages\MessageFactory;
 use LibDNS\Messages\MessageTypes;
 use LibDNS\Records\Question;
-use function Revolt\EventLoop\defer;
+use function Revolt\EventLoop\queue;
 
 /** @internal */
 abstract class Socket
@@ -48,7 +48,7 @@ abstract class Socket
     }
 
     private function fetch(): void {
-        defer(function (): void {
+        queue(function (): void {
             try {
                 $this->handleResolution(null, $this->receive());
             } catch (\Throwable $exception) {
@@ -107,7 +107,7 @@ abstract class Socket
         if (\count($this->pending) > self::MAX_CONCURRENT_REQUESTS) {
             $deferred = new Deferred;
             $this->queue[] = $deferred;
-            $deferred->getFuture()->join();
+            $deferred->getFuture()->await();
         }
 
         do {
@@ -142,7 +142,7 @@ abstract class Socket
         }
 
         try {
-            return $deferred->getFuture()->join(new TimeoutCancellationToken($timeout));
+            return $deferred->getFuture()->await(new TimeoutCancellationToken($timeout));
         } catch (CancelledException $exception) {
             unset($this->pending[$id]);
 

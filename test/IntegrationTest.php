@@ -10,7 +10,7 @@ use Amp\Dns\UnixConfigLoader;
 use Amp\Dns\WindowsConfigLoader;
 use Amp\PHPUnit\AsyncTestCase;
 use PHPUnit\Framework\MockObject\MockObject;
-use function Amp\Future\spawn;
+use function Amp\coroutine;
 
 class IntegrationTest extends AsyncTestCase
 {
@@ -157,10 +157,10 @@ class IntegrationTest extends AsyncTestCase
      */
     public function testRequestSharing(): void
     {
-        $promise1 = spawn(fn () => Dns\query("example.com", Record::A));
-        $promise2 = spawn(fn () => Dns\query("example.com", Record::A));
+        $promise1 = coroutine(fn () => Dns\query("example.com", Record::A));
+        $promise2 = coroutine(fn () => Dns\query("example.com", Record::A));
 
-        self::assertSame($promise1->join(), $promise2->join());
+        self::assertSame($promise1->await(), $promise2->await());
     }
 
     public function provideHostnames(): array

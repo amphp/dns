@@ -6,7 +6,7 @@ use Amp\Dns;
 use LibDNS\Messages\Message;
 use LibDNS\Messages\MessageTypes;
 use LibDNS\Records\QuestionFactory;
-use function Revolt\EventLoop\delay;
+use function Amp\delay;
 
 class TcpSocketTest extends SocketTest
 {
