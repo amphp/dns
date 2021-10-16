@@ -21,7 +21,7 @@ require __DIR__ . '/examples/_bootstrap.php';
 use Amp\Dns;
 use Amp\Loop;
 
-Loop::run(function () {
+EventLoop::run(function () {
     $githubIpv4 = yield Dns\resolve("github.com", Dns\Record::A);
     pretty_print_records("github.com", $githubIpv4);
 

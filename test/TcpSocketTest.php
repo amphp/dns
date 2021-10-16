@@ -13,7 +13,7 @@ class TcpSocketTest extends SocketTest
     public function testTimeout(): void
     {
         $this->expectException(Dns\TimeoutException::class);
-        Dns\Internal\TcpSocket::connect("tcp://8.8.8.8:53", 0);
+        Dns\Internal\TcpSocket::connect("tcp://8.8.9.9:53", 0);
     }
 
     public function testInvalidUri(): void

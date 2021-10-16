@@ -2,7 +2,7 @@
 
 namespace Amp\Dns;
 
-use Revolt\EventLoop\Loop;
+use Revolt\EventLoop;
 
 /**
  * Retrieve the application-wide dns resolver instance.
@@ -15,7 +15,7 @@ function resolver(Resolver $resolver = null): Resolver
 {
     static $map;
     $map ??= new \WeakMap();
-    $driver = Loop::getDriver();
+    $driver = EventLoop::getDriver();
 
     if ($resolver) {
         return $map[$driver] = $resolver;

@@ -12,12 +12,12 @@ use LibDNS\Decoder\DecoderFactory;
 use LibDNS\Encoder\Encoder;
 use LibDNS\Encoder\EncoderFactory;
 use LibDNS\Messages\Message;
-use Revolt\EventLoop\Loop;
+use Revolt\EventLoop;
 
 /** @internal */
 final class TcpSocket extends Socket
 {
-    public static function connect(string $uri, int $timeout = 5000): self
+    public static function connect(string $uri, float $timeout = 5): self
     {
         if (!$socket = @\stream_socket_client($uri, $errno, $errstr, 0, STREAM_CLIENT_ASYNC_CONNECT)) {
             throw new DnsException(\sprintf(
@@ -32,15 +32,15 @@ final class TcpSocket extends Socket
 
         $deferred = new Deferred;
 
-        $watcher = Loop::onWritable($socket, static function (string $watcher) use ($socket, $deferred): void {
-            Loop::cancel($watcher);
+        $watcher = EventLoop::onWritable($socket, static function (string $watcher) use ($socket, $deferred): void {
+            EventLoop::cancel($watcher);
             $deferred->complete(new self($socket));
         });
 
         try {
             return $deferred->getFuture()->await(new TimeoutCancellationToken($timeout));
         } catch (CancelledException) {
-            Loop::cancel($watcher);
+            EventLoop::cancel($watcher);
             throw new TimeoutException("Name resolution timed out, could not connect to server at $uri");
         }
     }

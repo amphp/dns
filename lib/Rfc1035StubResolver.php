@@ -12,7 +12,7 @@ use Amp\Future;
 use LibDNS\Messages\Message;
 use LibDNS\Records\Question;
 use LibDNS\Records\QuestionFactory;
-use Revolt\EventLoop\Loop;
+use Revolt\EventLoop;
 use function Amp\coroutine;
 
 final class Rfc1035StubResolver implements Resolver
@@ -51,7 +51,7 @@ final class Rfc1035StubResolver implements Resolver
 
     public function __construct(Cache $cache = null, ConfigLoader $configLoader = null)
     {
-        $this->cache = $cache ?? new ArrayCache(5000 /* default gc interval */, 256 /* size */);
+        $this->cache = $cache ?? new ArrayCache(maxSize: 256);
         $this->configLoader = $configLoader ?? (\stripos(PHP_OS, "win") === 0
                 ? new WindowsConfigLoader
                 : new UnixConfigLoader);
@@ -60,7 +60,7 @@ final class Rfc1035StubResolver implements Resolver
         $this->blockingFallbackResolver = new BlockingFallbackResolver;
 
         $sockets = &$this->sockets;
-        $this->gcWatcher = Loop::repeat(5000, static function () use (&$sockets) {
+        $this->gcWatcher = EventLoop::repeat(5, static function () use (&$sockets): void {
             if (!$sockets) {
                 return;
             }
@@ -75,12 +75,12 @@ final class Rfc1035StubResolver implements Resolver
             }
         });
 
-        Loop::unreference($this->gcWatcher);
+        EventLoop::unreference($this->gcWatcher);
     }
 
     public function __destruct()
     {
-        Loop::cancel($this->gcWatcher);
+        EventLoop::cancel($this->gcWatcher);
     }
 
     /** @inheritdoc */
@@ -317,7 +317,7 @@ final class Rfc1035StubResolver implements Resolver
                         // UDP sockets are never reused, they're not in the $this->sockets map
                         if ($protocol === "udp") {
                             // Defer call, because it interferes with the unreference() call in Internal\Socket otherwise
-                            Loop::defer(static function () use ($socket): void {
+                            EventLoop::defer(static function () use ($socket): void {
                                 $socket->close();
                             });
                         }
@@ -367,7 +367,7 @@ final class Rfc1035StubResolver implements Resolver
                         }, $result[$type]);
                     } catch (TimeoutException $e) {
                         // Defer call, because it might interfere with the unreference() call in Internal\Socket otherwise
-                        Loop::defer(function () use ($socket, $uri): void {
+                        EventLoop::defer(function () use ($socket, $uri): void {
                             unset($this->sockets[$uri]);
                             $socket->close();
                         });

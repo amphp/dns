@@ -18,7 +18,7 @@ composer require amphp/dns
 
 It respects the system's hosts file on Unix and Windows based systems, so it works just fine in environments like Docker with named containers.
 
-The package uses a global default resolver with can be accessed and changed via `Amp\Dns\resolver()`. If an argument other than `null` is given, the given resolver is used as global instance. The instance is automatically bound to the current event loop. If you replace the event loop via `Amp\Loop::set()`, then you have to set a new global resolver.
+The package uses a global default resolver with can be accessed and changed via `Amp\Dns\resolver()`. If an argument other than `null` is given, the given resolver is used as global instance.
 
 Usually you don't have to change the resolver. If you want to use a custom configuration for a certain request, you can create a new resolver instance and use that instead of changing the global one.
 
@@ -44,7 +44,7 @@ $records = yield Amp\Dns\resolve("github.com", Amp\Dns\Record::A);
 ### Custom Queries
 
 `Amp\Dns\query` supports the various other DNS record types such as `MX`, `PTR`, or `TXT`. It automatically rewrites passed IP addresses for `PTR` lookups.
- 
+
 ```php
 /** @var Amp\Dns\Record[] $records */
 $records = Amp\Dns\query("google.com", Amp\Dns\Record::MX);
@@ -57,14 +57,14 @@ $records = Amp\Dns\query("8.8.8.8", Amp\Dns\Record::PTR);
 
 ### Caching
 
-The `Rfc1035StubResolver` caches responses by default in an `Amp\Cache\ArrayCache`. You can set any other `Amp\Cache\Cache` implementation by creating a custom instance of `Rfc1035StubResolver` and setting that via `Amp\Dns\resolver()`, but it's usually unnecessary. If you have a lot of very short running scripts, you might want to consider using a local DNS resolver with a cache instead of setting a custom cache implementation, such as `dnsmasq`. 
+The `Rfc1035StubResolver` caches responses by default in an `Amp\Cache\ArrayCache`. You can set any other `Amp\Cache\Cache` implementation by creating a custom instance of `Rfc1035StubResolver` and setting that via `Amp\Dns\resolver()`, but it's usually unnecessary. If you have a lot of very short running scripts, you might want to consider using a local DNS resolver with a cache instead of setting a custom cache implementation, such as `dnsmasq`.
 
 ### Reloading Configuration
 
 The `Rfc1035StubResolver` (which is the default resolver shipping with that package) will cache the configuration of `/etc/resolv.conf` / the Windows Registry and the read host files by default. If you wish to reload them, you can set a periodic timer that requests a background reload of the configuration.
 
 ```php
-Loop::repeat(60000, function () use ($resolver) {
+EventLoop::repeat(600, function () use ($resolver) {
     yield Amp\Dns\resolver()->reloadConfig();
 });
 ```
