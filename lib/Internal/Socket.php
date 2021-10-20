@@ -14,7 +14,7 @@ use LibDNS\Messages\Message;
 use LibDNS\Messages\MessageFactory;
 use LibDNS\Messages\MessageTypes;
 use LibDNS\Records\Question;
-use function Revolt\launch;
+use Revolt\EventLoop;
 
 /** @internal */
 abstract class Socket
@@ -48,7 +48,7 @@ abstract class Socket
     }
 
     private function fetch(): void {
-        launch(function (): void {
+        EventLoop::queue(function (): void {
             try {
                 $this->handleResolution(null, $this->receive());
             } catch (\Throwable $exception) {
