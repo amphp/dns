@@ -3,11 +3,11 @@
 namespace Amp\Dns\Internal;
 
 use Amp\CancelledException;
-use Amp\Deferred;
+use Amp\DeferredFuture;
 use Amp\Dns\DnsException;
 use Amp\Dns\TimeoutException;
 use Amp\Parser\Parser;
-use Amp\TimeoutCancellationToken;
+use Amp\TimeoutCancellation;
 use LibDNS\Decoder\DecoderFactory;
 use LibDNS\Encoder\Encoder;
 use LibDNS\Encoder\EncoderFactory;
@@ -30,7 +30,7 @@ final class TcpSocket extends Socket
 
         \stream_set_blocking($socket, false);
 
-        $deferred = new Deferred;
+        $deferred = new DeferredFuture;
 
         $watcher = EventLoop::onWritable($socket, static function (string $watcher) use ($socket, $deferred): void {
             EventLoop::cancel($watcher);
@@ -38,7 +38,7 @@ final class TcpSocket extends Socket
         });
 
         try {
-            return $deferred->getFuture()->await(new TimeoutCancellationToken($timeout));
+            return $deferred->getFuture()->await(new TimeoutCancellation($timeout));
         } catch (CancelledException) {
             EventLoop::cancel($watcher);
             throw new TimeoutException("Name resolution timed out, could not connect to server at $uri");

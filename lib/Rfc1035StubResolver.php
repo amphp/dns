@@ -13,7 +13,7 @@ use LibDNS\Messages\Message;
 use LibDNS\Records\Question;
 use LibDNS\Records\QuestionFactory;
 use Revolt\EventLoop;
-use function Amp\launch;
+use function Amp\async;
 
 final class Rfc1035StubResolver implements Resolver
 {
@@ -164,8 +164,8 @@ final class Rfc1035StubResolver implements Resolver
 
                     try {
                         return Future\any([
-                            launch(fn () => $this->query($searchName, Record::A)),
-                            launch(fn () => $this->query($searchName, Record::AAAA)),
+                            async(fn () => $this->query($searchName, Record::A)),
+                            async(fn () => $this->query($searchName, Record::AAAA)),
                         ]);
                     } catch (CompositeException $e) {
                         $errors = [];
@@ -228,7 +228,7 @@ final class Rfc1035StubResolver implements Resolver
             $this->pendingConfig->await();
         }
 
-        $this->pendingConfig = launch(function (): Config {
+        $this->pendingConfig = async(function (): Config {
             try {
                 $this->config = $this->configLoader->loadConfig();
                 $this->configStatus = self::CONFIG_LOADED;
@@ -271,7 +271,7 @@ final class Rfc1035StubResolver implements Resolver
             return $this->pendingQueries[$pendingQueryKey]->await();
         }
 
-        $future = launch(function () use ($name, $type): array {
+        $future = async(function () use ($name, $type): array {
             try {
                 if ($this->configStatus === self::CONFIG_NOT_LOADED) {
                     $this->reloadConfig();
@@ -491,7 +491,7 @@ final class Rfc1035StubResolver implements Resolver
             return $this->pendingSockets[$uri]->await();
         }
 
-        $future = launch(function () use ($uri) {
+        $future = async(function () use ($uri) {
             try {
                 $socket = TcpSocket::connect($uri);
                 $this->sockets[$uri] = $socket;

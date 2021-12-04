@@ -2,14 +2,14 @@
 
 namespace Amp\Dns\Internal;
 
-use Amp\ByteStream\ResourceInputStream;
-use Amp\ByteStream\ResourceOutputStream;
+use Amp\ByteStream\ReadableResourceStream;
+use Amp\ByteStream\WritableResourceStream;
 use Amp\ByteStream\StreamException;
 use Amp\CancelledException;
-use Amp\Deferred;
+use Amp\DeferredFuture;
 use Amp\Dns\DnsException;
 use Amp\Dns\TimeoutException;
-use Amp\TimeoutCancellationToken;
+use Amp\TimeoutCancellation;
 use LibDNS\Messages\Message;
 use LibDNS\Messages\MessageFactory;
 use LibDNS\Messages\MessageTypes;
@@ -28,8 +28,8 @@ abstract class Socket
      */
     abstract public static function connect(string $uri): self;
 
-    private ResourceInputStream $input;
-    private ResourceOutputStream $output;
+    private ReadableResourceStream $input;
+    private WritableResourceStream $output;
     /** @var array Contains already sent queries with no response yet. For UDP this is exactly zero or one item. */
     private array $pending = [];
     private MessageFactory $messageFactory;
@@ -41,8 +41,8 @@ abstract class Socket
 
     protected function __construct($socket)
     {
-        $this->input = new ResourceInputStream($socket);
-        $this->output = new ResourceOutputStream($socket);
+        $this->input = new ReadableResourceStream($socket);
+        $this->output = new WritableResourceStream($socket);
         $this->messageFactory = new MessageFactory;
         $this->lastActivity = \time();
     }
@@ -72,7 +72,7 @@ abstract class Socket
 
         // Ignore duplicate and invalid responses.
         if (isset($this->pending[$id]) && $this->matchesQuestion($message, $this->pending[$id]->question)) {
-            /** @var Deferred $deferred */
+            /** @var DeferredFuture $deferred */
             $deferred = $this->pending[$id]->deferred;
             unset($this->pending[$id]);
             $deferred->complete($message);
@@ -105,7 +105,7 @@ abstract class Socket
         $this->lastActivity = \time();
 
         if (\count($this->pending) > self::MAX_CONCURRENT_REQUESTS) {
-            $deferred = new Deferred;
+            $deferred = new DeferredFuture;
             $this->queue[] = $deferred;
             $deferred->getFuture()->await();
         }
@@ -114,9 +114,9 @@ abstract class Socket
             $id = \random_int(0, 0xffff);
         } while (isset($this->pending[$id]));
 
-        $deferred = new Deferred;
+        $deferred = new DeferredFuture;
         $pending = new class {
-            public Deferred $deferred;
+            public DeferredFuture $deferred;
             public Question $question;
         };
 
@@ -142,7 +142,7 @@ abstract class Socket
         }
 
         try {
-            return $deferred->getFuture()->await(new TimeoutCancellationToken($timeout));
+            return $deferred->getFuture()->await(new TimeoutCancellation($timeout));
         } catch (CancelledException $exception) {
             unset($this->pending[$id]);
 
@@ -205,7 +205,7 @@ abstract class Socket
         $this->pending = [];
 
         foreach ($pending as $pendingQuestion) {
-            /** @var Deferred $deferred */
+            /** @var DeferredFuture $deferred */
             $deferred = $pendingQuestion->deferred;
             $deferred->error($exception);
         }
