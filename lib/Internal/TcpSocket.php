@@ -45,7 +45,7 @@ final class TcpSocket extends Socket
         }
     }
 
-    public static function parser(callable $callback): \Generator
+    private static function parser(callable $callback): \Generator
     {
         $decoder = (new DecoderFactory)->create();
 

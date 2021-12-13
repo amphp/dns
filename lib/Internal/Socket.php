@@ -3,8 +3,8 @@
 namespace Amp\Dns\Internal;
 
 use Amp\ByteStream\ReadableResourceStream;
-use Amp\ByteStream\WritableResourceStream;
 use Amp\ByteStream\StreamException;
+use Amp\ByteStream\WritableResourceStream;
 use Amp\CancelledException;
 use Amp\DeferredFuture;
 use Amp\Dns\DnsException;

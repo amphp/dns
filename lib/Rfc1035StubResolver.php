@@ -2,8 +2,8 @@
 
 namespace Amp\Dns;
 
-use Amp\Cache\ArrayCache;
 use Amp\Cache\Cache;
+use Amp\Cache\LocalCache;
 use Amp\CompositeException;
 use Amp\Dns\Internal\Socket;
 use Amp\Dns\Internal\TcpSocket;
@@ -51,7 +51,7 @@ final class Rfc1035StubResolver implements Resolver
 
     public function __construct(Cache $cache = null, ConfigLoader $configLoader = null)
     {
-        $this->cache = $cache ?? new ArrayCache(maxSize: 256);
+        $this->cache = $cache ?? new LocalCache(sizeLimit: 256);
         $this->configLoader = $configLoader ?? (\stripos(PHP_OS, "win") === 0
                 ? new WindowsConfigLoader
                 : new UnixConfigLoader);

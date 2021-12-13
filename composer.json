@@ -39,15 +39,15 @@
         "php": ">=8",
         "ext-json": "*",
         "ext-filter": "*",
-        "amphp/amp": "v3.x-dev",
-        "amphp/byte-stream": "v2.x-dev",
-        "amphp/cache": "v2.x-dev",
+        "amphp/amp": "^3",
+        "amphp/byte-stream": "^2",
+        "amphp/cache": "^2",
         "amphp/parser": "^1",
-        "amphp/windows-registry": "v1.x-dev",
-        "daverandom/libdns": "^2.0.1"
+        "amphp/windows-registry": "^1",
+        "daverandom/libdns": "^2.0.2"
     },
     "require-dev": {
-        "amphp/phpunit-util": "v2.x-dev",
+        "amphp/phpunit-util": "^3",
         "phpunit/phpunit": "^9",
         "amphp/php-cs-fixer-config": "dev-master"
     },
