@@ -124,7 +124,7 @@ class IntegrationTest extends AsyncTestCase
         $configLoader = $this->createMock(Dns\ConfigLoader::class);
         $config = new Dns\Config([
             '208.67.222.220:53', // Opendns, US
-            '195.243.214.4:53', // Deutche Telecom AG, DE
+            '195.243.214.4:53', // Deutsche Telecom AG, DE
         ]);
         $config = $config->withRotationEnabled(true);
         $configLoader->expects(self::once())
@@ -134,9 +134,9 @@ class IntegrationTest extends AsyncTestCase
         $resolver = new Dns\Rfc1035StubResolver(new NullCache(), $configLoader);
 
         /** @var Record $record1 */
-        [$record1] = $resolver->query('facebook.com', Dns\Record::A);
+        [$record1] = $resolver->query('google.com', Dns\Record::A);
         /** @var Record $record2 */
-        [$record2] = $resolver->query('facebook.com', Dns\Record::A);
+        [$record2] = $resolver->query('google.com', Dns\Record::A);
 
         self::assertNotSame($record1->getValue(), $record2->getValue());
     }
