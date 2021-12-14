@@ -47,7 +47,8 @@ abstract class Socket
         $this->lastActivity = \time();
     }
 
-    private function fetch(): void {
+    private function fetch(): void
+    {
         EventLoop::queue(function (): void {
             try {
                 $this->handleResolution(null, $this->receive());

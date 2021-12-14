@@ -5,3 +5,4 @@ vendor
 .php_cs.cache
 .phpunit.result.cache
 coverage
+composer-require-checker.phar

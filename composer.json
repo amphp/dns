@@ -44,7 +44,8 @@
         "amphp/cache": "^2",
         "amphp/parser": "^1",
         "amphp/windows-registry": "^1",
-        "daverandom/libdns": "^2.0.2"
+        "daverandom/libdns": "^2.0.2",
+        "revolt/event-loop": "^0.1.1"
     },
     "require-dev": {
         "amphp/phpunit-util": "^3",
