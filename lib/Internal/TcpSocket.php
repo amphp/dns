@@ -17,6 +17,10 @@ use Revolt\EventLoop;
 /** @internal */
 final class TcpSocket extends Socket
 {
+    /**
+     * @throws TimeoutException
+     * @throws DnsException
+     */
     public static function connect(string $uri, float $timeout = 5): self
     {
         if (!$socket = @\stream_socket_client($uri, $errno, $errstr, 0, STREAM_CLIENT_ASYNC_CONNECT)) {

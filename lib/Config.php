@@ -18,6 +18,9 @@ final class Config
 
     private bool $rotation = false;
 
+    /**
+     * @throws ConfigException
+     */
     public function __construct(array $nameservers, array $knownHosts = [], float $timeout = 3, int $attempts = 2)
     {
         if (\count($nameservers) < 1) {
@@ -29,11 +32,11 @@ final class Config
         }
 
         if ($timeout < 0) {
-            throw new ConfigException("Invalid timeout ({$timeout}), must be 0 or greater");
+            throw new ConfigException("Invalid timeout ($timeout), must be 0 or greater");
         }
 
         if ($attempts < 1) {
-            throw new ConfigException("Invalid attempt count ({$attempts}), must be 1 or greater");
+            throw new ConfigException("Invalid attempt count ($attempts), must be 1 or greater");
         }
 
         // Windows does not include localhost in its host file. Fetch it from the system instead
@@ -67,7 +70,7 @@ final class Config
     public function withNdots(int $ndots): self
     {
         if ($ndots < 0) {
-            throw new ConfigException("Invalid ndots ({$ndots}), must be greater or equal to 0");
+            throw new ConfigException("Invalid ndots ($ndots), must be greater or equal to 0");
         }
         if ($ndots > 15) {
             $ndots = 15;
@@ -121,18 +124,21 @@ final class Config
         return $this->rotation;
     }
 
-    private function validateNameserver($nameserver)
+    /**
+     * @throws ConfigException
+     */
+    private function validateNameserver($nameserver): void
     {
         if (!$nameserver || !\is_string($nameserver)) {
-            throw new ConfigException("Invalid nameserver: {$nameserver}");
+            throw new ConfigException("Invalid nameserver: $nameserver");
         }
 
         if ($nameserver[0] === "[") { // IPv6
             $addr = \strstr(\substr($nameserver, 1), "]", true);
             $port = \substr($nameserver, \strrpos($nameserver, "]") + 1);
 
-            if ($port !== "" && !\preg_match("(^:(\\d+)$)", $port, $match)) {
-                throw new ConfigException("Invalid nameserver: {$nameserver}");
+            if ($port !== "" && !\preg_match("(^:(\\d+)$)", $port)) {
+                throw new ConfigException("Invalid nameserver: $nameserver");
             }
 
             $port = $port === "" ? 53 : \substr($port, 1);
@@ -150,12 +156,12 @@ final class Config
         $addr = \trim($addr, "[]");
         $port = (int) $port;
 
-        if (!$inAddr = @\inet_pton($addr)) {
-            throw new ConfigException("Invalid server IP: {$addr}");
+        if (!@\inet_pton($addr)) {
+            throw new ConfigException("Invalid server IP: $addr");
         }
 
         if ($port < 1 || $port > 65535) {
-            throw new ConfigException("Invalid server port: {$port}");
+            throw new ConfigException("Invalid server port: $port");
         }
     }
 }

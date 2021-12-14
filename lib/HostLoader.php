@@ -15,7 +15,7 @@ final class HostLoader
     {
         try {
             $contents = $this->readFile($this->path);
-        } catch (ConfigException $exception) {
+        } catch (ConfigException) {
             return [];
         }
 
@@ -44,7 +44,7 @@ final class HostLoader
                 try {
                     $normalizedName = normalizeName($parts[$i]);
                     $data[$key][$normalizedName] = $parts[0];
-                } catch (InvalidNameException $e) {
+                } catch (InvalidNameException) {
                     // ignore invalid entries
                 }
             }
@@ -53,7 +53,7 @@ final class HostLoader
         return $data;
     }
 
-    protected function readFile(string $path): string
+    final public function readFile(string $path): string
     {
         \set_error_handler(function (int $errno, string $message) use ($path) {
             throw new ConfigException("Could not read configuration file '{$path}' ({$errno}) $message");
@@ -69,7 +69,7 @@ final class HostLoader
 
     private function getDefaultPath(): string
     {
-        return \stripos(PHP_OS, "win") === 0
+        return \PHP_OS_FAMILY === 'Windows'
             ? 'C:\Windows\system32\drivers\etc\hosts'
             : '/etc/hosts';
     }

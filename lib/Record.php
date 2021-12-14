@@ -57,7 +57,7 @@ final class Record
     public const ALL = ResourceQTypes::ALL;
 
     /**
-     * Converts an record type integer back into its name as defined in this class.
+     * Converts a record type integer back into its name as defined in this class.
      *
      * Returns "unknown (<type>)" in case a name for this record is not known.
      *
@@ -83,6 +83,7 @@ final class Record
 
         return $types[$type] ?? "unknown ({$type})";
     }
+
     private string $value;
     private int $type;
     private ?int $ttl;

@@ -7,6 +7,7 @@ use Amp\PHPUnit\AsyncTestCase;
 use LibDNS\Messages\Message;
 use LibDNS\Messages\MessageTypes;
 use LibDNS\Records\QuestionFactory;
+use function Amp\now;
 
 abstract class SocketTest extends AsyncTestCase
 {
@@ -30,7 +31,7 @@ abstract class SocketTest extends AsyncTestCase
 
         $socket = $this->connect();
 
-        self::assertLessThan(\time() + 1, $socket->getLastActivity());
+        self::assertLessThan(now() + 1, $socket->getLastActivity());
     }
 
     abstract protected function connect(): Dns\Internal\Socket;

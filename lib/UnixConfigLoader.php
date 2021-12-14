@@ -31,7 +31,7 @@ final class UnixConfigLoader implements ConfigLoader
         $this->hostLoader = $hostLoader ?? new HostLoader;
     }
 
-    final public function loadConfig(): Config
+    public function loadConfig(): Config
     {
         $nameservers = [];
         $searchList = [];
@@ -66,9 +66,9 @@ final class UnixConfigLoader implements ConfigLoader
                 if (\count($nameservers) === self::MAX_NAMESERVERS) {
                     continue;
                 }
+
                 $value = \trim($value);
                 $ip = @\inet_pton($value);
-
                 if ($ip === false) {
                     continue;
                 }
@@ -122,7 +122,7 @@ final class UnixConfigLoader implements ConfigLoader
             ->withRotationEnabled($options["rotate"]);
     }
 
-    protected function readFile(string $path): string
+    private function readFile(string $path): string
     {
         \set_error_handler(static function (int $errno, string $message) use ($path) {
             throw new ConfigException("Could not read configuration file '{$path}' ({$errno}) $message");

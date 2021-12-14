@@ -12,6 +12,9 @@ use LibDNS\Messages\Message;
 /** @internal */
 final class UdpSocket extends Socket
 {
+    /**
+     * @throws DnsException
+     */
     public static function connect(string $uri): self
     {
         if (!$socket = @\stream_socket_client($uri, $errno, $errstr, 0, STREAM_CLIENT_ASYNC_CONNECT)) {

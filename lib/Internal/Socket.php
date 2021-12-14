@@ -15,6 +15,7 @@ use LibDNS\Messages\MessageFactory;
 use LibDNS\Messages\MessageTypes;
 use LibDNS\Records\Question;
 use Revolt\EventLoop;
+use function Amp\now;
 
 /** @internal */
 abstract class Socket
@@ -33,8 +34,8 @@ abstract class Socket
     /** @var array Contains already sent queries with no response yet. For UDP this is exactly zero or one item. */
     private array $pending = [];
     private MessageFactory $messageFactory;
-    /** @var int Used for determining whether the socket can be garbage collected, because it's inactive. */
-    private int $lastActivity;
+    /** @var float Used for determining whether the socket can be garbage collected, because it's inactive. */
+    private float $lastActivity;
     private bool $receiving = false;
     /** @var array Queued requests if the number of concurrent requests is too large. */
     private array $queue = [];
@@ -44,7 +45,7 @@ abstract class Socket
         $this->input = new ReadableResourceStream($socket);
         $this->output = new WritableResourceStream($socket);
         $this->messageFactory = new MessageFactory;
-        $this->lastActivity = \time();
+        $this->lastActivity = now();
     }
 
     private function fetch(): void
@@ -60,7 +61,7 @@ abstract class Socket
 
     private function handleResolution(?\Throwable $exception, ?Message $message = null): void
     {
-        $this->lastActivity = \time();
+        $this->lastActivity = now();
         $this->receiving = false;
 
         if ($exception) {
@@ -103,7 +104,7 @@ abstract class Socket
      */
     final public function ask(Question $question, float $timeout): Message
     {
-        $this->lastActivity = \time();
+        $this->lastActivity = now();
 
         if (\count($this->pending) > self::MAX_CONCURRENT_REQUESTS) {
             $deferred = new DeferredFuture;
@@ -168,6 +169,9 @@ abstract class Socket
 
     abstract protected function send(Message $message): void;
 
+    /**
+     * @throws DnsException
+     */
     abstract protected function receive(): Message;
 
     final protected function read(): ?string

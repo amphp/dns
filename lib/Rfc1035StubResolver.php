@@ -14,13 +14,15 @@ use LibDNS\Records\Question;
 use LibDNS\Records\QuestionFactory;
 use Revolt\EventLoop;
 use function Amp\async;
+use function Amp\now;
 
 final class Rfc1035StubResolver implements Resolver
 {
-    const CACHE_PREFIX = "amphp.dns.";
-    const CONFIG_NOT_LOADED = 0;
-    const CONFIG_LOADED = 1;
-    const CONFIG_FAILED = 2;
+    public const CACHE_PREFIX = "amphp.dns.";
+
+    private const CONFIG_NOT_LOADED = 0;
+    private const CONFIG_LOADED = 1;
+    private const CONFIG_FAILED = 2;
 
     private ConfigLoader $configLoader;
 
@@ -43,7 +45,7 @@ final class Rfc1035StubResolver implements Resolver
     /** @var Future[] */
     private array $pendingQueries = [];
 
-    private string $gcWatcher;
+    private string $gcCallbackId;
 
     private BlockingFallbackResolver $blockingFallbackResolver;
 
@@ -51,8 +53,8 @@ final class Rfc1035StubResolver implements Resolver
 
     public function __construct(Cache $cache = null, ConfigLoader $configLoader = null)
     {
-        $this->cache = $cache ?? new LocalCache(sizeLimit: 256);
-        $this->configLoader = $configLoader ?? (\stripos(PHP_OS, "win") === 0
+        $this->cache = $cache ?? new LocalCache(256);
+        $this->configLoader = $configLoader ?? (\PHP_OS_FAMILY === 'Windows'
                 ? new WindowsConfigLoader
                 : new UnixConfigLoader);
 
@@ -60,13 +62,12 @@ final class Rfc1035StubResolver implements Resolver
         $this->blockingFallbackResolver = new BlockingFallbackResolver;
 
         $sockets = &$this->sockets;
-        $this->gcWatcher = EventLoop::repeat(5, static function () use (&$sockets): void {
+        $this->gcCallbackId = EventLoop::repeat(5, static function () use (&$sockets): void {
             if (!$sockets) {
                 return;
             }
 
-            $now = \time();
-
+            $now = now();
             foreach ($sockets as $key => $server) {
                 if ($server->getLastActivity() < $now - 60) {
                     $server->close();
@@ -75,12 +76,12 @@ final class Rfc1035StubResolver implements Resolver
             }
         });
 
-        EventLoop::unreference($this->gcWatcher);
+        EventLoop::unreference($this->gcCallbackId);
     }
 
     public function __destruct()
     {
-        EventLoop::cancel($this->gcWatcher);
+        EventLoop::cancel($this->gcCallbackId);
     }
 
     /** @inheritdoc */
@@ -127,9 +128,9 @@ final class Rfc1035StubResolver implements Resolver
                 }
                 break;
         }
+
         $dots = \substr_count($name, ".");
-        // Should be replaced with $name[-1] from 7.1
-        $trailingDot = $name[\strlen($name) - 1] === ".";
+        $trailingDot = $name[-1] === ".";
         $name = normalizeName($name);
 
         if ($records = $this->queryHosts($name, $typeRestriction)) {
@@ -175,11 +176,7 @@ final class Rfc1035StubResolver implements Resolver
                                 throw $reason;
                             }
 
-                            if ($searchIndex < \count($searchList) - 1 && \in_array(
-                                needle: $reason->getCode(),
-                                haystack: [2, 3],
-                                strict: true
-                            )) {
+                            if ($searchIndex < \count($searchList) - 1 && \in_array($reason->getCode(), [2, 3], true)) {
                                 continue 2;
                             }
 
@@ -192,12 +189,12 @@ final class Rfc1035StubResolver implements Resolver
                             $e
                         );
                     }
-                } catch (NoRecordException $e) {
+                } catch (NoRecordException) {
                     try {
                         $cnameRecords = $this->query($searchName, Record::CNAME);
                         $name = $cnameRecords[0]->getValue();
                         continue;
-                    } catch (NoRecordException $e) {
+                    } catch (NoRecordException) {
                         $dnameRecords = $this->query($searchName, Record::DNAME);
                         $name = $dnameRecords[0]->getValue();
                         continue;
@@ -225,7 +222,7 @@ final class Rfc1035StubResolver implements Resolver
     public function reloadConfig(): Config
     {
         if ($this->pendingConfig) {
-            $this->pendingConfig->await();
+            return $this->pendingConfig->await();
         }
 
         $this->pendingConfig = async(function (): Config {
@@ -244,7 +241,7 @@ final class Rfc1035StubResolver implements Resolver
                         $message,
                         \E_USER_WARNING
                     );
-                } catch (\Throwable $triggerException) {
+                } catch (\Throwable) {
                     \set_error_handler(null);
                     \trigger_error(
                         $message,
@@ -262,7 +259,6 @@ final class Rfc1035StubResolver implements Resolver
         return $this->pendingConfig->await();
     }
 
-    /** @inheritdoc */
     public function query(string $name, int $type): array
     {
         $pendingQueryKey = $type . " " . $name;
@@ -284,7 +280,17 @@ final class Rfc1035StubResolver implements Resolver
                 $question = $this->createQuestion($name, $type);
 
                 if (null !== $cachedValue = $this->cache->get($this->getCacheKey($name, $type))) {
-                    return $this->decodeCachedResult($name, $type, $cachedValue);
+                    if (!$cachedValue) {
+                        throw new NoRecordException("No records returned for {$name} (cached result)");
+                    }
+
+                    $result = [];
+
+                    foreach ($cachedValue as [$data, $type]) {
+                        $result[] = new Record($data, $type);
+                    }
+
+                    return $result;
                 }
 
                 $nameservers = $this->selectNameservers();
@@ -351,21 +357,24 @@ final class Rfc1035StubResolver implements Resolver
                             // We don't care here whether storing in the cache fails
                             $this->cache->set(
                                 $this->getCacheKey($name, $recordType),
-                                \json_encode($records),
+                                \array_map(static fn (string $record) => [
+                                    $record,
+                                    $recordType
+                                ], $records),
                                 $ttls[$recordType]
                             );
                         }
 
                         if (!isset($result[$type])) {
                             // "it MUST NOT cache it for longer than five (5) minutes" per RFC 2308 section 7.1
-                            $this->cache->set($this->getCacheKey($name, $type), \json_encode([]), 300);
+                            $this->cache->set($this->getCacheKey($name, $type), [], 300);
                             throw new NoRecordException("No records returned for '{$name}' (" . Record::getName($type) . ")");
                         }
 
                         return \array_map(static function ($data) use ($type, $ttls) {
                             return new Record($data, $type, $ttls[$type]);
                         }, $result[$type]);
-                    } catch (TimeoutException $e) {
+                    } catch (TimeoutException) {
                         // Defer call, because it might interfere with the unreference() call in Internal\Socket otherwise
                         EventLoop::defer(function () use ($socket, $uri): void {
                             unset($this->sockets[$uri]);
@@ -416,7 +425,7 @@ final class Rfc1035StubResolver implements Resolver
         return $records;
     }
 
-    private function normalizeName(string $name, int $type)
+    private function normalizeName(string $name, int $type): string
     {
         if ($type === Record::PTR) {
             if (($packedIp = @\inet_pton($name)) !== false) {
@@ -457,27 +466,10 @@ final class Rfc1035StubResolver implements Resolver
         return self::CACHE_PREFIX . $name . "#" . $type;
     }
 
-    private function decodeCachedResult(string $name, int $type, string $encoded): array
-    {
-        $decoded = \json_decode($encoded, true);
-
-        if (!$decoded) {
-            throw new NoRecordException("No records returned for {$name} (cached result)");
-        }
-
-        $result = [];
-
-        foreach ($decoded as $data) {
-            $result[] = new Record($data, $type);
-        }
-
-        return $result;
-    }
-
     private function getSocket($uri): Internal\Socket
     {
         // We use a new socket for each UDP request, as that increases the entropy and mitigates response forgery.
-        if (\substr($uri, 0, 3) === "udp") {
+        if (\str_starts_with($uri, "udp")) {
             return UdpSocket::connect($uri);
         }
 

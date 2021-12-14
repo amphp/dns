@@ -27,7 +27,7 @@ final class WindowsConfigLoader implements ConfigLoader
         while ($nameserver === "" && ($key = \array_shift($keys))) {
             try {
                 $nameserver = $reader->read($key);
-            } catch (KeyNotFoundException $e) {
+            } catch (KeyNotFoundException) {
                 // retry other possible locations
             }
         }
@@ -44,7 +44,7 @@ final class WindowsConfigLoader implements ConfigLoader
                         if ($nameserver !== "") {
                             break 2;
                         }
-                    } catch (KeyNotFoundException $e) {
+                    } catch (KeyNotFoundException) {
                         // retry other possible locations
                     }
                 }
