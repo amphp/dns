@@ -81,4 +81,4 @@ jobs:
 
       - name: Run composer-require-checker
         run: php composer-require-checker.phar check composer.json --config-file $PWD/composer-require-check.json
-        if: runner.os != 'Windows' && matrix.composer-require-checker-version != 'none'%
+        if: runner.os != 'Windows' && matrix.composer-require-checker-version != 'none'
