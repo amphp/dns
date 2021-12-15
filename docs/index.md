@@ -31,14 +31,14 @@ Usually you don't have to change the resolver. If you want to use a custom confi
 // What's returned depends on what's available for the given hostname.
 
 /** @var Amp\Dns\Record[] $records */
-$records = yield Amp\Dns\resolve("github.com");
+$records = Amp\Dns\resolve("github.com");
 ```
 
 ```php
 // Example with type restriction. Will throw an exception if there are no A records.
 
 /** @var Amp\Dns\Record[] $records */
-$records = yield Amp\Dns\resolve("github.com", Amp\Dns\Record::A);
+$records = Amp\Dns\resolve("github.com", Amp\Dns\Record::A);
 ```
 
 ### Custom Queries
@@ -65,7 +65,7 @@ The `Rfc1035StubResolver` (which is the default resolver shipping with that pack
 
 ```php
 EventLoop::repeat(600, function () use ($resolver) {
-    yield Amp\Dns\resolver()->reloadConfig();
+    Amp\Dns\resolver()->reloadConfig();
 });
 ```
 

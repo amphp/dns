@@ -18,23 +18,18 @@ composer require amphp/dns
 
 require __DIR__ . '/examples/_bootstrap.php';
 
-use Amp\Dns;
-use Amp\Loop;
+$githubIpv4 = Amp\Dns\resolve("github.com", Dns\Record::A);
+pretty_print_records("github.com", $githubIpv4);
 
-EventLoop::run(function () {
-    $githubIpv4 = yield Dns\resolve("github.com", Dns\Record::A);
-    pretty_print_records("github.com", $githubIpv4);
+$googleIpv4 = Amp\Dns\resolve("google.com", Dns\Record::A);
+$googleIpv6 = Amp\Dns\resolve("google.com", Dns\Record::AAAA);
 
-    $googleIpv4 = Amp\Dns\resolve("google.com", Dns\Record::A);
-    $googleIpv6 = Amp\Dns\resolve("google.com", Dns\Record::AAAA);
+$firstGoogleResult = Amp\Promise\first([$googleIpv4, $googleIpv6]);
+pretty_print_records("google.com", $firstGoogleResult);
 
-    $firstGoogleResult = yield Amp\Promise\first([$googleIpv4, $googleIpv6]);
-    pretty_print_records("google.com", $firstGoogleResult);
+$combinedGoogleResult = Amp\Dns\resolve("google.com");
+pretty_print_records("google.com", $combinedGoogleResult);
 
-    $combinedGoogleResult = yield Amp\Dns\resolve("google.com");
-    pretty_print_records("google.com", $combinedGoogleResult);
-
-    $googleMx = yield Amp\Dns\query("google.com", Amp\Dns\Record::MX);
-    pretty_print_records("google.com", $googleMx);
-});
+$googleMx = yield Amp\Dns\query("google.com", Amp\Dns\Record::MX);
+pretty_print_records("google.com", $googleMx);
 ```
