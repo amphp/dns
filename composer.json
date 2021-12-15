@@ -54,10 +54,10 @@
     },
     "autoload": {
         "psr-4": {
-            "Amp\\Dns\\": "lib"
+            "Amp\\Dns\\": "src"
         },
         "files": [
-            "lib/functions.php"
+            "src/functions.php"
         ]
     },
     "autoload-dev": {
