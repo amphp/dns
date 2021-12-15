@@ -38,6 +38,7 @@ final class TcpSocket extends Socket
 
         $watcher = EventLoop::onWritable($socket, static function (string $watcher) use ($socket, $deferred): void {
             EventLoop::cancel($watcher);
+
             $deferred->complete(new self($socket));
         });
 
@@ -45,6 +46,7 @@ final class TcpSocket extends Socket
             return $deferred->getFuture()->await(new TimeoutCancellation($timeout));
         } catch (CancelledException) {
             EventLoop::cancel($watcher);
+
             throw new TimeoutException("Name resolution timed out, could not connect to server at $uri");
         }
     }
@@ -94,19 +96,15 @@ final class TcpSocket extends Socket
 
     protected function receive(): Message
     {
-        if ($this->queue->isEmpty()) {
-            do {
-                $chunk = $this->read();
+        while ($this->queue->isEmpty()) {
+            $chunk = $this->read();
 
-                if ($chunk === null) {
-                    $this->isAlive = false;
-                    throw new DnsException("Reading from the server failed");
-                }
+            if ($chunk === null) {
+                $this->isAlive = false;
+                throw new DnsException("Reading from the server failed");
+            }
 
-                $this->parser->push($chunk);
-            } while ($this->queue->isEmpty());
-
-            return $this->queue->shift();
+            $this->parser->push($chunk);
         }
 
         return $this->queue->shift();
