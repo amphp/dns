@@ -2,6 +2,7 @@
 
 namespace Amp\Dns\Internal;
 
+use Amp\ByteStream\ClosedException;
 use Amp\ByteStream\ReadableResourceStream;
 use Amp\ByteStream\StreamException;
 use Amp\ByteStream\WritableResourceStream;
@@ -31,13 +32,18 @@ abstract class Socket
 
     private ReadableResourceStream $input;
     private WritableResourceStream $output;
+
     /** @var array Contains already sent queries with no response yet. For UDP this is exactly zero or one item. */
     private array $pending = [];
+
     private MessageFactory $messageFactory;
+
     /** @var float Used for determining whether the socket can be garbage collected, because it's inactive. */
     private float $lastActivity;
+
     private bool $receiving = false;
-    /** @var array Queued requests if the number of concurrent requests is too large. */
+
+    /** @var EventLoop\Suspension[] Queued requests if the number of concurrent requests is too large. */
     private array $queue = [];
 
     protected function __construct($socket)
@@ -91,7 +97,7 @@ abstract class Socket
 
     abstract public function isAlive(): bool;
 
-    public function getLastActivity(): int
+    public function getLastActivity(): float
     {
         return $this->lastActivity;
     }
@@ -101,15 +107,17 @@ abstract class Socket
      * @param float $timeout
      *
      * @return Message
+     *
+     * @throws DnsException
      */
     final public function ask(Question $question, float $timeout): Message
     {
         $this->lastActivity = now();
 
         if (\count($this->pending) > self::MAX_CONCURRENT_REQUESTS) {
-            $deferred = new DeferredFuture;
-            $this->queue[] = $deferred;
-            $deferred->getFuture()->await();
+            $suspension = EventLoop::createSuspension();
+            $this->queue[] = $suspension;
+            $suspension->suspend();
         }
 
         do {
@@ -156,17 +164,23 @@ abstract class Socket
         } finally {
             if ($this->queue) {
                 $deferred = \array_shift($this->queue);
-                $deferred->resolve();
+                $deferred->resume();
             }
         }
     }
 
     final public function close(): void
     {
-        $this->input->close();
-        $this->output->close();
+        $this->error(new ClosedException('Socket has been closed'));
     }
 
+    /**
+     * @param Message $message
+     *
+     * @return void
+     *
+     * @throws StreamException
+     */
     abstract protected function send(Message $message): void;
 
     /**
@@ -179,6 +193,9 @@ abstract class Socket
         return $this->input->read();
     }
 
+    /**
+     * @throws ClosedException
+     */
     final protected function write(string $data): void
     {
         $this->output->write($data);
@@ -190,16 +207,14 @@ abstract class Socket
         $request->getQuestionRecords()->add($question);
         $request->isRecursionDesired(true);
         $request->setID($id);
+
         return $request;
     }
 
     private function error(\Throwable $exception): void
     {
-        $this->close();
-
-        if (empty($this->pending)) {
-            return;
-        }
+        $this->input->close();
+        $this->output->close();
 
         if (!$exception instanceof DnsException) {
             $message = "Unexpected error during resolution: " . $exception->getMessage();
@@ -213,6 +228,13 @@ abstract class Socket
             /** @var DeferredFuture $deferred */
             $deferred = $pendingQuestion->deferred;
             $deferred->error($exception);
+        }
+
+        $queue = $this->queue;
+        $this->queue = [];
+
+        foreach ($queue as $suspension) {
+            $suspension->throw($exception);
         }
     }
 
