@@ -53,10 +53,10 @@ final class HostLoader
         return $data;
     }
 
-    final public function readFile(string $path): string
+    public function readFile(string $path): string
     {
-        \set_error_handler(function (int $errno, string $message) use ($path) {
-            throw new ConfigException("Could not read configuration file '{$path}' ({$errno}) $message");
+        \set_error_handler(static function (int $errno, string $message) use ($path) {
+            throw new ConfigException("Could not read configuration file '{$path}' ({$errno}): $message");
         });
 
         try {
