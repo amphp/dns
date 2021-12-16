@@ -21,15 +21,16 @@ require __DIR__ . '/examples/_bootstrap.php';
 $githubIpv4 = Amp\Dns\resolve("github.com", Dns\Record::A);
 pretty_print_records("github.com", $githubIpv4);
 
-$googleIpv4 = Amp\Dns\resolve("google.com", Dns\Record::A);
-$googleIpv6 = Amp\Dns\resolve("google.com", Dns\Record::AAAA);
+$firstGoogleResult = Amp\Future\race([
+  Amp\async(fn() => Amp\Dns\resolve("google.com", Dns\Record::A)),
+  Amp\async(fn() => Amp\Dns\resolve("google.com", Dns\Record::AAAA)),
+]);
 
-$firstGoogleResult = Amp\Promise\first([$googleIpv4, $googleIpv6]);
 pretty_print_records("google.com", $firstGoogleResult);
 
 $combinedGoogleResult = Amp\Dns\resolve("google.com");
 pretty_print_records("google.com", $combinedGoogleResult);
 
-$googleMx = yield Amp\Dns\query("google.com", Amp\Dns\Record::MX);
+$googleMx = Amp\Dns\query("google.com", Amp\Dns\Record::MX);
 pretty_print_records("google.com", $googleMx);
 ```
