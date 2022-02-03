@@ -24,8 +24,9 @@ class UnixConfigLoaderTest extends AsyncTestCase
         self::assertSame(1, $result->getNdots());
         self::assertFalse($result->isRotationEnabled());
 
-        if (\str_contains(\gethostname(), '.')) {
-            self::assertSame([\strtok(\gethostname(), '.')], $result->getSearchList());
+        $hostname = \gethostname();
+        if (\str_contains($hostname, '.')) {
+            self::assertSame([\substr($hostname, \strpos($hostname, '.') + 1)], $result->getSearchList());
         } else {
             self::assertEmpty($result->getSearchList());
         }
