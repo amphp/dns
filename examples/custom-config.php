@@ -12,7 +12,7 @@ $customConfigLoader = new class implements Dns\ConfigLoader {
         return new Dns\Config([
             "8.8.8.8:53",
             "[2001:4860:4860::8888]:53",
-        ], $hosts, $timeout = 5000, $attempts = 3);
+        ], $hosts, 5, 3);
     }
 };
 

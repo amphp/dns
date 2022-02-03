@@ -21,7 +21,7 @@ require __DIR__ . '/examples/_bootstrap.php';
 $githubIpv4 = Amp\Dns\resolve("github.com", Dns\Record::A);
 pretty_print_records("github.com", $githubIpv4);
 
-$firstGoogleResult = Amp\Future\race([
+$firstGoogleResult = Amp\Future\awaitFirst([
   Amp\async(fn() => Amp\Dns\resolve("google.com", Dns\Record::A)),
   Amp\async(fn() => Amp\Dns\resolve("google.com", Dns\Record::AAAA)),
 ]);

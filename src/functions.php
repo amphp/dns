@@ -36,6 +36,8 @@ function createDefaultResolver(): Resolver
 
 /**
  * @see Resolver::resolve()
+ *
+ * @throws DnsException
  */
 function resolve(string $name, int $typeRestriction = null): array
 {
@@ -44,6 +46,8 @@ function resolve(string $name, int $typeRestriction = null): array
 
 /**
  * @see Resolver::query()
+ *
+ * @throws DnsException
  */
 function query(string $name, int $type): array
 {
