@@ -24,9 +24,14 @@ class UnixConfigLoaderTest extends TestCase
 
         $this->assertSame(30000, $result->getTimeout());
         $this->assertSame(3, $result->getAttempts());
-        $this->assertEmpty($result->getSearchList());
         $this->assertSame(1, $result->getNdots());
         $this->assertFalse($result->isRotationEnabled());
+
+        if (\str_contains(\gethostname(), '.')) {
+            $this->assertSame([\strtok(\gethostname(), '.')], $result->getSearchList());
+        } else {
+            $this->assertEmpty($result->getSearchList());
+        }
     }
 
     public function testWithSearchList()
