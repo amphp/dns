@@ -3,6 +3,7 @@ composer.lock
 phpunit.xml
 vendor
 .php_cs.cache
+.php-cs-fixer.dist.php
 .phpunit.result.cache
 coverage
 composer-require-checker.phar

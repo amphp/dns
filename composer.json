@@ -45,12 +45,12 @@
         "amphp/parser": "^1",
         "amphp/windows-registry": "^1",
         "daverandom/libdns": "^2.0.2",
-        "revolt/event-loop": "^0.1.1"
+        "revolt/event-loop": "^0.2"
     },
     "require-dev": {
         "amphp/phpunit-util": "^3",
         "phpunit/phpunit": "^9",
-        "amphp/php-cs-fixer-config": "dev-master"
+        "amphp/php-cs-fixer-config": "^2-dev"
     },
     "autoload": {
         "psr-4": {
