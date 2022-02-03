@@ -46,6 +46,9 @@ abstract class Socket
     /** @var EventLoop\Suspension[] Queued requests if the number of concurrent requests is too large. */
     private array $queue = [];
 
+    /**
+     * @param resource $socket
+     */
     protected function __construct($socket)
     {
         $this->input = new ReadableResourceStream($socket);
@@ -86,6 +89,7 @@ abstract class Socket
             $deferred->complete($message);
         }
 
+        /** @psalm-suppress RedundantCondition */
         if (empty($this->pending)) {
             $this->input->unreference();
         } elseif (!$this->receiving) {
@@ -115,7 +119,7 @@ abstract class Socket
         $this->lastActivity = now();
 
         if (\count($this->pending) > self::MAX_CONCURRENT_REQUESTS) {
-            $suspension = EventLoop::createSuspension();
+            $suspension = EventLoop::getSuspension();
             $this->queue[] = $suspension;
             $suspension->suspend();
         }
@@ -125,6 +129,8 @@ abstract class Socket
         } while (isset($this->pending[$id]));
 
         $deferred = new DeferredFuture;
+
+        /** @psalm-suppress MissingConstructor */
         $pending = new class {
             public DeferredFuture $deferred;
             public Question $question;

@@ -26,7 +26,7 @@ final class WindowsConfigLoader implements ConfigLoader
 
         while ($nameserver === "" && ($key = \array_shift($keys))) {
             try {
-                $nameserver = $reader->read($key);
+                $nameserver = $reader->read($key) ?? '';
             } catch (KeyNotFoundException) {
                 // retry other possible locations
             }
@@ -39,7 +39,7 @@ final class WindowsConfigLoader implements ConfigLoader
             foreach ($subKeys as $key) {
                 foreach (["NameServer", "DhcpNameServer"] as $property) {
                     try {
-                        $nameserver = $reader->read("{$key}\\{$property}");
+                        $nameserver = $reader->read("{$key}\\{$property}") ?? '';
 
                         if ($nameserver !== "") {
                             break 2;

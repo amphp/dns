@@ -145,6 +145,8 @@ final class Rfc1035StubResolver implements Resolver
                 : [new Record('127.0.0.1', Record::A, null)];
         }
 
+        \assert($this->config !== null);
+
         $searchList = [null];
         if (!$trailingDot && $dots < $this->config->getNdots()) {
             $searchList = \array_merge($this->config->getSearchList(), $searchList);
@@ -164,7 +166,7 @@ final class Rfc1035StubResolver implements Resolver
                     }
 
                     try {
-                        return Future\any([
+                        return Future\awaitAny([
                             async(fn () => $this->query($searchName, Record::A)),
                             async(fn () => $this->query($searchName, Record::AAAA)),
                         ]);
@@ -208,6 +210,8 @@ final class Rfc1035StubResolver implements Resolver
                 }
             }
         }
+
+        \assert(isset($searchName));
 
         throw new DnsException("Giving up resolution of '{$searchName}', too many redirects");
     }
@@ -253,6 +257,8 @@ final class Rfc1035StubResolver implements Resolver
                 $this->pendingConfig = null;
             }
 
+            \assert($this->config !== null);
+
             return $this->config;
         });
 
@@ -272,9 +278,12 @@ final class Rfc1035StubResolver implements Resolver
                 if ($this->configStatus === self::CONFIG_NOT_LOADED) {
                     $this->reloadConfig();
                 }
+
                 if ($this->configStatus === self::CONFIG_FAILED) {
                     return $this->blockingFallbackResolver->query($name, $type);
                 }
+
+                \assert($this->config !== null);
 
                 $name = $this->normalizeName($name, $type);
                 $question = $this->createQuestion($name, $type);
@@ -408,6 +417,8 @@ final class Rfc1035StubResolver implements Resolver
 
     private function queryHosts(string $name, int $typeRestriction = null): array
     {
+        \assert($this->config !== null);
+
         $hosts = $this->config->getKnownHosts();
         $records = [];
 
@@ -466,7 +477,7 @@ final class Rfc1035StubResolver implements Resolver
         return self::CACHE_PREFIX . $name . "#" . $type;
     }
 
-    private function getSocket($uri): Internal\Socket
+    private function getSocket(string $uri): Internal\Socket
     {
         // We use a new socket for each UDP request, as that increases the entropy and mitigates response forgery.
         if (\str_starts_with($uri, "udp")) {
@@ -538,6 +549,8 @@ final class Rfc1035StubResolver implements Resolver
 
     private function selectNameservers(): array
     {
+        \assert($this->config !== null);
+
         $nameservers = $this->config->getNameservers();
 
         if ($this->config->isRotationEnabled() && ($nameserversCount = \count($nameservers)) > 1) {

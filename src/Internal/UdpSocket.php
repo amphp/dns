@@ -32,6 +32,9 @@ final class UdpSocket extends Socket
     private Encoder $encoder;
     private Decoder $decoder;
 
+    /**
+     * @param resource $socket
+     */
     protected function __construct($socket)
     {
         parent::__construct($socket);

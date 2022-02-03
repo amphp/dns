@@ -94,7 +94,7 @@ final class UnixConfigLoader implements ConfigLoader
 
         if (\count($searchList) === 0) {
             $hostname = \gethostname();
-            $dot = \strpos(".", $hostname);
+            $dot = \strpos($hostname, ".");
             if ($dot !== false && $dot < \strlen($hostname)) {
                 $searchList = [
                     \substr($hostname, $dot),
@@ -114,6 +114,11 @@ final class UnixConfigLoader implements ConfigLoader
                 }
             }
         }
+
+        \assert(\is_int($options["timeout"]) || \is_float($options["timeout"]));
+        \assert(\is_int($options["attempts"]));
+        \assert(\is_int($options["ndots"]));
+        \assert(\is_bool($options["rotate"]));
 
         $config = new Config($nameservers, $hosts, $options["timeout"], $options["attempts"]);
 
@@ -153,7 +158,7 @@ final class UnixConfigLoader implements ConfigLoader
                     return []; // don't overwrite option value
                 }
                 // The value for this option is silently capped to 30s
-                return ["timeout", (int) \min($value, self::MAX_TIMEOUT)];
+                return ["timeout", \min($value, self::MAX_TIMEOUT)];
 
             case "attempts":
                 $value = (int) $value;
@@ -161,7 +166,7 @@ final class UnixConfigLoader implements ConfigLoader
                     return []; // don't overwrite option value
                 }
                 // The value for this option is silently capped to 5
-                return ["attempts", (int) \min($value, self::MAX_ATTEMPTS)];
+                return ["attempts", \min($value, self::MAX_ATTEMPTS)];
 
             case "ndots":
                 $value = (int) $value;
@@ -169,7 +174,7 @@ final class UnixConfigLoader implements ConfigLoader
                     return []; // don't overwrite option value
                 }
                 // The value for this option is silently capped to 15
-                return ["ndots", (int) \min($value, self::MAX_NDOTS)];
+                return ["ndots", \min($value, self::MAX_NDOTS)];
 
             case "rotate":
                 return ["rotate", true];

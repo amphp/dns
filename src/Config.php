@@ -8,7 +8,7 @@ final class Config
 
     private array $knownHosts;
 
-    private int $timeout;
+    private float $timeout;
 
     private int $attempts;
 
@@ -127,15 +127,16 @@ final class Config
     /**
      * @throws ConfigException
      */
-    private function validateNameserver($nameserver): void
+    private function validateNameserver(string $nameserver): void
     {
-        if (!$nameserver || !\is_string($nameserver)) {
-            throw new ConfigException("Invalid nameserver: $nameserver");
-        }
-
         if ($nameserver[0] === "[") { // IPv6
             $addr = \strstr(\substr($nameserver, 1), "]", true);
-            $port = \substr($nameserver, \strrpos($nameserver, "]") + 1);
+            $addrEnd = \strrpos($nameserver, "]");
+            if ($addrEnd === false) {
+                throw new ConfigException("Invalid nameserver: $nameserver");
+            }
+
+            $port = \substr($nameserver, $addrEnd + 1);
 
             if ($port !== "" && !\preg_match("(^:(\\d+)$)", $port)) {
                 throw new ConfigException("Invalid nameserver: $nameserver");

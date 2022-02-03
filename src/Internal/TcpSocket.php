@@ -56,6 +56,7 @@ final class TcpSocket extends Socket
         $decoder = (new DecoderFactory)->create();
 
         while (true) {
+            /** @var string $length */
             $length = yield 2;
             $length = \unpack("n", $length)[1];
 
@@ -69,6 +70,9 @@ final class TcpSocket extends Socket
     private Parser $parser;
     private bool $isAlive = true;
 
+    /**
+     * @param resource $socket
+     */
     protected function __construct($socket)
     {
         parent::__construct($socket);
