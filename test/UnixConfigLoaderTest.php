@@ -27,8 +27,9 @@ class UnixConfigLoaderTest extends TestCase
         $this->assertSame(1, $result->getNdots());
         $this->assertFalse($result->isRotationEnabled());
 
-        if (\strpos(\gethostname(), '.') !== false) {
-            $this->assertSame([\strtok(\gethostname(), '.')], $result->getSearchList());
+        $hostname = \gethostname();
+        if (\strpos($hostname, '.') !== false) {
+            $this->assertSame([\substr($hostname, \strpos($hostname, '.') + 1)], $result->getSearchList());
         } else {
             $this->assertEmpty($result->getSearchList());
         }

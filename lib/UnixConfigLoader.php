@@ -120,7 +120,7 @@ class UnixConfigLoader implements ConfigLoader
                 $dot = \strpos($hostname, ".");
                 if ($dot !== false && $dot < \strlen($hostname)) {
                     $searchList = [
-                        \substr($hostname, $dot),
+                        \substr($hostname, $dot + 1),
                     ];
                 }
             }
