@@ -43,9 +43,6 @@ class ConfigTest extends AsyncTestCase
     {
         return [
             [[]],
-            [[42]],
-            [[null]],
-            [[true]],
             [["foobar"]],
             [["foobar.com"]],
             [["127.1.1"]],
