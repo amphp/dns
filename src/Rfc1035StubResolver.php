@@ -165,15 +165,15 @@ final class Rfc1035StubResolver implements Resolver
                         return $this->query($searchName, $typeRestriction);
                     }
 
-                    try {
-                        return Future\awaitAny([
-                            async(fn () => $this->query($searchName, Record::A)),
-                            async(fn () => $this->query($searchName, Record::AAAA)),
-                        ]);
-                    } catch (CompositeException $e) {
+                    [$exceptions, $records] = Future\awaitAll([
+                        async(fn () => $this->query($searchName, Record::A)),
+                        async(fn () => $this->query($searchName, Record::AAAA)),
+                    ]);
+
+                    if (\count($exceptions) === 2) {
                         $errors = [];
 
-                        foreach ($e->getReasons() as $reason) {
+                        foreach ($exceptions as $reason) {
                             if ($reason instanceof NoRecordException) {
                                 throw $reason;
                             }
@@ -188,9 +188,11 @@ final class Rfc1035StubResolver implements Resolver
                         throw new DnsException(
                             "All query attempts failed for {$searchName}: " . \implode(", ", $errors),
                             0,
-                            $e
+                            new CompositeException($exceptions)
                         );
                     }
+
+                    return \array_merge(...$records);
                 } catch (NoRecordException) {
                     try {
                         $cnameRecords = $this->query($searchName, Record::CNAME);
