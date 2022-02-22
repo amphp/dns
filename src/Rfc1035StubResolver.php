@@ -222,8 +222,6 @@ final class Rfc1035StubResolver implements Resolver
      * Reloads the configuration in the background.
      *
      * Once it's finished, the configuration will be used for new requests.
-     *
-     * @return Config
      */
     public function reloadConfig(): Config
     {
@@ -455,12 +453,6 @@ final class Rfc1035StubResolver implements Resolver
         return $name;
     }
 
-    /**
-     * @param string $name
-     * @param int    $type
-     *
-     * @return Question
-     */
     private function createQuestion(string $name, int $type): Question
     {
         if (0 > $type || 0xffff < $type) {

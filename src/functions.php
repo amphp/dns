@@ -26,8 +26,6 @@ function resolver(Resolver $resolver = null): Resolver
 
 /**
  * Create a new dns resolver best-suited for the current environment.
- *
- * @return Resolver
  */
 function createDefaultResolver(): Resolver
 {
@@ -58,8 +56,6 @@ function query(string $name, int $type): array
  * Checks whether a string is a valid DNS name.
  *
  * @param string $name String to check.
- *
- * @return bool
  */
 function isValidName(string $name): bool
 {

@@ -23,11 +23,6 @@ abstract class Socket
 {
     private const MAX_CONCURRENT_REQUESTS = 500;
 
-    /**
-     * @param string $uri
-     *
-     * @return self
-     */
     abstract public static function connect(string $uri): self;
 
     private ReadableResourceStream $input;
@@ -107,11 +102,6 @@ abstract class Socket
     }
 
     /**
-     * @param Question $question
-     * @param float $timeout
-     *
-     * @return Message
-     *
      * @throws DnsException
      */
     final public function ask(Question $question, float $timeout): Message
@@ -181,10 +171,6 @@ abstract class Socket
     }
 
     /**
-     * @param Message $message
-     *
-     * @return void
-     *
      * @throws StreamException
      */
     abstract protected function send(Message $message): void;

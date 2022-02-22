@@ -15,8 +15,6 @@ use function Amp\async;
 class IntegrationTest extends AsyncTestCase
 {
     /**
-     * @param string $hostname
-     *
      * @group internet
      * @dataProvider provideHostnames
      */
