@@ -36,7 +36,7 @@
     "prefer-stable": true,
     "minimum-stability": "dev",
     "require": {
-        "php": ">=8",
+        "php": ">=8.1",
         "ext-json": "*",
         "ext-filter": "*",
         "amphp/amp": "^3",
@@ -51,7 +51,7 @@
         "amphp/phpunit-util": "^3",
         "phpunit/phpunit": "^9",
         "amphp/php-cs-fixer-config": "^2-dev",
-        "psalm/phar": "^4.13"
+        "psalm/phar": "^4.20"
     },
     "autoload": {
         "psr-4": {
