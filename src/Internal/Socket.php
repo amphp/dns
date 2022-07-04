@@ -6,11 +6,10 @@ use Amp\ByteStream\ClosedException;
 use Amp\ByteStream\ReadableResourceStream;
 use Amp\ByteStream\StreamException;
 use Amp\ByteStream\WritableResourceStream;
-use Amp\CancelledException;
+use Amp\Cancellation;
 use Amp\DeferredFuture;
 use Amp\Dns\DnsException;
 use Amp\Dns\TimeoutException;
-use Amp\TimeoutCancellation;
 use LibDNS\Messages\Message;
 use LibDNS\Messages\MessageFactory;
 use LibDNS\Messages\MessageTypes;
@@ -26,9 +25,14 @@ abstract class Socket
     abstract public static function connect(string $uri): self;
 
     private ReadableResourceStream $input;
+
     private WritableResourceStream $output;
 
-    /** @var array Contains already sent queries with no response yet. For UDP this is exactly zero or one item. */
+    /**
+     * Contains already sent queries with no response yet. For UDP this is exactly zero or one item.
+     *
+     * @var array<int, object>
+     */
     private array $pending = [];
 
     private MessageFactory $messageFactory;
@@ -81,11 +85,11 @@ abstract class Socket
             /** @var DeferredFuture $deferred */
             $deferred = $this->pending[$id]->deferred;
             unset($this->pending[$id]);
-            $deferred->complete($message);
+            $deferred->complete(static fn () => $message);
         }
 
         /** @psalm-suppress RedundantCondition */
-        if (empty($this->pending)) {
+        if (!$this->pending) {
             $this->input->unreference();
         } elseif (!$this->receiving) {
             $this->input->reference();
@@ -104,7 +108,7 @@ abstract class Socket
     /**
      * @throws DnsException
      */
-    final public function ask(Question $question, float $timeout): Message
+    final public function ask(Question $question, float $timeout, ?Cancellation $cancellation = null): Message
     {
         $this->lastActivity = now();
 
@@ -118,17 +122,34 @@ abstract class Socket
             $id = \random_int(0, 0xffff);
         } while (isset($this->pending[$id]));
 
+        /** @var DeferredFuture<\Closure():Message> $deferred */
         $deferred = new DeferredFuture;
 
-        /** @psalm-suppress MissingConstructor */
-        $pending = new class {
-            public DeferredFuture $deferred;
-            public Question $question;
-        };
+        $this->pending[$id] = new class($deferred, $question, $timeout) {
+            private readonly string $callbackId;
 
-        $pending->deferred = $deferred;
-        $pending->question = $question;
-        $this->pending[$id] = $pending;
+            public function __construct(
+                public readonly DeferredFuture $deferred,
+                public readonly Question $question,
+                float $timeout,
+            ) {
+                $this->callbackId = EventLoop::unreference(EventLoop::delay(
+                    $timeout,
+                    static function () use ($deferred, $timeout): void {
+                        if (!$deferred->isComplete()) {
+                            $deferred->complete(static fn () => throw new TimeoutException(
+                                "Didn't receive a response within {$timeout} seconds."
+                            ));
+                        }
+                    },
+                ));
+            }
+
+            public function __destruct()
+            {
+                EventLoop::cancel($this->callbackId);
+            }
+        };
 
         $message = $this->createMessage($question, $id);
 
@@ -148,21 +169,20 @@ abstract class Socket
         }
 
         try {
-            return $deferred->getFuture()->await(new TimeoutCancellation($timeout));
-        } catch (CancelledException $exception) {
-            unset($this->pending[$id]);
-
-            if (empty($this->pending)) {
+            $callback = $deferred->getFuture()->await($cancellation);
+        } finally {
+            /** @psalm-suppress TypeDoesNotContainType */
+            if (!$this->pending) {
                 $this->input->unreference();
             }
 
-            throw new TimeoutException("Didn't receive a response within {$timeout} seconds.");
-        } finally {
             if ($this->queue) {
-                $deferred = \array_shift($this->queue);
-                $deferred->resume();
+                $suspension = \array_shift($this->queue);
+                $suspension->resume();
             }
         }
+
+        return $callback();
     }
 
     final public function close(): void

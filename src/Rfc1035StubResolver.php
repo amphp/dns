@@ -4,6 +4,7 @@ namespace Amp\Dns;
 
 use Amp\Cache\Cache;
 use Amp\Cache\LocalCache;
+use Amp\Cancellation;
 use Amp\CompositeException;
 use Amp\Dns\Internal\Socket;
 use Amp\Dns\Internal\TcpSocket;
@@ -85,7 +86,7 @@ final class Rfc1035StubResolver implements Resolver
     }
 
     /** @inheritdoc */
-    public function resolve(string $name, int $typeRestriction = null): array
+    public function resolve(string $name, int $typeRestriction = null, ?Cancellation $cancellation = null): array
     {
         if ($typeRestriction !== null && $typeRestriction !== Record::A && $typeRestriction !== Record::AAAA) {
             throw new \Error("Invalid value for parameter 2: null|Record::A|Record::AAAA expected");
@@ -96,7 +97,7 @@ final class Rfc1035StubResolver implements Resolver
         }
 
         if ($this->configStatus === self::CONFIG_FAILED) {
-            return $this->blockingFallbackResolver->resolve($name, $typeRestriction);
+            return $this->blockingFallbackResolver->resolve($name, $typeRestriction, $cancellation);
         }
 
         switch ($typeRestriction) {
@@ -162,12 +163,12 @@ final class Rfc1035StubResolver implements Resolver
 
                 try {
                     if ($typeRestriction) {
-                        return $this->query($searchName, $typeRestriction);
+                        return $this->query($searchName, $typeRestriction, $cancellation);
                     }
 
                     [$exceptions, $records] = Future\awaitAll([
-                        async(fn () => $this->query($searchName, Record::A)),
-                        async(fn () => $this->query($searchName, Record::AAAA)),
+                        async(fn () => $this->query($searchName, Record::A, $cancellation)),
+                        async(fn () => $this->query($searchName, Record::AAAA, $cancellation)),
                     ]);
 
                     if (\count($exceptions) === 2) {
@@ -195,11 +196,11 @@ final class Rfc1035StubResolver implements Resolver
                     return \array_merge(...$records);
                 } catch (NoRecordException) {
                     try {
-                        $cnameRecords = $this->query($searchName, Record::CNAME);
+                        $cnameRecords = $this->query($searchName, Record::CNAME, $cancellation);
                         $name = $cnameRecords[0]->getValue();
                         continue;
                     } catch (NoRecordException) {
-                        $dnameRecords = $this->query($searchName, Record::DNAME);
+                        $dnameRecords = $this->query($searchName, Record::DNAME, $cancellation);
                         $name = $dnameRecords[0]->getValue();
                         continue;
                     }
@@ -265,22 +266,22 @@ final class Rfc1035StubResolver implements Resolver
         return $this->pendingConfig->await();
     }
 
-    public function query(string $name, int $type): array
+    public function query(string $name, int $type, ?Cancellation $cancellation = null): array
     {
         $pendingQueryKey = $type . " " . $name;
 
         if (isset($this->pendingQueries[$pendingQueryKey])) {
-            return $this->pendingQueries[$pendingQueryKey]->await();
+            return $this->pendingQueries[$pendingQueryKey]->await($cancellation);
         }
 
-        $future = async(function () use ($name, $type): array {
+        $future = async(function () use ($name, $type, $cancellation): array {
             try {
                 if ($this->configStatus === self::CONFIG_NOT_LOADED) {
                     $this->reloadConfig();
                 }
 
                 if ($this->configStatus === self::CONFIG_FAILED) {
-                    return $this->blockingFallbackResolver->query($name, $type);
+                    return $this->blockingFallbackResolver->query($name, $type, $cancellation);
                 }
 
                 \assert($this->config !== null);
@@ -326,7 +327,7 @@ final class Rfc1035StubResolver implements Resolver
 
                         $attemptDescription[] = $uri;
 
-                        $response = $socket->ask($question, $this->config->getTimeout());
+                        $response = $socket->ask($question, $this->config->getTimeout(), $cancellation);
                         $this->assertAcceptableResponse($response, $name);
 
                         // UDP sockets are never reused, they're not in the $this->sockets map
@@ -412,7 +413,7 @@ final class Rfc1035StubResolver implements Resolver
 
         $this->pendingQueries[$type . " " . $name] = $future;
 
-        return $future->await();
+        return $future->await($cancellation);
     }
 
     private function queryHosts(string $name, int $typeRestriction = null): array

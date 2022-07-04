@@ -2,6 +2,8 @@
 
 namespace Amp\Dns;
 
+use Amp\Cancellation;
+
 interface Resolver
 {
     /**
@@ -19,7 +21,7 @@ interface Resolver
      * @throws NoRecordException
      * @throws DnsException
      */
-    public function resolve(string $name, int $typeRestriction = null): array;
+    public function resolve(string $name, int $typeRestriction = null, ?Cancellation $cancellation = null): array;
 
     /**
      * Query specific DNS records.
@@ -33,5 +35,5 @@ interface Resolver
      *
      * @throws DnsException
      */
-    public function query(string $name, int $type): array;
+    public function query(string $name, int $type, ?Cancellation $cancellation = null): array;
 }
