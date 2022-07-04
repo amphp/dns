@@ -22,13 +22,10 @@ final class UnixDnsConfigLoader implements DnsConfigLoader
         "rotate" => false,
     ];
 
-    private string $path;
-    private HostLoader $hostLoader;
-
-    public function __construct(string $path = "/etc/resolv.conf", HostLoader $hostLoader = null)
-    {
-        $this->path = $path;
-        $this->hostLoader = $hostLoader ?? new HostLoader;
+    public function __construct(
+        private readonly string $path = "/etc/resolv.conf",
+        private readonly HostLoader $hostLoader = new HostLoader(),
+    ) {
     }
 
     public function loadConfig(): DnsConfig

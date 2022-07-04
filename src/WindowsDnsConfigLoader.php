@@ -7,11 +7,9 @@ use Amp\WindowsRegistry\WindowsRegistry;
 
 final class WindowsDnsConfigLoader implements DnsConfigLoader
 {
-    private HostLoader $hostLoader;
-
-    public function __construct(HostLoader $hostLoader = null)
-    {
-        $this->hostLoader = $hostLoader ?? new HostLoader;
+    public function __construct(
+        private readonly HostLoader $hostLoader = new HostLoader(),
+    ) {
     }
 
     public function loadConfig(): DnsConfig

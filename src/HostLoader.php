@@ -4,9 +4,9 @@ namespace Amp\Dns;
 
 final class HostLoader
 {
-    private string $path;
+    private readonly string $path;
 
-    public function __construct(string $path = null)
+    public function __construct(?string $path = null)
     {
         $this->path = $path ?? $this->getDefaultPath();
     }

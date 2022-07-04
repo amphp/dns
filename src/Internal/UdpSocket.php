@@ -29,8 +29,8 @@ final class UdpSocket extends Socket
         return new self($socket);
     }
 
-    private Encoder $encoder;
-    private Decoder $decoder;
+    private readonly Encoder $encoder;
+    private readonly Decoder $decoder;
 
     /**
      * @param resource $socket

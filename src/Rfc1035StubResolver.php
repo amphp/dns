@@ -25,9 +25,9 @@ final class Rfc1035StubResolver implements Resolver
     private const CONFIG_LOADED = 1;
     private const CONFIG_FAILED = 2;
 
-    private DnsConfigLoader $configLoader;
+    private readonly DnsConfigLoader $configLoader;
 
-    private QuestionFactory $questionFactory;
+    private readonly QuestionFactory $questionFactory;
 
     private ?DnsConfig $config = null;
 
@@ -35,7 +35,7 @@ final class Rfc1035StubResolver implements Resolver
 
     private ?Future $pendingConfig = null;
 
-    private Cache $cache;
+    private readonly Cache $cache;
 
     /** @var Socket[] */
     private array $sockets = [];
@@ -46,13 +46,13 @@ final class Rfc1035StubResolver implements Resolver
     /** @var Future[] */
     private array $pendingQueries = [];
 
-    private string $gcCallbackId;
+    private readonly string $gcCallbackId;
 
-    private BlockingFallbackResolver $blockingFallbackResolver;
+    private readonly BlockingFallbackResolver $blockingFallbackResolver;
 
     private int $nextNameserver = 0;
 
-    public function __construct(Cache $cache = null, DnsConfigLoader $configLoader = null)
+    public function __construct(?Cache $cache = null, ?DnsConfigLoader $configLoader = null)
     {
         $this->cache = $cache ?? new LocalCache(256);
         $this->configLoader = $configLoader ?? (\PHP_OS_FAMILY === 'Windows'

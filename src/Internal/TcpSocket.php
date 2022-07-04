@@ -65,9 +65,9 @@ final class TcpSocket extends Socket
         }
     }
 
-    private Encoder $encoder;
-    private \SplQueue $queue;
-    private Parser $parser;
+    private readonly Encoder $encoder;
+    private readonly \SplQueue $queue;
+    private readonly Parser $parser;
     private bool $isAlive = true;
 
     /**

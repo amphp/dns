@@ -24,9 +24,9 @@ abstract class Socket
 
     abstract public static function connect(string $uri): self;
 
-    private ReadableResourceStream $input;
+    private readonly ReadableResourceStream $input;
 
-    private WritableResourceStream $output;
+    private readonly WritableResourceStream $output;
 
     /**
      * Contains already sent queries with no response yet. For UDP this is exactly zero or one item.
@@ -35,7 +35,7 @@ abstract class Socket
      */
     private array $pending = [];
 
-    private MessageFactory $messageFactory;
+    private readonly MessageFactory $messageFactory;
 
     /** @var float Used for determining whether the socket can be garbage collected, because it's inactive. */
     private float $lastActivity;

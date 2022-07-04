@@ -84,15 +84,11 @@ final class Record
         return $types[$type] ?? "unknown ({$type})";
     }
 
-    private string $value;
-    private int $type;
-    private ?int $ttl;
-
-    public function __construct(string $value, int $type, int $ttl = null)
-    {
-        $this->value = $value;
-        $this->type = $type;
-        $this->ttl = $ttl;
+    public function __construct(
+        private readonly string $value,
+        private readonly int $type,
+        private readonly ?int $ttl = null,
+    ) {
     }
 
     public function getValue(): string
