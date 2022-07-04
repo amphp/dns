@@ -2,7 +2,7 @@
 
 namespace Amp\Dns;
 
-final class Config
+final class DnsConfig
 {
     private array $nameservers;
 

@@ -2,11 +2,11 @@
 
 namespace Amp\Dns\Test;
 
-use Amp\Dns\Config;
 use Amp\Dns\ConfigException;
+use Amp\Dns\DnsConfig;
 use Amp\PHPUnit\AsyncTestCase;
 
-class ConfigTest extends AsyncTestCase
+class DnsConfigTest extends AsyncTestCase
 {
     /**
      * @param string[] $nameservers Valid server array.
@@ -15,7 +15,7 @@ class ConfigTest extends AsyncTestCase
      */
     public function testAcceptsValidServers(array $nameservers): void
     {
-        self::assertInstanceOf(Config::class, new Config($nameservers));
+        self::assertInstanceOf(DnsConfig::class, new DnsConfig($nameservers));
     }
 
     public function provideValidServers(): array
@@ -36,7 +36,7 @@ class ConfigTest extends AsyncTestCase
     public function testRejectsInvalidServers(array $nameservers): void
     {
         $this->expectException(ConfigException::class);
-        new Config($nameservers);
+        new DnsConfig($nameservers);
     }
 
     public function provideInvalidServers(): array
@@ -63,46 +63,46 @@ class ConfigTest extends AsyncTestCase
     public function testInvalidTimeout(): void
     {
         $this->expectException(ConfigException::class);
-        new Config(["127.0.0.1"], [], -1);
+        new DnsConfig(["127.0.0.1"], [], -1);
     }
 
     public function testInvalidAttempts(): void
     {
         $this->expectException(ConfigException::class);
-        new Config(["127.0.0.1"], [], 500, 0);
+        new DnsConfig(["127.0.0.1"], [], 500, 0);
     }
 
     public function testInvalidNdots(): void
     {
         $this->expectException(ConfigException::class);
-        $config = new Config(["127.0.0.1"]);
+        $config = new DnsConfig(["127.0.0.1"]);
         $config->withNdots(-1);
     }
 
     public function testNdots(): void
     {
-        $config = new Config(["127.0.0.1"]);
+        $config = new DnsConfig(["127.0.0.1"]);
         $config = $config->withNdots(1);
         self::assertSame(1, $config->getNdots());
     }
 
     public function testSearchList(): void
     {
-        $config = new Config(["127.0.0.1"]);
+        $config = new DnsConfig(["127.0.0.1"]);
         $config = $config->withSearchList(['local']);
         self::assertSame(['local'], $config->getSearchList());
     }
 
     public function testRotationEnabled(): void
     {
-        $config = new Config(["127.0.0.1"]);
+        $config = new DnsConfig(["127.0.0.1"]);
         $config = $config->withRotationEnabled(true);
         self::assertTrue($config->isRotationEnabled());
     }
 
     public function testRotationDisabled(): void
     {
-        $config = new Config(["127.0.0.1"]);
+        $config = new DnsConfig(["127.0.0.1"]);
         self::assertFalse($config->isRotationEnabled());
     }
 }

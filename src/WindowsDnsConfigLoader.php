@@ -5,7 +5,7 @@ namespace Amp\Dns;
 use Amp\WindowsRegistry\KeyNotFoundException;
 use Amp\WindowsRegistry\WindowsRegistry;
 
-final class WindowsConfigLoader implements ConfigLoader
+final class WindowsDnsConfigLoader implements DnsConfigLoader
 {
     private HostLoader $hostLoader;
 
@@ -14,7 +14,7 @@ final class WindowsConfigLoader implements ConfigLoader
         $this->hostLoader = $hostLoader ?? new HostLoader;
     }
 
-    public function loadConfig(): Config
+    public function loadConfig(): DnsConfig
     {
         $keys = [
             "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters\\NameServer",
@@ -75,6 +75,6 @@ final class WindowsConfigLoader implements ConfigLoader
 
         $hosts = $this->hostLoader->loadHosts();
 
-        return new Config($nameservers, $hosts);
+        return new DnsConfig($nameservers, $hosts);
     }
 }

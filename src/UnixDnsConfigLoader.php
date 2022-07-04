@@ -2,7 +2,7 @@
 
 namespace Amp\Dns;
 
-final class UnixConfigLoader implements ConfigLoader
+final class UnixDnsConfigLoader implements DnsConfigLoader
 {
     public const MAX_NAMESERVERS = 3;
     public const MAX_DNS_SEARCH = 6;
@@ -31,7 +31,7 @@ final class UnixConfigLoader implements ConfigLoader
         $this->hostLoader = $hostLoader ?? new HostLoader;
     }
 
-    public function loadConfig(): Config
+    public function loadConfig(): DnsConfig
     {
         $nameservers = [];
         $searchList = [];
@@ -120,7 +120,7 @@ final class UnixConfigLoader implements ConfigLoader
         \assert(\is_int($options["ndots"]));
         \assert(\is_bool($options["rotate"]));
 
-        $config = new Config($nameservers, $hosts, $options["timeout"], $options["attempts"]);
+        $config = new DnsConfig($nameservers, $hosts, $options["timeout"], $options["attempts"]);
 
         return $config->withSearchList($searchList)
             ->withNdots($options["ndots"])

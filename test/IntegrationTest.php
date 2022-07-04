@@ -6,8 +6,8 @@ use Amp\Cache\NullCache;
 use Amp\Dns;
 use Amp\Dns\DnsException;
 use Amp\Dns\Record;
-use Amp\Dns\UnixConfigLoader;
-use Amp\Dns\WindowsConfigLoader;
+use Amp\Dns\UnixDnsConfigLoader;
+use Amp\Dns\WindowsDnsConfigLoader;
 use Amp\PHPUnit\AsyncTestCase;
 use PHPUnit\Framework\MockObject\MockObject;
 use function Amp\async;
@@ -36,7 +36,7 @@ class IntegrationTest extends AsyncTestCase
     public function testWorksAfterConfigReload(): void
     {
         Dns\query("google.com", Record::A);
-        self::assertInstanceOf(Dns\Config::class, Dns\resolver()->reloadConfig());
+        self::assertInstanceOf(Dns\DnsConfig::class, Dns\resolver()->reloadConfig());
         self::assertIsArray(Dns\query("example.com", Record::A));
     }
 
@@ -71,13 +71,13 @@ class IntegrationTest extends AsyncTestCase
     public function testResolveUsingSearchList(): void
     {
         $configLoader = \stripos(PHP_OS, "win") === 0
-            ? new WindowsConfigLoader()
-            : new UnixConfigLoader();
+            ? new WindowsDnsConfigLoader()
+            : new UnixDnsConfigLoader();
         $config = $configLoader->loadConfig();
         $config = $config->withSearchList(['foobar.invalid', 'kelunik.com']);
         $config = $config->withNdots(1);
-        /** @var Dns\ConfigLoader|MockObject $configLoader */
-        $configLoader = $this->createMock(Dns\ConfigLoader::class);
+        /** @var Dns\DnsConfigLoader|MockObject $configLoader */
+        $configLoader = $this->createMock(Dns\DnsConfigLoader::class);
         $configLoader->expects(self::once())
             ->method('loadConfig')
             ->willReturn($config);
@@ -100,13 +100,13 @@ class IntegrationTest extends AsyncTestCase
     public function testFailResolveRootedDomainWhenSearchListDefined(): void
     {
         $configLoader = \stripos(PHP_OS, "win") === 0
-            ? new WindowsConfigLoader()
-            : new UnixConfigLoader();
+            ? new WindowsDnsConfigLoader()
+            : new UnixDnsConfigLoader();
         $config = $configLoader->loadConfig();
         $config = $config->withSearchList(['kelunik.com']);
         $config = $config->withNdots(1);
-        /** @var Dns\ConfigLoader|MockObject $configLoader */
-        $configLoader = $this->createMock(Dns\ConfigLoader::class);
+        /** @var Dns\DnsConfigLoader|MockObject $configLoader */
+        $configLoader = $this->createMock(Dns\DnsConfigLoader::class);
         $configLoader->expects(self::once())
             ->method('loadConfig')
             ->willReturn($config);
@@ -118,9 +118,9 @@ class IntegrationTest extends AsyncTestCase
 
     public function testResolveWithRotateList(): void
     {
-        /** @var Dns\ConfigLoader|MockObject $configLoader */
-        $configLoader = $this->createMock(Dns\ConfigLoader::class);
-        $config = new Dns\Config([
+        /** @var Dns\DnsConfigLoader|MockObject $configLoader */
+        $configLoader = $this->createMock(Dns\DnsConfigLoader::class);
+        $config = new Dns\DnsConfig([
             '208.67.222.220:53', // Opendns, US
             '195.243.214.4:53', // Deutsche Telecom AG, DE
         ]);

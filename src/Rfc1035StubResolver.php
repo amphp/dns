@@ -25,11 +25,11 @@ final class Rfc1035StubResolver implements Resolver
     private const CONFIG_LOADED = 1;
     private const CONFIG_FAILED = 2;
 
-    private ConfigLoader $configLoader;
+    private DnsConfigLoader $configLoader;
 
     private QuestionFactory $questionFactory;
 
-    private ?Config $config = null;
+    private ?DnsConfig $config = null;
 
     private int $configStatus = self::CONFIG_NOT_LOADED;
 
@@ -52,12 +52,12 @@ final class Rfc1035StubResolver implements Resolver
 
     private int $nextNameserver = 0;
 
-    public function __construct(Cache $cache = null, ConfigLoader $configLoader = null)
+    public function __construct(Cache $cache = null, DnsConfigLoader $configLoader = null)
     {
         $this->cache = $cache ?? new LocalCache(256);
         $this->configLoader = $configLoader ?? (\PHP_OS_FAMILY === 'Windows'
-                ? new WindowsConfigLoader
-                : new UnixConfigLoader);
+                ? new WindowsDnsConfigLoader
+                : new UnixDnsConfigLoader);
 
         $this->questionFactory = new QuestionFactory;
         $this->blockingFallbackResolver = new BlockingFallbackResolver;
@@ -224,13 +224,13 @@ final class Rfc1035StubResolver implements Resolver
      *
      * Once it's finished, the configuration will be used for new requests.
      */
-    public function reloadConfig(): Config
+    public function reloadConfig(): DnsConfig
     {
         if ($this->pendingConfig) {
             return $this->pendingConfig->await();
         }
 
-        $this->pendingConfig = async(function (): Config {
+        $this->pendingConfig = async(function (): DnsConfig {
             try {
                 $this->config = $this->configLoader->loadConfig();
                 $this->configStatus = self::CONFIG_LOADED;

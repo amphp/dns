@@ -3,14 +3,14 @@
 namespace Amp\Dns\Test;
 
 use Amp\Dns\ConfigException;
-use Amp\Dns\UnixConfigLoader;
+use Amp\Dns\UnixDnsConfigLoader;
 use Amp\PHPUnit\AsyncTestCase;
 
-class UnixConfigLoaderTest extends AsyncTestCase
+class UnixDnsConfigLoaderTest extends AsyncTestCase
 {
     public function test(): void
     {
-        $loader = new UnixConfigLoader(__DIR__ . "/data/resolv.conf");
+        $loader = new UnixDnsConfigLoader(__DIR__ . "/data/resolv.conf");
 
         $result = $loader->loadConfig();
 
@@ -34,7 +34,7 @@ class UnixConfigLoaderTest extends AsyncTestCase
 
     public function testWithSearchList(): void
     {
-        $loader = new UnixConfigLoader(__DIR__ . "/data/resolv-search.conf");
+        $loader = new UnixDnsConfigLoader(__DIR__ . "/data/resolv-search.conf");
 
         $result = $loader->loadConfig();
 
@@ -52,7 +52,7 @@ class UnixConfigLoaderTest extends AsyncTestCase
 
     public function testWithRotateOption(): void
     {
-        $loader = new UnixConfigLoader(__DIR__ . "/data/resolv-rotate.conf");
+        $loader = new UnixDnsConfigLoader(__DIR__ . "/data/resolv-rotate.conf");
 
         $result = $loader->loadConfig();
 
@@ -68,7 +68,7 @@ class UnixConfigLoaderTest extends AsyncTestCase
 
     public function testWithNegativeOption(): void
     {
-        $loader = new UnixConfigLoader(__DIR__ . "/data/resolv-negative-option-values.conf");
+        $loader = new UnixDnsConfigLoader(__DIR__ . "/data/resolv-negative-option-values.conf");
 
         $result = $loader->loadConfig();
 
@@ -87,7 +87,7 @@ class UnixConfigLoaderTest extends AsyncTestCase
         \putenv("LOCALDOMAIN=local");
         \putenv("RES_OPTIONS=timeout:1 attempts:10 ndots:10 rotate");
 
-        $loader = new UnixConfigLoader(__DIR__ . "/data/resolv.conf");
+        $loader = new UnixDnsConfigLoader(__DIR__ . "/data/resolv.conf");
 
         $result = $loader->loadConfig();
 
@@ -107,6 +107,6 @@ class UnixConfigLoaderTest extends AsyncTestCase
     public function testNoDefaultsOnConfNotFound(): void
     {
         $this->expectException(ConfigException::class);
-        (new UnixConfigLoader(__DIR__ . "/data/non-existent.conf"))->loadConfig();
+        (new UnixDnsConfigLoader(__DIR__ . "/data/non-existent.conf"))->loadConfig();
     }
 }
