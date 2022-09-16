@@ -1,4 +1,4 @@
-# amphp/cache
+# amphp/dns
 
 AMPHP is a collection of event-driven libraries for PHP designed with fibers and concurrency in mind.
 `amphp/dns` provides hostname to IP address resolution and querying specific DNS records.
