@@ -73,7 +73,7 @@ EventLoop::repeat(600, function () use ($resolver) {
 });
 ```
 
-> **Note:**
+> **Note**
 > The above code relies on the resolver not being changed. `reloadConfig` is specific to `Rfc1035StubResolver` and is not part of the `Resolver` interface.
 
 ## Example
