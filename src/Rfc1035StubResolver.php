@@ -332,10 +332,7 @@ final class Rfc1035StubResolver implements Resolver
 
                         // UDP sockets are never reused, they're not in the $this->sockets map
                         if ($protocol === "udp") {
-                            // Defer call, because it interferes with the unreference() call in Internal\Socket otherwise
-                            EventLoop::defer(static function () use ($socket): void {
-                                $socket->close();
-                            });
+                            $socket->close();
                         }
 
                         if ($response->isTruncated()) {
@@ -385,11 +382,8 @@ final class Rfc1035StubResolver implements Resolver
                             return new Record($data, $type, $ttls[$type]);
                         }, $result[$type]);
                     } catch (TimeoutException) {
-                        // Defer call, because it might interfere with the unreference() call in Internal\Socket otherwise
-                        EventLoop::defer(function () use ($socket, $uri): void {
-                            unset($this->sockets[$uri]);
-                            $socket->close();
-                        });
+                        unset($this->sockets[$uri]);
+                        $socket->close();
 
                         $uri = $protocol . "://" . $nameservers[++$attempt % $nameserversCount];
                         $socket = $this->getSocket($uri);
