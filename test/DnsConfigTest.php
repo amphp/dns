@@ -63,13 +63,15 @@ class DnsConfigTest extends AsyncTestCase
     public function testInvalidTimeout(): void
     {
         $this->expectException(ConfigException::class);
-        new DnsConfig(["127.0.0.1"], [], -1);
+        $config = new DnsConfig(["127.0.0.1"]);
+        $config->withTimeout(-1);
     }
 
     public function testInvalidAttempts(): void
     {
         $this->expectException(ConfigException::class);
-        new DnsConfig(["127.0.0.1"], [], 500, 0);
+        $config = new DnsConfig(["127.0.0.1"]);
+        $config->withAttempts(0);
     }
 
     public function testInvalidNdots(): void

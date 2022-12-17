@@ -8,9 +8,9 @@ final class DnsConfig
 
     private array $knownHosts;
 
-    private float $timeout;
+    private float $timeout = 3;
 
-    private int $attempts;
+    private int $attempts = 2;
 
     private array $searchList = [];
 
@@ -21,7 +21,7 @@ final class DnsConfig
     /**
      * @throws ConfigException
      */
-    public function __construct(array $nameservers, array $knownHosts = [], float $timeout = 3, int $attempts = 2)
+    public function __construct(array $nameservers, array $knownHosts = [])
     {
         if (\count($nameservers) < 1) {
             throw new ConfigException("At least one nameserver is required for a valid config");
@@ -29,14 +29,6 @@ final class DnsConfig
 
         foreach ($nameservers as $nameserver) {
             $this->validateNameserver($nameserver);
-        }
-
-        if ($timeout < 0) {
-            throw new ConfigException("Invalid timeout ($timeout), must be 0 or greater");
-        }
-
-        if ($attempts < 1) {
-            throw new ConfigException("Invalid attempt count ($attempts), must be 1 or greater");
         }
 
         // Windows does not include localhost in its host file. Fetch it from the system instead
@@ -52,8 +44,6 @@ final class DnsConfig
 
         $this->nameservers = $nameservers;
         $this->knownHosts = $knownHosts;
-        $this->timeout = $timeout;
-        $this->attempts = $attempts;
     }
 
     public function withSearchList(array $searchList): self
@@ -72,11 +62,9 @@ final class DnsConfig
         if ($ndots < 0) {
             throw new ConfigException("Invalid ndots ($ndots), must be greater or equal to 0");
         }
-        if ($ndots > 15) {
-            $ndots = 15;
-        }
+
         $self = clone $this;
-        $self->ndots = $ndots;
+        $self->ndots = \min($ndots, 15);
 
         return $self;
     }
@@ -85,6 +73,30 @@ final class DnsConfig
     {
         $self = clone $this;
         $self->rotation = $enabled;
+
+        return $self;
+    }
+
+    public function withTimeout(float $timeout): self
+    {
+        if ($timeout < 0) {
+            throw new ConfigException("Invalid timeout ($timeout), must be 0 or greater");
+        }
+
+        $self = clone $this;
+        $self->timeout = $timeout;
+
+        return $self;
+    }
+
+    public function withAttempts(int $attempts): self
+    {
+        if ($attempts < 1) {
+            throw new ConfigException("Invalid attempt count ($attempts), must be 1 or greater");
+        }
+
+        $self = clone $this;
+        $self->attempts = $attempts;
 
         return $self;
     }

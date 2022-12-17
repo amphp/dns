@@ -117,9 +117,11 @@ final class UnixDnsConfigLoader implements DnsConfigLoader
         \assert(\is_int($options["ndots"]));
         \assert(\is_bool($options["rotate"]));
 
-        $config = new DnsConfig($nameservers, $hosts, $options["timeout"], $options["attempts"]);
+        $config = new DnsConfig($nameservers, $hosts);
 
         return $config->withSearchList($searchList)
+            ->withTimeout($options["timeout"])
+            ->withAttempts($options["attempts"])
             ->withNdots($options["ndots"])
             ->withRotationEnabled($options["rotate"]);
     }
