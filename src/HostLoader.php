@@ -2,8 +2,14 @@
 
 namespace Amp\Dns;
 
+use Amp\ForbidCloning;
+use Amp\ForbidSerialization;
+
 final class HostLoader
 {
+    use ForbidCloning;
+    use ForbidSerialization;
+
     private readonly string $path;
 
     public function __construct(?string $path = null)

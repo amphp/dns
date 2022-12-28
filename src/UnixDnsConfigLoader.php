@@ -2,8 +2,14 @@
 
 namespace Amp\Dns;
 
+use Amp\ForbidCloning;
+use Amp\ForbidSerialization;
+
 final class UnixDnsConfigLoader implements DnsConfigLoader
 {
+    use ForbidCloning;
+    use ForbidSerialization;
+
     public const MAX_NAMESERVERS = 3;
     public const MAX_DNS_SEARCH = 6;
 

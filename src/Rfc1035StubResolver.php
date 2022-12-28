@@ -9,6 +9,8 @@ use Amp\CompositeException;
 use Amp\Dns\Internal\Socket;
 use Amp\Dns\Internal\TcpSocket;
 use Amp\Dns\Internal\UdpSocket;
+use Amp\ForbidCloning;
+use Amp\ForbidSerialization;
 use Amp\Future;
 use LibDNS\Messages\Message;
 use LibDNS\Records\Question;
@@ -19,6 +21,9 @@ use function Amp\now;
 
 final class Rfc1035StubResolver implements Resolver
 {
+    use ForbidCloning;
+    use ForbidSerialization;
+
     public const CACHE_PREFIX = "amphp.dns.";
 
     private const CONFIG_NOT_LOADED = 0;

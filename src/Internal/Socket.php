@@ -10,6 +10,8 @@ use Amp\Cancellation;
 use Amp\DeferredFuture;
 use Amp\Dns\DnsException;
 use Amp\Dns\TimeoutException;
+use Amp\ForbidCloning;
+use Amp\ForbidSerialization;
 use LibDNS\Messages\Message;
 use LibDNS\Messages\MessageFactory;
 use LibDNS\Messages\MessageTypes;
@@ -21,6 +23,9 @@ use function Amp\weakClosure;
 /** @internal */
 abstract class Socket
 {
+    use ForbidCloning;
+    use ForbidSerialization;
+
     private const MAX_CONCURRENT_REQUESTS = 500;
 
     abstract public static function connect(string $uri): self;

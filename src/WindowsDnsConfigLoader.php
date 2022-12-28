@@ -2,11 +2,16 @@
 
 namespace Amp\Dns;
 
+use Amp\ForbidCloning;
+use Amp\ForbidSerialization;
 use Amp\WindowsRegistry\KeyNotFoundException;
 use Amp\WindowsRegistry\WindowsRegistry;
 
 final class WindowsDnsConfigLoader implements DnsConfigLoader
 {
+    use ForbidCloning;
+    use ForbidSerialization;
+
     public function __construct(
         private readonly HostLoader $hostLoader = new HostLoader(),
     ) {

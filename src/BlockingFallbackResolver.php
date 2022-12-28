@@ -3,9 +3,14 @@
 namespace Amp\Dns;
 
 use Amp\Cancellation;
+use Amp\ForbidCloning;
+use Amp\ForbidSerialization;
 
 final class BlockingFallbackResolver implements Resolver
 {
+    use ForbidCloning;
+    use ForbidSerialization;
+
     public function resolve(string $name, int $typeRestriction = null, ?Cancellation $cancellation = null): array
     {
         if (!\in_array($typeRestriction, [Record::A, null], true)) {
