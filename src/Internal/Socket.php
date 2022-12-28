@@ -94,7 +94,7 @@ abstract class Socket
             $pending = $this->pending[$id];
             unset($this->pending[$id]);
 
-            $pending->deferred->complete(static fn () => $message);
+            $pending->deferred?->complete(static fn () => $message);
             $pending->deferred = null;
         }
 
@@ -135,6 +135,7 @@ abstract class Socket
         /** @var DeferredFuture<\Closure():Message> $deferred */
         $deferred = new DeferredFuture;
 
+        /** @psalm-suppress InaccessibleProperty $this->pending is an ArrayObject */
         $this->pending[$id] = new class($this->pending, $id, $deferred, $question, $timeout) {
             private readonly string $callbackId;
 
