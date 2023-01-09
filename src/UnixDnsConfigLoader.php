@@ -71,7 +71,7 @@ final class UnixDnsConfigLoader implements DnsConfigLoader
                 }
 
                 $value = \trim($value);
-                $ip = @\inet_pton($value);
+                $ip = \inet_pton($value);
                 if ($ip === false) {
                     continue;
                 }

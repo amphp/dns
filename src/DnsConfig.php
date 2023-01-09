@@ -169,7 +169,7 @@ final class DnsConfig
         $addr = \trim($addr, "[]");
         $port = (int) $port;
 
-        if (!@\inet_pton($addr)) {
+        if (!\inet_pton($addr)) {
             throw new DnsConfigException("Invalid server IP: $addr");
         }
 

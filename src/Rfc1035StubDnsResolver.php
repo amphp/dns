@@ -439,7 +439,7 @@ final class Rfc1035StubDnsResolver implements DnsResolver
     private function normalizeName(string $name, int $type): string
     {
         if ($type === DnsRecord::PTR) {
-            if (($packedIp = @\inet_pton($name)) !== false) {
+            if (($packedIp = \inet_pton($name)) !== false) {
                 if (isset($packedIp[4])) { // IPv6
                     $name = \wordwrap(\strrev(\bin2hex($packedIp)), 1, ".", true) . ".ip6.arpa";
                 } else { // IPv4

@@ -63,7 +63,7 @@ final class WindowsDnsConfigLoader implements DnsConfigLoader
         // Microsoft documents space as delimiter, AppVeyor uses comma, we just accept both
         foreach (\explode(" ", \strtr($nameserver, ",", " ")) as $nameserver) {
             $nameserver = \trim($nameserver);
-            $ip = @\inet_pton($nameserver);
+            $ip = \inet_pton($nameserver);
 
             if ($ip === false) {
                 continue;

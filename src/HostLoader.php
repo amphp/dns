@@ -36,7 +36,7 @@ final class HostLoader
 
             $parts = \preg_split('/\s+/', $line);
 
-            if (!($ip = @\inet_pton($parts[0]))) {
+            if (!($ip = \inet_pton($parts[0]))) {
                 continue;
             }
 
