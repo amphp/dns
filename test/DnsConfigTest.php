@@ -2,8 +2,8 @@
 
 namespace Amp\Dns\Test;
 
-use Amp\Dns\DnsConfigException;
 use Amp\Dns\DnsConfig;
+use Amp\Dns\DnsConfigException;
 use Amp\PHPUnit\AsyncTestCase;
 
 class DnsConfigTest extends AsyncTestCase
