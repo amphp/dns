@@ -69,7 +69,7 @@ The `Rfc1035StubResolver` (which is the default resolver shipping with that pack
 
 ```php
 EventLoop::repeat(600, function () use ($resolver) {
-    Amp\Dns\resolver()->reloadConfig();
+    Amp\Dns\dnsResolver()->reloadConfig();
 });
 ```
 

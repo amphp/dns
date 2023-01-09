@@ -36,7 +36,7 @@ class IntegrationTest extends AsyncTestCase
     public function testWorksAfterConfigReload(): void
     {
         Dns\query("google.com", DnsRecord::A);
-        self::assertInstanceOf(Dns\DnsConfig::class, Dns\resolver()->reloadConfig());
+        self::assertInstanceOf(Dns\DnsConfig::class, Dns\dnsResolver()->reloadConfig());
         self::assertIsArray(Dns\query("example.com", DnsRecord::A));
     }
 
@@ -82,7 +82,7 @@ class IntegrationTest extends AsyncTestCase
             ->method('loadConfig')
             ->willReturn($config);
 
-        Dns\resolver(new Dns\Rfc1035StubDnsResolver(null, $configLoader));
+        Dns\dnsResolver(new Dns\Rfc1035StubDnsResolver(null, $configLoader));
         $result = Dns\resolve('blog');
 
         $record = $result[0];
@@ -111,7 +111,7 @@ class IntegrationTest extends AsyncTestCase
             ->method('loadConfig')
             ->willReturn($config);
 
-        Dns\resolver(new Dns\Rfc1035StubDnsResolver(null, $configLoader));
+        Dns\dnsResolver(new Dns\Rfc1035StubDnsResolver(null, $configLoader));
         $this->expectException(DnsException::class);
         Dns\resolve('blog.');
     }

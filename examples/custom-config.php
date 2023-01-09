@@ -16,7 +16,7 @@ $customConfigLoader = new class implements Dns\DnsConfigLoader {
     }
 };
 
-Dns\resolver(new Dns\Rfc1035StubDnsResolver(null, $customConfigLoader));
+Dns\dnsResolver(new Dns\Rfc1035StubDnsResolver(null, $customConfigLoader));
 
 $hostname = $argv[1] ?? "amphp.org";
 

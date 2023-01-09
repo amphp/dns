@@ -5,27 +5,27 @@ namespace Amp\Dns;
 use Revolt\EventLoop;
 
 /**
- * Retrieve the application-wide dns resolver instance.
+ * Retrieve the application-wide DNS resolver instance.
  *
- * @param DnsResolver|null $resolver Optionally specify a new default dns resolver instance
+ * @param DnsResolver|null $dnsResolver Optionally specify a new default DNS resolver instance
  *
- * @return DnsResolver Returns the application-wide dns resolver instance
+ * @return DnsResolver Returns the application-wide DNS resolver instance
  */
-function resolver(DnsResolver $resolver = null): DnsResolver
+function dnsResolver(DnsResolver $dnsResolver = null): DnsResolver
 {
     static $map;
     $map ??= new \WeakMap();
     $driver = EventLoop::getDriver();
 
-    if ($resolver) {
-        return $map[$driver] = $resolver;
+    if ($dnsResolver) {
+        return $map[$driver] = $dnsResolver;
     }
 
     return $map[$driver] ??= createDefaultResolver();
 }
 
 /**
- * Create a new dns resolver best-suited for the current environment.
+ * Create a new DNS resolver best-suited for the current environment.
  */
 function createDefaultResolver(): DnsResolver
 {
@@ -39,7 +39,7 @@ function createDefaultResolver(): DnsResolver
  */
 function resolve(string $name, int $typeRestriction = null): array
 {
-    return resolver()->resolve($name, $typeRestriction);
+    return dnsResolver()->resolve($name, $typeRestriction);
 }
 
 /**
@@ -49,7 +49,7 @@ function resolve(string $name, int $typeRestriction = null): array
  */
 function query(string $name, int $type): array
 {
-    return resolver()->query($name, $type);
+    return dnsResolver()->query($name, $type);
 }
 
 /**
