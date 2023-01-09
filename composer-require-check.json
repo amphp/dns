@@ -18,7 +18,7 @@
         "object",
         "createDefaultResolver",
         "normalizeName",
-        "resolver",
+        "dnsResolver",
         "idn_to_ascii",
         "INTL_IDNA_VARIANT_UTS46"
     ],
