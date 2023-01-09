@@ -18,7 +18,7 @@ interface DnsResolver
      *
      * @return array<DnsRecord>
      *
-     * @throws NoDnsRecordException
+     * @throws MissingDnsRecordException
      * @throws DnsException
      */
     public function resolve(string $name, int $typeRestriction = null, ?Cancellation $cancellation = null): array;
