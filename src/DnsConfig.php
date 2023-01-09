@@ -19,12 +19,12 @@ final class DnsConfig
     private bool $rotation = false;
 
     /**
-     * @throws ConfigException
+     * @throws DnsConfigException
      */
     public function __construct(array $nameservers, array $knownHosts = [])
     {
         if (\count($nameservers) < 1) {
-            throw new ConfigException("At least one nameserver is required for a valid config");
+            throw new DnsConfigException("At least one nameserver is required for a valid config");
         }
 
         foreach ($nameservers as $nameserver) {
@@ -55,12 +55,12 @@ final class DnsConfig
     }
 
     /**
-     * @throws ConfigException
+     * @throws DnsConfigException
      */
     public function withNdots(int $ndots): self
     {
         if ($ndots < 0) {
-            throw new ConfigException("Invalid ndots ($ndots), must be greater or equal to 0");
+            throw new DnsConfigException("Invalid ndots ($ndots), must be greater or equal to 0");
         }
 
         $self = clone $this;
@@ -80,7 +80,7 @@ final class DnsConfig
     public function withTimeout(float $timeout): self
     {
         if ($timeout < 0) {
-            throw new ConfigException("Invalid timeout ($timeout), must be 0 or greater");
+            throw new DnsConfigException("Invalid timeout ($timeout), must be 0 or greater");
         }
 
         $self = clone $this;
@@ -92,7 +92,7 @@ final class DnsConfig
     public function withAttempts(int $attempts): self
     {
         if ($attempts < 1) {
-            throw new ConfigException("Invalid attempt count ($attempts), must be 1 or greater");
+            throw new DnsConfigException("Invalid attempt count ($attempts), must be 1 or greater");
         }
 
         $self = clone $this;
@@ -137,7 +137,7 @@ final class DnsConfig
     }
 
     /**
-     * @throws ConfigException
+     * @throws DnsConfigException
      */
     private function validateNameserver(string $nameserver): void
     {
@@ -145,13 +145,13 @@ final class DnsConfig
             $addr = \strstr(\substr($nameserver, 1), "]", true);
             $addrEnd = \strrpos($nameserver, "]");
             if ($addrEnd === false) {
-                throw new ConfigException("Invalid nameserver: $nameserver");
+                throw new DnsConfigException("Invalid nameserver: $nameserver");
             }
 
             $port = \substr($nameserver, $addrEnd + 1);
 
             if ($port !== "" && !\preg_match("(^:(\\d+)$)", $port)) {
-                throw new ConfigException("Invalid nameserver: $nameserver");
+                throw new DnsConfigException("Invalid nameserver: $nameserver");
             }
 
             $port = $port === "" ? 53 : \substr($port, 1);
@@ -170,11 +170,11 @@ final class DnsConfig
         $port = (int) $port;
 
         if (!@\inet_pton($addr)) {
-            throw new ConfigException("Invalid server IP: $addr");
+            throw new DnsConfigException("Invalid server IP: $addr");
         }
 
         if ($port < 1 || $port > 65535) {
-            throw new ConfigException("Invalid server port: $port");
+            throw new DnsConfigException("Invalid server port: $port");
         }
     }
 }

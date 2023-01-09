@@ -239,7 +239,7 @@ final class Rfc1035StubDnsResolver implements DnsResolver
             try {
                 $this->config = $this->configLoader->loadConfig();
                 $this->configStatus = self::CONFIG_LOADED;
-            } catch (ConfigException $e) {
+            } catch (DnsConfigException $e) {
                 $this->configStatus = self::CONFIG_FAILED;
 
                 $message = "Could not load the system's DNS configuration; "

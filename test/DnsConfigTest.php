@@ -2,7 +2,7 @@
 
 namespace Amp\Dns\Test;
 
-use Amp\Dns\ConfigException;
+use Amp\Dns\DnsConfigException;
 use Amp\Dns\DnsConfig;
 use Amp\PHPUnit\AsyncTestCase;
 
@@ -35,7 +35,7 @@ class DnsConfigTest extends AsyncTestCase
      */
     public function testRejectsInvalidServers(array $nameservers): void
     {
-        $this->expectException(ConfigException::class);
+        $this->expectException(DnsConfigException::class);
         new DnsConfig($nameservers);
     }
 
@@ -62,21 +62,21 @@ class DnsConfigTest extends AsyncTestCase
 
     public function testInvalidTimeout(): void
     {
-        $this->expectException(ConfigException::class);
+        $this->expectException(DnsConfigException::class);
         $config = new DnsConfig(["127.0.0.1"]);
         $config->withTimeout(-1);
     }
 
     public function testInvalidAttempts(): void
     {
-        $this->expectException(ConfigException::class);
+        $this->expectException(DnsConfigException::class);
         $config = new DnsConfig(["127.0.0.1"]);
         $config->withAttempts(0);
     }
 
     public function testInvalidNdots(): void
     {
-        $this->expectException(ConfigException::class);
+        $this->expectException(DnsConfigException::class);
         $config = new DnsConfig(["127.0.0.1"]);
         $config->withNdots(-1);
     }

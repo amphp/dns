@@ -55,7 +55,7 @@ final class WindowsDnsConfigLoader implements DnsConfigLoader
         }
 
         if ($nameserver === "") {
-            throw new ConfigException("Could not find a nameserver in the Windows Registry");
+            throw new DnsConfigException("Could not find a nameserver in the Windows Registry");
         }
 
         $nameservers = [];

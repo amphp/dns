@@ -21,7 +21,7 @@ final class HostLoader
     {
         try {
             $contents = $this->readFile($this->path);
-        } catch (ConfigException) {
+        } catch (DnsConfigException) {
             return [];
         }
 
@@ -62,7 +62,7 @@ final class HostLoader
     public function readFile(string $path): string
     {
         \set_error_handler(static function (int $errno, string $message) use ($path) {
-            throw new ConfigException("Could not read configuration file '{$path}' ({$errno}): $message");
+            throw new DnsConfigException("Could not read configuration file '{$path}' ({$errno}): $message");
         });
 
         try {

@@ -2,7 +2,7 @@
 
 namespace Amp\Dns\Test;
 
-use Amp\Dns\ConfigException;
+use Amp\Dns\DnsConfigException;
 use Amp\Dns\UnixDnsConfigLoader;
 use Amp\PHPUnit\AsyncTestCase;
 
@@ -106,7 +106,7 @@ class UnixDnsConfigLoaderTest extends AsyncTestCase
 
     public function testNoDefaultsOnConfNotFound(): void
     {
-        $this->expectException(ConfigException::class);
+        $this->expectException(DnsConfigException::class);
         (new UnixDnsConfigLoader(__DIR__ . "/data/non-existent.conf"))->loadConfig();
     }
 }
