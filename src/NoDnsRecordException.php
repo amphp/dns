@@ -2,6 +2,6 @@
 
 namespace Amp\Dns;
 
-class NoRecordException extends DnsException
+class NoDnsRecordException extends DnsException
 {
 }

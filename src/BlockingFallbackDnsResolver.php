@@ -32,7 +32,7 @@ final class BlockingFallbackDnsResolver implements DnsResolver
         }
 
         if ($result === []) {
-            throw new NoRecordException("No records returned for '$name' using blocking fallback mode.");
+            throw new NoDnsRecordException("No records returned for '$name' using blocking fallback mode.");
         }
 
         $records = [];

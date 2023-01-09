@@ -180,7 +180,7 @@ final class Rfc1035StubDnsResolver implements DnsResolver
                         $errors = [];
 
                         foreach ($exceptions as $reason) {
-                            if ($reason instanceof NoRecordException) {
+                            if ($reason instanceof NoDnsRecordException) {
                                 throw $reason;
                             }
 
@@ -199,12 +199,12 @@ final class Rfc1035StubDnsResolver implements DnsResolver
                     }
 
                     return \array_merge(...$records);
-                } catch (NoRecordException) {
+                } catch (NoDnsRecordException) {
                     try {
                         $cnameRecords = $this->query($searchName, DnsRecord::CNAME, $cancellation);
                         $name = $cnameRecords[0]->getValue();
                         continue;
-                    } catch (NoRecordException) {
+                    } catch (NoDnsRecordException) {
                         $dnameRecords = $this->query($searchName, DnsRecord::DNAME, $cancellation);
                         $name = $dnameRecords[0]->getValue();
                         continue;
@@ -296,7 +296,7 @@ final class Rfc1035StubDnsResolver implements DnsResolver
 
                 if (null !== $cachedValue = $this->cache->get($this->getCacheKey($name, $type))) {
                     if (!$cachedValue) {
-                        throw new NoRecordException("No records returned for {$name} (cached result)");
+                        throw new NoDnsRecordException("No records returned for {$name} (cached result)");
                     }
 
                     $result = [];
@@ -380,7 +380,7 @@ final class Rfc1035StubDnsResolver implements DnsResolver
                         if (!isset($result[$type])) {
                             // "it MUST NOT cache it for longer than five (5) minutes" per RFC 2308 section 7.1
                             $this->cache->set($this->getCacheKey($name, $type), [], 300);
-                            throw new NoRecordException("No records returned for '{$name}' (" . DnsRecord::getName($type) . ")");
+                            throw new NoDnsRecordException("No records returned for '{$name}' (" . DnsRecord::getName($type) . ")");
                         }
 
                         return \array_map(static function ($data) use ($type, $ttls) {
