@@ -6,7 +6,7 @@ use Amp\Cancellation;
 use Amp\ForbidCloning;
 use Amp\ForbidSerialization;
 
-final class BlockingFallbackResolver implements Resolver
+final class BlockingFallbackDnsResolver implements DnsResolver
 {
     use ForbidCloning;
     use ForbidSerialization;

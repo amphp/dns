@@ -82,7 +82,7 @@ class IntegrationTest extends AsyncTestCase
             ->method('loadConfig')
             ->willReturn($config);
 
-        Dns\resolver(new Dns\Rfc1035StubResolver(null, $configLoader));
+        Dns\resolver(new Dns\Rfc1035StubDnsResolver(null, $configLoader));
         $result = Dns\resolve('blog');
 
         $record = $result[0];
@@ -111,7 +111,7 @@ class IntegrationTest extends AsyncTestCase
             ->method('loadConfig')
             ->willReturn($config);
 
-        Dns\resolver(new Dns\Rfc1035StubResolver(null, $configLoader));
+        Dns\resolver(new Dns\Rfc1035StubDnsResolver(null, $configLoader));
         $this->expectException(DnsException::class);
         Dns\resolve('blog.');
     }
@@ -129,7 +129,7 @@ class IntegrationTest extends AsyncTestCase
             ->method('loadConfig')
             ->willReturn($config);
 
-        $resolver = new Dns\Rfc1035StubResolver(new NullCache(), $configLoader);
+        $resolver = new Dns\Rfc1035StubDnsResolver(new NullCache(), $configLoader);
 
         /** @var DnsRecord $record1 */
         [$record1] = $resolver->query('google.com', Dns\DnsRecord::A);

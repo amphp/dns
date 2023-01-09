@@ -4,7 +4,7 @@ namespace Amp\Dns;
 
 use Amp\Cancellation;
 
-interface Resolver
+interface DnsResolver
 {
     /**
      * Resolves a hostname name to an IP address [hostname as defined by RFC 3986].

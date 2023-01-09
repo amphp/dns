@@ -19,7 +19,7 @@ use Revolt\EventLoop;
 use function Amp\async;
 use function Amp\now;
 
-final class Rfc1035StubResolver implements Resolver
+final class Rfc1035StubDnsResolver implements DnsResolver
 {
     use ForbidCloning;
     use ForbidSerialization;
@@ -53,7 +53,7 @@ final class Rfc1035StubResolver implements Resolver
 
     private readonly string $gcCallbackId;
 
-    private readonly BlockingFallbackResolver $blockingFallbackResolver;
+    private readonly BlockingFallbackDnsResolver $blockingFallbackResolver;
 
     private int $nextNameserver = 0;
 
@@ -65,7 +65,7 @@ final class Rfc1035StubResolver implements Resolver
                 : new UnixDnsConfigLoader);
 
         $this->questionFactory = new QuestionFactory;
-        $this->blockingFallbackResolver = new BlockingFallbackResolver;
+        $this->blockingFallbackResolver = new BlockingFallbackDnsResolver;
 
         $sockets = &$this->sockets;
         $this->gcCallbackId = EventLoop::repeat(5, static function () use (&$sockets): void {

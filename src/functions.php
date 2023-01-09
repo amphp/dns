@@ -7,11 +7,11 @@ use Revolt\EventLoop;
 /**
  * Retrieve the application-wide dns resolver instance.
  *
- * @param Resolver|null $resolver Optionally specify a new default dns resolver instance
+ * @param DnsResolver|null $resolver Optionally specify a new default dns resolver instance
  *
- * @return Resolver Returns the application-wide dns resolver instance
+ * @return DnsResolver Returns the application-wide dns resolver instance
  */
-function resolver(Resolver $resolver = null): Resolver
+function resolver(DnsResolver $resolver = null): DnsResolver
 {
     static $map;
     $map ??= new \WeakMap();
@@ -27,15 +27,15 @@ function resolver(Resolver $resolver = null): Resolver
 /**
  * Create a new dns resolver best-suited for the current environment.
  */
-function createDefaultResolver(): Resolver
+function createDefaultResolver(): DnsResolver
 {
-    return new Rfc1035StubResolver;
+    return new Rfc1035StubDnsResolver;
 }
 
 /**
- * @see Resolver::resolve()
- *
  * @throws DnsException
+ *@see DnsResolver::resolve()
+ *
  */
 function resolve(string $name, int $typeRestriction = null): array
 {
@@ -43,9 +43,9 @@ function resolve(string $name, int $typeRestriction = null): array
 }
 
 /**
- * @see Resolver::query()
- *
  * @throws DnsException
+ *@see DnsResolver::query()
+ *
  */
 function query(string $name, int $type): array
 {
