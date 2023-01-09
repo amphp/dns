@@ -5,7 +5,7 @@ namespace Amp\Dns\Internal;
 use Amp\CancelledException;
 use Amp\DeferredFuture;
 use Amp\Dns\DnsException;
-use Amp\Dns\TimeoutException;
+use Amp\Dns\DnsTimeoutException;
 use Amp\Parser\Parser;
 use Amp\TimeoutCancellation;
 use LibDNS\Decoder\DecoderFactory;
@@ -18,7 +18,7 @@ use Revolt\EventLoop;
 final class TcpSocket extends Socket
 {
     /**
-     * @throws TimeoutException
+     * @throws DnsTimeoutException
      * @throws DnsException
      */
     public static function connect(string $uri, float $timeout = 5): self
@@ -47,7 +47,7 @@ final class TcpSocket extends Socket
         } catch (CancelledException) {
             EventLoop::cancel($watcher);
 
-            throw new TimeoutException("Name resolution timed out, could not connect to server at $uri");
+            throw new DnsTimeoutException("Name resolution timed out, could not connect to server at $uri");
         }
     }
 

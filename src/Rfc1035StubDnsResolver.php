@@ -386,7 +386,7 @@ final class Rfc1035StubDnsResolver implements DnsResolver
                         return \array_map(static function ($data) use ($type, $ttls) {
                             return new DnsRecord($data, $type, $ttls[$type]);
                         }, $result[$type]);
-                    } catch (TimeoutException) {
+                    } catch (DnsTimeoutException) {
                         unset($this->sockets[$uri]);
                         $socket->close();
 
@@ -397,7 +397,7 @@ final class Rfc1035StubDnsResolver implements DnsResolver
                     }
                 }
 
-                throw new TimeoutException(\sprintf(
+                throw new DnsTimeoutException(\sprintf(
                     "No response for '%s' (%s) from any nameserver within %d ms after %d attempts, tried %s",
                     $name,
                     DnsRecord::getName($type),

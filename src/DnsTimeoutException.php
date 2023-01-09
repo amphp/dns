@@ -2,6 +2,6 @@
 
 namespace Amp\Dns;
 
-class TimeoutException extends DnsException
+class DnsTimeoutException extends DnsException
 {
 }

@@ -9,7 +9,7 @@ use Amp\ByteStream\WritableResourceStream;
 use Amp\Cancellation;
 use Amp\DeferredFuture;
 use Amp\Dns\DnsException;
-use Amp\Dns\TimeoutException;
+use Amp\Dns\DnsTimeoutException;
 use Amp\ForbidCloning;
 use Amp\ForbidSerialization;
 use LibDNS\Messages\Message;
@@ -153,7 +153,7 @@ abstract class Socket
                 $this->callbackId = EventLoop::unreference(EventLoop::delay(
                     $timeout,
                     weakClosure(function () use ($id, $pending, $timeout): void {
-                        $this->deferred?->complete(static fn () => throw new TimeoutException(
+                        $this->deferred?->complete(static fn () => throw new DnsTimeoutException(
                             "Didn't receive a response within {$timeout} seconds."
                         ));
                         $this->deferred = null;
