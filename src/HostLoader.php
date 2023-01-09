@@ -41,9 +41,9 @@ final class HostLoader
             }
 
             if (isset($ip[4])) {
-                $key = Record::AAAA;
+                $key = DnsRecord::AAAA;
             } else {
-                $key = Record::A;
+                $key = DnsRecord::A;
             }
 
             for ($i = 1, $l = \count($parts); $i < $l; $i++) {

@@ -5,7 +5,7 @@ namespace Amp\Dns\Test;
 use Amp\Cache\NullCache;
 use Amp\Dns;
 use Amp\Dns\DnsException;
-use Amp\Dns\Record;
+use Amp\Dns\DnsRecord;
 use Amp\Dns\UnixDnsConfigLoader;
 use Amp\Dns\WindowsDnsConfigLoader;
 use Amp\PHPUnit\AsyncTestCase;
@@ -35,17 +35,17 @@ class IntegrationTest extends AsyncTestCase
      */
     public function testWorksAfterConfigReload(): void
     {
-        Dns\query("google.com", Record::A);
+        Dns\query("google.com", DnsRecord::A);
         self::assertInstanceOf(Dns\DnsConfig::class, Dns\resolver()->reloadConfig());
-        self::assertIsArray(Dns\query("example.com", Record::A));
+        self::assertIsArray(Dns\query("example.com", DnsRecord::A));
     }
 
     public function testResolveIPv4only(): void
     {
-        $records = Dns\resolve("google.com", Record::A);
+        $records = Dns\resolve("google.com", DnsRecord::A);
 
         foreach ($records as $record) {
-            self::assertSame(Record::A, $record->getType());
+            self::assertSame(DnsRecord::A, $record->getType());
             $inAddr = @\inet_pton($record->getValue());
             self::assertNotFalse(
                 $inAddr,
@@ -56,10 +56,10 @@ class IntegrationTest extends AsyncTestCase
 
     public function testResolveIPv6only(): void
     {
-        $records = Dns\resolve("google.com", Record::AAAA);
+        $records = Dns\resolve("google.com", DnsRecord::AAAA);
 
         foreach ($records as $record) {
-            self::assertSame(Record::AAAA, $record->getType());
+            self::assertSame(DnsRecord::AAAA, $record->getType());
             $inAddr = @\inet_pton($record->getValue());
             self::assertNotFalse(
                 $inAddr,
@@ -92,7 +92,7 @@ class IntegrationTest extends AsyncTestCase
             "Server name blog.kelunik.com did not resolve to a valid IP address"
         );
 
-        $result = Dns\query('blog.kelunik.com', Dns\Record::A);
+        $result = Dns\query('blog.kelunik.com', Dns\DnsRecord::A);
         $record = $result[0];
         self::assertSame($inAddr, @\inet_pton($record->getValue()));
     }
@@ -131,22 +131,22 @@ class IntegrationTest extends AsyncTestCase
 
         $resolver = new Dns\Rfc1035StubResolver(new NullCache(), $configLoader);
 
-        /** @var Record $record1 */
-        [$record1] = $resolver->query('google.com', Dns\Record::A);
-        /** @var Record $record2 */
-        [$record2] = $resolver->query('google.com', Dns\Record::A);
+        /** @var DnsRecord $record1 */
+        [$record1] = $resolver->query('google.com', Dns\DnsRecord::A);
+        /** @var DnsRecord $record2 */
+        [$record2] = $resolver->query('google.com', Dns\DnsRecord::A);
 
         self::assertNotSame($record1->getValue(), $record2->getValue());
     }
 
     public function testPtrLookup(): void
     {
-        $result = Dns\query("8.8.4.4", Record::PTR);
+        $result = Dns\query("8.8.4.4", DnsRecord::PTR);
 
         $record = $result[0];
         self::assertSame("dns.google", $record->getValue());
         self::assertNotNull($record->getTtl());
-        self::assertSame(Record::PTR, $record->getType());
+        self::assertSame(DnsRecord::PTR, $record->getType());
     }
 
     /**
@@ -155,8 +155,8 @@ class IntegrationTest extends AsyncTestCase
      */
     public function testRequestSharing(): void
     {
-        $promise1 = async(fn () => Dns\query("example.com", Record::A));
-        $promise2 = async(fn () => Dns\query("example.com", Record::A));
+        $promise1 = async(fn () => Dns\query("example.com", DnsRecord::A));
+        $promise2 = async(fn () => Dns\query("example.com", DnsRecord::A));
 
         self::assertSame($promise1->await(), $promise2->await());
     }

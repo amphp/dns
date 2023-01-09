@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 
-use Amp\Dns\Record;
+use Amp\Dns\DnsRecord;
 
 require __DIR__ . "/../vendor/autoload.php";
 
@@ -11,7 +11,7 @@ function pretty_print_records(string $queryName, array $records)
     $format = "%-10s %-56s %-5d\r\n";
 
     foreach ($records as $record) {
-        print sprintf($format, Record::getName($record->getType()), $record->getValue(), $record->getTtl());
+        print sprintf($format, DnsRecord::getName($record->getType()), $record->getValue(), $record->getTtl());
     }
 }
 

@@ -34,15 +34,15 @@ Usually you don't have to change the resolver. If you want to use a custom confi
 // Example without type restriction. Will return IPv4 and / or IPv6 addresses.
 // What's returned depends on what's available for the given hostname.
 
-/** @var Amp\Dns\Record[] $records */
+/** @var Amp\Dns\DnsRecord[] $records */
 $records = Amp\Dns\resolve("github.com");
 ```
 
 ```php
 // Example with type restriction. Will throw an exception if there are no A records.
 
-/** @var Amp\Dns\Record[] $records */
-$records = Amp\Dns\resolve("github.com", Amp\Dns\Record::A);
+/** @var Amp\Dns\DnsRecord[] $records */
+$records = Amp\Dns\resolve("github.com", Amp\Dns\DnsRecord::A);
 ```
 
 ### Custom Queries
@@ -50,13 +50,13 @@ $records = Amp\Dns\resolve("github.com", Amp\Dns\Record::A);
 `Amp\Dns\query` supports the various other DNS record types such as `MX`, `PTR`, or `TXT`. It automatically rewrites passed IP addresses for `PTR` lookups.
 
 ```php
-/** @var Amp\Dns\Record[] $records */
-$records = Amp\Dns\query("google.com", Amp\Dns\Record::MX);
+/** @var Amp\Dns\DnsRecord[] $records */
+$records = Amp\Dns\query("google.com", Amp\Dns\DnsRecord::MX);
 ```
 
 ```php
-/** @var Amp\Dns\Record[] $records */
-$records = Amp\Dns\query("8.8.8.8", Amp\Dns\Record::PTR);
+/** @var Amp\Dns\DnsRecord[] $records */
+$records = Amp\Dns\query("8.8.8.8", Amp\Dns\DnsRecord::PTR);
 ```
 
 ### Caching
@@ -96,6 +96,6 @@ pretty_print_records("google.com", $firstGoogleResult);
 $combinedGoogleResult = Amp\Dns\resolve("google.com");
 pretty_print_records("google.com", $combinedGoogleResult);
 
-$googleMx = Amp\Dns\query("google.com", Amp\Dns\Record::MX);
+$googleMx = Amp\Dns\query("google.com", Amp\Dns\DnsRecord::MX);
 pretty_print_records("google.com", $googleMx);
 ```

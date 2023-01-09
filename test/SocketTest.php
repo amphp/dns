@@ -13,7 +13,7 @@ abstract class SocketTest extends AsyncTestCase
 {
     public function testAsk(): void
     {
-        $question = (new QuestionFactory)->create(Dns\Record::A);
+        $question = (new QuestionFactory)->create(Dns\DnsRecord::A);
         $question->setName("google.com");
 
         $socket = $this->connect();
@@ -26,7 +26,7 @@ abstract class SocketTest extends AsyncTestCase
 
     public function testGetLastActivity(): void
     {
-        $question = (new QuestionFactory)->create(Dns\Record::A);
+        $question = (new QuestionFactory)->create(Dns\DnsRecord::A);
         $question->setName("google.com");
 
         $socket = $this->connect();

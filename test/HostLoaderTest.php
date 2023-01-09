@@ -2,8 +2,8 @@
 
 namespace Amp\Dns\Test;
 
+use Amp\Dns\DnsRecord;
 use Amp\Dns\HostLoader;
-use Amp\Dns\Record;
 use Amp\PHPUnit\AsyncTestCase;
 
 class HostLoaderTest extends AsyncTestCase
@@ -12,7 +12,7 @@ class HostLoaderTest extends AsyncTestCase
     {
         $loader = new HostLoader(__DIR__ . "/data/hosts");
         self::assertSame([
-            Record::A => [
+            DnsRecord::A => [
                 "localhost" => "127.0.0.1",
             ],
         ], $loader->loadHosts());
@@ -28,7 +28,7 @@ class HostLoaderTest extends AsyncTestCase
     {
         $loader = new HostLoader(__DIR__ . "/data/hosts.invalid.name");
         self::assertSame([
-            Record::A => [
+            DnsRecord::A => [
                 "localhost" => "127.0.0.1",
             ],
         ], $loader->loadHosts());

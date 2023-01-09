@@ -5,7 +5,7 @@ namespace Amp\Dns;
 use LibDNS\Records\ResourceQTypes;
 use LibDNS\Records\ResourceTypes;
 
-final class Record
+final class DnsRecord
 {
     public const A = ResourceTypes::A;
     public const AAAA = ResourceTypes::AAAA;

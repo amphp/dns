@@ -32,13 +32,13 @@ final class DnsConfig
         }
 
         // Windows does not include localhost in its host file. Fetch it from the system instead
-        if (!isset($knownHosts[Record::A]["localhost"]) && !isset($knownHosts[Record::AAAA]["localhost"])) {
+        if (!isset($knownHosts[DnsRecord::A]["localhost"]) && !isset($knownHosts[DnsRecord::AAAA]["localhost"])) {
             // PHP currently provides no way to **resolve** IPv6 hostnames (not even with fallback)
             $local = \gethostbyname("localhost");
             if ($local !== "localhost") {
-                $knownHosts[Record::A]["localhost"] = $local;
+                $knownHosts[DnsRecord::A]["localhost"] = $local;
             } else {
-                $knownHosts[Record::AAAA]["localhost"] = '::1';
+                $knownHosts[DnsRecord::AAAA]["localhost"] = '::1';
             }
         }
 

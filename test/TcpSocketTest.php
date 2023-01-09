@@ -24,7 +24,7 @@ class TcpSocketTest extends SocketTest
 
     public function testAfterConnectionTimedOut(): void
     {
-        $question = (new QuestionFactory)->create(Dns\Record::A);
+        $question = (new QuestionFactory)->create(Dns\DnsRecord::A);
         $question->setName("google.com");
 
         $socket = $this->connect();

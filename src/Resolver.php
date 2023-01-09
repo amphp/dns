@@ -16,7 +16,7 @@ interface Resolver
      * @param string $name The hostname to resolve.
      * @param int|null $typeRestriction Optional type restriction to `Record::A` or `Record::AAAA`, otherwise `null`.
      *
-     * @return array<Record>
+     * @return array<DnsRecord>
      *
      * @throws NoRecordException
      * @throws DnsException
@@ -31,7 +31,7 @@ interface Resolver
      * @param string $name Record to question, A, AAAA and PTR queries are automatically normalized.
      * @param int $type Use constants of Amp\Dns\Record.
      *
-     * @return array<Record>
+     * @return array<DnsRecord>
      *
      * @throws DnsException
      */
