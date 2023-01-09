@@ -23,14 +23,7 @@ final class TcpSocket extends Socket
      */
     public static function connect(string $uri, float $timeout = 5): self
     {
-        if (!$socket = @\stream_socket_client($uri, $errno, $errstr, 0, STREAM_CLIENT_ASYNC_CONNECT)) {
-            throw new DnsException(\sprintf(
-                "Connection to %s failed: [Error #%d] %s",
-                $uri,
-                $errno,
-                $errstr
-            ));
-        }
+        $socket = self::openSocket($uri);
 
         \stream_set_blocking($socket, false);
 

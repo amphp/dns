@@ -17,16 +17,7 @@ final class UdpSocket extends Socket
      */
     public static function connect(string $uri): self
     {
-        if (!$socket = @\stream_socket_client($uri, $errno, $errstr, 0, STREAM_CLIENT_ASYNC_CONNECT)) {
-            throw new DnsException(\sprintf(
-                "Connection to %s failed: [Error #%d] %s",
-                $uri,
-                $errno,
-                $errstr
-            ));
-        }
-
-        return new self($socket);
+        return new self(self::openSocket($uri));
     }
 
     private readonly Encoder $encoder;

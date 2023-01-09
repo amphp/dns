@@ -52,6 +52,31 @@ abstract class Socket
     private readonly \SplQueue $queue;
 
     /**
+     * @return resource
+     */
+    final protected static function openSocket(string $uri)
+    {
+        \set_error_handler(static fn () => true);
+
+        try {
+            $socket = \stream_socket_client($uri, $errno, $errstr, flags: \STREAM_CLIENT_ASYNC_CONNECT);
+        } finally {
+            \restore_error_handler();
+        }
+
+        if (!$socket) {
+            throw new DnsException(\sprintf(
+                'Connection to %s failed: (Error #%d) %s',
+                $uri,
+                $errno,
+                $errstr,
+            ), $errno);
+        }
+
+        return $socket;
+    }
+
+    /**
      * @param resource $socket
      */
     protected function __construct($socket)
