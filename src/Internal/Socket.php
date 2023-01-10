@@ -94,24 +94,23 @@ abstract class Socket
     {
         EventLoop::queue(function (): void {
             try {
-                $this->handleResolution(message: $this->receive());
+                try {
+                    $message = $this->receive();
+                } finally {
+                    $this->lastActivity = now();
+                    $this->receiving = false;
+                }
             } catch (\Throwable $exception) {
-                $this->handleResolution(exception: $exception);
+                $this->handleError($exception);
+                return;
             }
+
+            $this->handleMessage($message);
         });
     }
 
-    private function handleResolution(?\Throwable $exception = null, ?Message $message = null): void
+    private function handleMessage(Message $message): void
     {
-        $this->lastActivity = now();
-        $this->receiving = false;
-
-        if ($exception) {
-            $this->error($exception);
-            return;
-        }
-
-        \assert($message instanceof Message);
         $id = $message->getId();
 
         // Ignore duplicate and invalid responses.
@@ -200,7 +199,7 @@ abstract class Socket
             $this->send($message);
         } catch (StreamException $exception) {
             $exception = new DnsException("Sending the request failed", 0, $exception);
-            $this->error($exception);
+            $this->handleError($exception);
             throw $exception;
         }
 
@@ -230,7 +229,7 @@ abstract class Socket
 
     final public function close(): void
     {
-        $this->error(new ClosedException('Socket has been closed'));
+        $this->handleError(new ClosedException('Socket has been closed'));
     }
 
     /**
@@ -266,7 +265,7 @@ abstract class Socket
         return $request;
     }
 
-    private function error(\Throwable $exception): void
+    private function handleError(\Throwable $exception): void
     {
         $this->input->close();
         $this->output->close();
