@@ -70,7 +70,7 @@ abstract class Socket
                 $uri,
                 $errno,
                 $errstr,
-            ), $errno);
+            ));
         }
 
         return $socket;
