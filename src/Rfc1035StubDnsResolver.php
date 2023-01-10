@@ -559,7 +559,7 @@ final class Rfc1035StubDnsResolver implements DnsResolver
         return $nameservers;
     }
 
-    private function shouldRetry(int $code): boolean
+    private function shouldRetry(int $code): bool
     {
         return \in_array($code, [
             MessageResponseCodes::SERVER_FAILURE,
