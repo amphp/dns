@@ -24,12 +24,11 @@ final class WindowsDnsConfigLoader implements DnsConfigLoader
             "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters\\DhcpNameServer",
         ];
 
-        $reader = new WindowsRegistry;
         $nameserver = "";
 
         while ($nameserver === "" && ($key = \array_shift($keys))) {
             try {
-                $nameserver = $reader->read($key) ?? '';
+                $nameserver = WindowsRegistry::read($key) ?? '';
             } catch (KeyNotFoundException) {
                 // retry other possible locations
             }
@@ -37,12 +36,12 @@ final class WindowsDnsConfigLoader implements DnsConfigLoader
 
         if ($nameserver === "") {
             $interfaces = "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters\\Interfaces";
-            $subKeys = $reader->listKeys($interfaces);
+            $subKeys = WindowsRegistry::listKeys($interfaces);
 
             foreach ($subKeys as $key) {
                 foreach (["NameServer", "DhcpNameServer"] as $property) {
                     try {
-                        $nameserver = $reader->read("{$key}\\{$property}") ?? '';
+                        $nameserver = WindowsRegistry::read("{$key}\\{$property}") ?? '';
 
                         if ($nameserver !== "") {
                             break 2;
