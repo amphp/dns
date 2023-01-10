@@ -13,6 +13,7 @@ use Amp\ForbidCloning;
 use Amp\ForbidSerialization;
 use Amp\Future;
 use LibDNS\Messages\Message;
+use LibDNS\Messages\MessageResponseCodes;
 use LibDNS\Records\Question;
 use LibDNS\Records\QuestionFactory;
 use Revolt\EventLoop;
@@ -184,7 +185,7 @@ final class Rfc1035StubDnsResolver implements DnsResolver
                                 throw $reason;
                             }
 
-                            if ($searchIndex < \count($searchList) - 1 && \in_array($reason->getCode(), [2, 3], true)) {
+                            if ($searchIndex < \count($searchList) - 1 && $this->shouldRetry($reason->getCode())) {
                                 continue 2;
                             }
 
@@ -210,7 +211,7 @@ final class Rfc1035StubDnsResolver implements DnsResolver
                         continue;
                     }
                 } catch (DnsException $e) {
-                    if ($searchIndex < \count($searchList) - 1 && \in_array($e->getCode(), [2, 3], true)) {
+                    if ($searchIndex < \count($searchList) - 1 && $this->shouldRetry($e->getCode())) {
                         continue 2;
                     }
 
@@ -556,5 +557,13 @@ final class Rfc1035StubDnsResolver implements DnsResolver
         }
 
         return $nameservers;
+    }
+
+    private function shouldRetry(int $code): boolean
+    {
+        return \in_array($code, [
+            MessageResponseCodes::SERVER_FAILURE,
+            MessageResponseCodes::NAME_ERROR,
+        ], true);
     }
 }
