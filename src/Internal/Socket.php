@@ -28,6 +28,8 @@ abstract class Socket
 
     private const MAX_CONCURRENT_REQUESTS = 500;
 
+    protected int $invalidPacketsReceived = 0;
+
     abstract public static function connect(string $uri): self;
 
     private readonly ReadableResourceStream $input;
@@ -159,8 +161,10 @@ abstract class Socket
         /** @var DeferredFuture<\Closure():Message> $deferred */
         $deferred = new DeferredFuture;
 
+        $invalidPacketsReceived = &$this->invalidPacketsReceived;
+
         /** @psalm-suppress InaccessibleProperty $this->pending is an ArrayObject */
-        $this->pending[$id] = new class($this->pending, $id, $deferred, $question, $timeout) {
+        $this->pending[$id] = new class($this->pending, $id, $deferred, $question, $timeout, $invalidPacketsReceived) {
             private readonly string $callbackId;
 
             public ?DeferredFuture $deferred;
@@ -171,15 +175,23 @@ abstract class Socket
                 DeferredFuture $deferred,
                 public readonly Question $question,
                 float $timeout,
+                int &$invalidPacketsReceived
             ) {
                 $this->deferred = $deferred;
 
                 $this->callbackId = EventLoop::unreference(EventLoop::delay(
                     $timeout,
-                    weakClosure(function () use ($id, $pending, $timeout): void {
-                        $this->deferred?->complete(static fn () => throw new DnsTimeoutException(
-                            "Didn't receive a response within {$timeout} seconds."
-                        ));
+                    weakClosure(function () use ($id, $pending, $timeout, &$invalidPacketsReceived): void {
+                        if ($invalidPacketsReceived > 0) {
+                            $this->deferred?->complete(static fn () => throw new DnsTimeoutException(
+                                "Didn't receive a response within {$timeout} seconds, but received {$invalidPacketsReceived} invalid packets on this socket"
+                            ));
+                        } else {
+                            $this->deferred?->complete(static fn () => throw new DnsTimeoutException(
+                                "Didn't receive a response within {$timeout} seconds."
+                            ));
+                        }
+
                         $this->deferred = null;
 
                         unset($pending[$id]);

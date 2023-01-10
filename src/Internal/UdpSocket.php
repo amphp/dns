@@ -47,12 +47,20 @@ final class UdpSocket extends Socket
 
     protected function receive(): Message
     {
-        $data = $this->read();
+        while (true) {
+            $data = $this->read();
 
-        if ($data === null) {
-            throw new DnsException("Reading from the server failed");
+            if ($data === null) {
+                throw new DnsException("Reading from the server failed");
+            }
+
+            try {
+                return $this->decoder->decode($data);
+            } catch (\Exception) {
+                $this->invalidPacketsReceived++;
+
+                continue;
+            }
         }
-
-        return $this->decoder->decode($data);
     }
 }
