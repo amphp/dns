@@ -16,6 +16,7 @@
         "mixed",
         "void",
         "object",
+        "random_int",
         "createDefaultResolver",
         "normalizeName",
         "dnsResolver",
@@ -30,7 +31,6 @@
         "Reflection",
         "SPL",
         "standard",
-        "hash",
-        "random"
+        "hash"
     ]
 }
