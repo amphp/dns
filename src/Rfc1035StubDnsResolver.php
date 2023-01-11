@@ -41,6 +41,7 @@ final class Rfc1035StubDnsResolver implements DnsResolver
 
     private ?Future $pendingConfig = null;
 
+    /** @var Cache<list<array{string, int}>> */
     private readonly Cache $cache;
 
     /** @var Socket[] */
@@ -91,12 +92,13 @@ final class Rfc1035StubDnsResolver implements DnsResolver
         EventLoop::cancel($this->gcCallbackId);
     }
 
-    /** @inheritdoc */
-    public function resolve(string $name, int $typeRestriction = null, ?Cancellation $cancellation = null): array
+    public function resolve(string $name, ?int $typeRestriction = null, ?Cancellation $cancellation = null): array
     {
-        if ($typeRestriction !== null && $typeRestriction !== DnsRecord::A && $typeRestriction !== DnsRecord::AAAA) {
-            throw new \Error("Invalid value for parameter 2: null|Record::A|Record::AAAA expected");
-        }
+        $recordTypes = match ($typeRestriction) {
+            DnsRecord::A, DnsRecord::AAAA, => [$typeRestriction],
+            null => [DnsRecord::A, DnsRecord::AAAA],
+            default => throw new \Error("Invalid value for parameter 2: null|Record::A|Record::AAAA expected"),
+        };
 
         if ($this->configStatus === self::CONFIG_NOT_LOADED) {
             $this->reloadConfig();
@@ -159,6 +161,8 @@ final class Rfc1035StubDnsResolver implements DnsResolver
             $searchList = \array_merge($this->config->getSearchList(), $searchList);
         }
 
+        $sendQuery = $this->query(...);
+
         foreach ($searchList as $searchIndex => $search) {
             for ($redirects = 0; $redirects < 5; $redirects++) {
                 $searchName = $name;
@@ -168,16 +172,13 @@ final class Rfc1035StubDnsResolver implements DnsResolver
                 }
 
                 try {
-                    if ($typeRestriction) {
-                        return $this->query($searchName, $typeRestriction, $cancellation);
-                    }
+                    /** @var non-empty-list<non-empty-list<DnsRecord>> $records */
+                    [$exceptions, $records] = Future\awaitAll(\array_map(
+                        static fn (int $recordType) => async($sendQuery, $searchName, $recordType, $cancellation),
+                        $recordTypes,
+                    ));
 
-                    [$exceptions, $records] = Future\awaitAll([
-                        async(fn () => $this->query($searchName, DnsRecord::A, $cancellation)),
-                        async(fn () => $this->query($searchName, DnsRecord::AAAA, $cancellation)),
-                    ]);
-
-                    if (\count($exceptions) === 2) {
+                    if (\count($exceptions) === \count($recordTypes)) {
                         $errors = [];
 
                         foreach ($exceptions as $reason) {
@@ -191,6 +192,8 @@ final class Rfc1035StubDnsResolver implements DnsResolver
 
                             $errors[] = $reason->getMessage();
                         }
+
+                        \assert(count($exceptions) > 0); // For Psalm, CompositeException requires non-empty-array.
 
                         throw new DnsException(
                             "All query attempts failed for {$searchName}: " . \implode(", ", $errors),
@@ -416,7 +419,10 @@ final class Rfc1035StubDnsResolver implements DnsResolver
         return $future->await($cancellation);
     }
 
-    private function queryHosts(string $name, int $typeRestriction = null): array
+    /**
+     * @return list<DnsRecord>
+     */
+    private function queryHosts(string $name, ?int $typeRestriction = null): array
     {
         \assert($this->config !== null);
 
