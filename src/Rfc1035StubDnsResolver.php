@@ -108,38 +108,24 @@ final class Rfc1035StubDnsResolver implements DnsResolver
             return $this->blockingFallbackResolver->resolve($name, $typeRestriction, $cancellation);
         }
 
-        switch ($typeRestriction) {
-            case DnsRecord::A:
-                if (\filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
-                    return [new DnsRecord($name, DnsRecord::A, null)];
-                }
+        // Check if provided $name is an IP address.
+        $isIp = \array_filter([
+            DnsRecord::A => \filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4),
+            DnsRecord::AAAA => \filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6),
+        ]);
 
-                if (\filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
-                    throw new DnsException("Got an IPv6 address, but type is restricted to IPv4");
-                }
-                break;
-            case DnsRecord::AAAA:
-                if (\filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
-                    return [new DnsRecord($name, DnsRecord::AAAA, null)];
-                }
+        // If the name is an IP address, return that IP (or throw if it does match the type restriction).
+        if ($isIp) {
+            $type = \array_key_first($isIp);
+            if (!\in_array($type, $recordTypes, true)) {
+                throw new DnsException("Got an IP address that is not valid for the restricted record type");
+            }
 
-                if (\filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
-                    throw new DnsException("Got an IPv4 address, but type is restricted to IPv6");
-                }
-                break;
-            default:
-                if (\filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
-                    return [new DnsRecord($name, DnsRecord::A, null)];
-                }
-
-                if (\filter_var($name, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
-                    return [new DnsRecord($name, DnsRecord::AAAA, null)];
-                }
-                break;
+            return [new DnsRecord($name, $type, null)];
         }
 
         $dots = \substr_count($name, ".");
-        $trailingDot = $name[-1] === ".";
+        $trailingDot = $name !== '' && $name[-1] === ".";
         $name = normalizeName($name);
 
         if ($records = $this->queryHosts($name, $typeRestriction)) {
