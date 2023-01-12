@@ -179,7 +179,7 @@ final class Rfc1035StubDnsResolver implements DnsResolver
                             $errors[] = $reason->getMessage();
                         }
 
-                        \assert(count($exceptions) > 0); // For Psalm, CompositeException requires non-empty-array.
+                        \assert(\count($exceptions) > 0); // For Psalm, CompositeException requires non-empty-array.
 
                         throw new DnsException(
                             "All query attempts failed for {$searchName}: " . \implode(", ", $errors),
