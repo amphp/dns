@@ -4,6 +4,7 @@ namespace Amp\Dns\Test;
 
 use Amp\Cache\NullCache;
 use Amp\Dns;
+use Amp\Dns\DnsConfigException;
 use Amp\Dns\DnsException;
 use Amp\Dns\DnsRecord;
 use Amp\Dns\UnixDnsConfigLoader;
@@ -137,6 +138,28 @@ class IntegrationTest extends AsyncTestCase
         [$record2] = $resolver->query('google.com', Dns\DnsRecord::A);
 
         self::assertNotSame($record1->getValue(), $record2->getValue());
+    }
+
+    public function testResolveWithBlockingResolver(): void
+    {
+        /** @var Dns\DnsConfigLoader|MockObject $configLoader */
+        $configLoader = $this->createMock(Dns\DnsConfigLoader::class);
+        $configLoader->expects(self::once())
+            ->method('loadConfig')
+            ->willThrowException(new DnsConfigException("Can't access /etc/resolv.conf!"));
+
+        $resolver = new Dns\Rfc1035StubDnsResolver(new NullCache(), $configLoader);
+
+        $records = $resolver->query('google.com', Dns\DnsRecord::A);
+
+        foreach ($records as $record) {
+            self::assertSame(DnsRecord::A, $record->getType());
+            $inAddr = @\inet_pton($record->getValue());
+            self::assertNotFalse(
+                $inAddr,
+                "Server name google.com did not resolve to a valid IP address"
+            );
+        }
     }
 
     public function testPtrLookup(): void

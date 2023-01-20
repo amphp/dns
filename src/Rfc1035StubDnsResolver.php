@@ -218,14 +218,16 @@ final class Rfc1035StubDnsResolver implements DnsResolver
      * Reloads the configuration in the background.
      *
      * Once it's finished, the configuration will be used for new requests.
+     *
+     * May return null if the configuration cannot be loaded.
      */
-    public function reloadConfig(): DnsConfig
+    public function reloadConfig(): ?DnsConfig
     {
         if ($this->pendingConfig) {
             return $this->pendingConfig->await();
         }
 
-        $this->pendingConfig = async(function (): DnsConfig {
+        $this->pendingConfig = async(function (): ?DnsConfig {
             try {
                 $this->config = $this->configLoader->loadConfig();
                 $this->configStatus = self::CONFIG_LOADED;
@@ -252,8 +254,6 @@ final class Rfc1035StubDnsResolver implements DnsResolver
             } finally {
                 $this->pendingConfig = null;
             }
-
-            \assert($this->config !== null);
 
             return $this->config;
         });
