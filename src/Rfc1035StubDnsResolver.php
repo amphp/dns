@@ -236,8 +236,6 @@ final class Rfc1035StubDnsResolver implements DnsResolver
                 $this->pendingConfig = null;
             }
 
-            \assert($this->config !== null);
-
             return $this->config;
         });
 
