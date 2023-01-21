@@ -224,7 +224,7 @@ final class Rfc1035StubDnsResolver implements DnsResolver
             return $this->pendingConfig->await();
         }
 
-        $this->pendingConfig = async(function (): ?DnsConfig {
+        $this->pendingConfig = async(function (): DnsConfig {
             try {
                 $this->config = $this->configLoader->loadConfig();
                 $this->configStatus = self::CONFIG_LOADED;
