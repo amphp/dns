@@ -154,7 +154,7 @@ class IntegrationTest extends AsyncTestCase
 
         foreach ($records as $record) {
             self::assertSame(DnsRecord::A, $record->getType());
-            $inAddr = @\inet_pton($record->getValue());
+            $inAddr = \inet_pton($record->getValue());
             self::assertNotFalse(
                 $inAddr,
                 "Server name google.com did not resolve to a valid IP address"
