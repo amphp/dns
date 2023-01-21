@@ -100,10 +100,7 @@ final class Rfc1035StubDnsResolver implements DnsResolver
             default => throw new \Error("Invalid value for parameter 2: null|Record::A|Record::AAAA expected"),
         };
 
-        if ($this->configStatus === self::CONFIG_NOT_LOADED) {
-            $this->reloadConfig();
-        }
-
+        $this->loadConfigIfNotLoaded();
         if ($this->configStatus === self::CONFIG_FAILED) {
             return $this->blockingFallbackResolver->resolve($name, $typeRestriction, $cancellation);
         }
@@ -219,9 +216,9 @@ final class Rfc1035StubDnsResolver implements DnsResolver
      *
      * Once it's finished, the configuration will be used for new requests.
      *
-     * May return null if the configuration cannot be loaded.
+     * @throws DnsConfigException
      */
-    public function reloadConfig(): ?DnsConfig
+    public function reloadConfig(): DnsConfig
     {
         if ($this->pendingConfig) {
             return $this->pendingConfig->await();
@@ -234,23 +231,7 @@ final class Rfc1035StubDnsResolver implements DnsResolver
             } catch (DnsConfigException $e) {
                 $this->configStatus = self::CONFIG_FAILED;
 
-                $message = "Could not load the system's DNS configuration; "
-                    . "falling back to synchronous, blocking resolver; "
-                    . \get_class($e) . ": " . $e->getMessage();
-
-                try {
-                    \trigger_error(
-                        $message,
-                        \E_USER_WARNING
-                    );
-                } catch (\Throwable) {
-                    \set_error_handler(null);
-                    \trigger_error(
-                        $message,
-                        \E_USER_WARNING
-                    );
-                    \restore_error_handler();
-                }
+                throw $e;
             } finally {
                 $this->pendingConfig = null;
             }
@@ -271,10 +252,7 @@ final class Rfc1035StubDnsResolver implements DnsResolver
 
         $future = async(function () use ($name, $type, $cancellation): array {
             try {
-                if ($this->configStatus === self::CONFIG_NOT_LOADED) {
-                    $this->reloadConfig();
-                }
-
+                $this->loadConfigIfNotLoaded();
                 if ($this->configStatus === self::CONFIG_FAILED) {
                     return $this->blockingFallbackResolver->query($name, $type, $cancellation);
                 }
@@ -557,5 +535,34 @@ final class Rfc1035StubDnsResolver implements DnsResolver
             MessageResponseCodes::SERVER_FAILURE,
             MessageResponseCodes::NAME_ERROR,
         ], true);
+    }
+
+    private function loadConfigIfNotLoaded(): void
+    {
+        if ($this->configStatus !== self::CONFIG_NOT_LOADED) {
+            return;
+        }
+
+        try {
+            $this->reloadConfig();
+        } catch (DnsConfigException $e) {
+            $message = "Could not load the system's DNS configuration; "
+                . "falling back to synchronous, blocking resolver; "
+                . \get_class($e) . ": " . $e->getMessage();
+
+            try {
+                \trigger_error(
+                    $message,
+                    \E_USER_WARNING
+                );
+            } catch (\Throwable) {
+                \set_error_handler(null);
+                \trigger_error(
+                    $message,
+                    \E_USER_WARNING
+                );
+                \restore_error_handler();
+            }
+        }
     }
 }

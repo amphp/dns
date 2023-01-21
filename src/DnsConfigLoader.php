@@ -4,5 +4,8 @@ namespace Amp\Dns;
 
 interface DnsConfigLoader
 {
+    /**
+     * @throws DnsConfigException
+     */
     public function loadConfig(): DnsConfig;
 }
