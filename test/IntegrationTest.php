@@ -165,7 +165,22 @@ class IntegrationTest extends AsyncTestCase
 
         $resolver = new Dns\Rfc1035StubDnsResolver(new NullCache(), $configLoader);
 
-        $records = $resolver->query('google.com', Dns\DnsRecord::A);
+        $triggeredError = 0;
+        $errorMessage = null;
+
+        \set_error_handler(static function (int $errno, string $errstr) use (&$triggeredError, &$errorMessage): void {
+            $triggeredError = $errno;
+            $errorMessage = $errstr;
+        });
+
+        try {
+            $records = $resolver->query('google.com', Dns\DnsRecord::A);
+        } finally {
+            \restore_error_handler();
+        }
+
+        self::assertSame(\E_USER_WARNING, $triggeredError);
+        self::assertStringContainsString('blocking resolver', $errorMessage);
 
         foreach ($records as $record) {
             self::assertSame(DnsRecord::A, $record->getType());
