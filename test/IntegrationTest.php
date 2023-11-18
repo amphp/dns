@@ -69,19 +69,31 @@ class IntegrationTest extends AsyncTestCase
         }
     }
 
-    public function testResolveUsingSearchList(): void
+    private function loadConfig(): Dns\DnsConfig
     {
         $configLoader = \stripos(PHP_OS, "win") === 0
             ? new WindowsDnsConfigLoader()
             : new UnixDnsConfigLoader();
-        $config = $configLoader->loadConfig();
-        $config = $config->withSearchList(['foobar.invalid', 'kelunik.com']);
-        $config = $config->withNdots(1);
-        /** @var Dns\DnsConfigLoader|MockObject $configLoader */
+        return $configLoader->loadConfig();
+    }
+
+    private function createMockConfigLoader(Dns\DnsConfig $config): Dns\DnsConfigLoader
+    {
         $configLoader = $this->createMock(Dns\DnsConfigLoader::class);
         $configLoader->expects(self::once())
             ->method('loadConfig')
             ->willReturn($config);
+
+        return $configLoader;
+    }
+
+    public function testResolveUsingSearchList(): void
+    {
+        $config = $this->loadConfig();
+        $config = $config->withSearchList(['foobar.invalid', 'kelunik.com']);
+        $config = $config->withNdots(1);
+
+        $configLoader = $this->createMockConfigLoader($config);
 
         Dns\dnsResolver(new Dns\Rfc1035StubDnsResolver(null, $configLoader));
         $result = Dns\resolve('blog');
@@ -100,35 +112,38 @@ class IntegrationTest extends AsyncTestCase
 
     public function testFailResolveRootedDomainWhenSearchListDefined(): void
     {
-        $configLoader = \stripos(PHP_OS, "win") === 0
-            ? new WindowsDnsConfigLoader()
-            : new UnixDnsConfigLoader();
-        $config = $configLoader->loadConfig();
+        $config = $this->loadConfig();
         $config = $config->withSearchList(['kelunik.com']);
         $config = $config->withNdots(1);
-        /** @var Dns\DnsConfigLoader|MockObject $configLoader */
-        $configLoader = $this->createMock(Dns\DnsConfigLoader::class);
-        $configLoader->expects(self::once())
-            ->method('loadConfig')
-            ->willReturn($config);
+
+        $configLoader = $this->createMockConfigLoader($config);
 
         Dns\dnsResolver(new Dns\Rfc1035StubDnsResolver(null, $configLoader));
         $this->expectException(DnsException::class);
         Dns\resolve('blog.');
     }
 
+    public function testResolveWithSearchListAndNDots(): void
+    {
+        $config = $this->loadConfig();
+        $config = $config->withSearchList(['k8s.svc.cluster.local', 'docker.internal']);
+        $config = $config->withNdots(5);
+
+        $configLoader = $this->createMockConfigLoader($config);
+
+        Dns\dnsResolver(new Dns\Rfc1035StubDnsResolver(null, $configLoader));
+        self::assertNotEmpty(Dns\resolve('google.com'));
+    }
+
     public function testResolveWithRotateList(): void
     {
-        /** @var Dns\DnsConfigLoader|MockObject $configLoader */
-        $configLoader = $this->createMock(Dns\DnsConfigLoader::class);
         $config = new Dns\DnsConfig([
             '208.67.222.220:53', // Opendns, US
             '195.243.214.4:53', // Deutsche Telecom AG, DE
         ]);
         $config = $config->withRotationEnabled(true);
-        $configLoader->expects(self::once())
-            ->method('loadConfig')
-            ->willReturn($config);
+
+        $configLoader = $this->createMockConfigLoader($config);
 
         $resolver = new Dns\Rfc1035StubDnsResolver(new NullCache(), $configLoader);
 

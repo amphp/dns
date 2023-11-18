@@ -187,15 +187,11 @@ final class Rfc1035StubDnsResolver implements DnsResolver
 
                     return \array_merge(...$records);
                 } catch (MissingDnsRecordException) {
-                    try {
-                        $cnameRecords = $this->query($searchName, DnsRecord::CNAME, $cancellation);
-                        $name = $cnameRecords[0]->getValue();
-                        continue;
-                    } catch (MissingDnsRecordException) {
-                        $dnameRecords = $this->query($searchName, DnsRecord::DNAME, $cancellation);
-                        $name = $dnameRecords[0]->getValue();
-                        continue;
+                    $alias = $this->searchForAliasRecord($searchName, $cancellation);
+                    if ($alias !== null) {
+                        $name = $alias;
                     }
+                    continue;
                 } catch (DnsException $e) {
                     if ($searchIndex < \count($searchList) - 1 && $this->shouldRetry($e->getCode())) {
                         continue 2;
@@ -206,9 +202,21 @@ final class Rfc1035StubDnsResolver implements DnsResolver
             }
         }
 
-        \assert(isset($searchName));
+        throw new DnsException("Giving up resolution of '{$name}', too many redirects");
+    }
 
-        throw new DnsException("Giving up resolution of '{$searchName}', too many redirects");
+    private function searchForAliasRecord(string $searchName, ?Cancellation $cancellation): ?string
+    {
+        foreach ([DnsRecord::CNAME, DnsRecord::DNAME] as $recordType) {
+            try {
+                $records = $this->query($searchName, $recordType, $cancellation);
+                return $records[0]->getValue();
+            } catch (MissingDnsRecordException) {
+                continue;
+            }
+        }
+
+        return null;
     }
 
     /**
