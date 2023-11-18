@@ -2,6 +2,7 @@
 
 namespace Amp\Dns;
 
+use Amp\Cancellation;
 use Revolt\EventLoop;
 
 /**
@@ -37,9 +38,9 @@ function createDefaultResolver(): DnsResolver
  *@see DnsResolver::resolve()
  *
  */
-function resolve(string $name, int $typeRestriction = null): array
+function resolve(string $name, int $typeRestriction = null, ?Cancellation $cancellation = null): array
 {
-    return dnsResolver()->resolve($name, $typeRestriction);
+    return dnsResolver()->resolve($name, $typeRestriction, $cancellation);
 }
 
 /**
@@ -47,9 +48,9 @@ function resolve(string $name, int $typeRestriction = null): array
  *@see DnsResolver::query()
  *
  */
-function query(string $name, int $type): array
+function query(string $name, int $type, ?Cancellation $cancellation = null): array
 {
-    return dnsResolver()->query($name, $type);
+    return dnsResolver()->query($name, $type, $cancellation);
 }
 
 /**
