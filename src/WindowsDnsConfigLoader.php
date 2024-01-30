@@ -12,6 +12,11 @@ final class WindowsDnsConfigLoader implements DnsConfigLoader
     use ForbidCloning;
     use ForbidSerialization;
 
+    private const NETWORK_CARDS_KEY =
+        'HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\NetworkCards';
+    private const TCPIP_PARAMETERS_KEY =
+        'HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters\\Interfaces';
+
     public function __construct(
         private readonly HostLoader $hostLoader = new HostLoader(),
     ) {
@@ -35,13 +40,10 @@ final class WindowsDnsConfigLoader implements DnsConfigLoader
         }
 
         if ($nameserver === "") {
-            $interfaces = "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters\\Interfaces";
-            $subKeys = WindowsRegistry::listKeys($interfaces);
-
-            foreach ($subKeys as $key) {
+            foreach (self::findNetworkCardGuids() as $guid) {
                 foreach (["NameServer", "DhcpNameServer"] as $property) {
                     try {
-                        $nameserver = WindowsRegistry::read("{$key}\\{$property}");
+                        $nameserver = WindowsRegistry::read(self::TCPIP_PARAMETERS_KEY . "\\$guid\\$property");
 
                         if ($nameserver !== "") {
                             break 2;
@@ -59,7 +61,7 @@ final class WindowsDnsConfigLoader implements DnsConfigLoader
 
         $nameservers = [];
 
-        // Microsoft documents space as delimiter, AppVeyor uses comma, we just accept both
+        // Comma is the delimiter for the NameServer key, but space is used for the DhcpNameServer key.
         foreach (\explode(" ", \strtr($nameserver, ",", " ")) as $nameserver) {
             $nameserver = \trim($nameserver);
             $ip = \inet_pton($nameserver);
@@ -78,5 +80,13 @@ final class WindowsDnsConfigLoader implements DnsConfigLoader
         $hosts = $this->hostLoader->loadHosts();
 
         return new DnsConfig($nameservers, $hosts);
+    }
+
+    private static function findNetworkCardGuids(): array
+    {
+        return \array_map(
+            static fn (string $key): string => WindowsRegistry::read("$key\\ServiceName"),
+            WindowsRegistry::listKeys(self::NETWORK_CARDS_KEY),
+        );
     }
 }
