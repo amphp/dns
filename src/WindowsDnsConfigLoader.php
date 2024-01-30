@@ -28,7 +28,7 @@ final class WindowsDnsConfigLoader implements DnsConfigLoader
 
         while ($nameserver === "" && ($key = \array_shift($keys))) {
             try {
-                $nameserver = WindowsRegistry::read($key) ?? '';
+                $nameserver = WindowsRegistry::read($key);
             } catch (KeyNotFoundException) {
                 // retry other possible locations
             }
@@ -41,7 +41,7 @@ final class WindowsDnsConfigLoader implements DnsConfigLoader
             foreach ($subKeys as $key) {
                 foreach (["NameServer", "DhcpNameServer"] as $property) {
                     try {
-                        $nameserver = WindowsRegistry::read("{$key}\\{$property}") ?? '';
+                        $nameserver = WindowsRegistry::read("{$key}\\{$property}");
 
                         if ($nameserver !== "") {
                             break 2;
