@@ -163,7 +163,7 @@ abstract class Socket
 
         $invalidPacketsReceived = &$this->invalidPacketsReceived;
 
-        /** @psalm-suppress InaccessibleProperty $this->pending is an ArrayObject */
+        /** @psalm-suppress InaccessibleProperty, InvalidArgument $this->pending is an ArrayObject */
         $this->pending[$id] = new class($this->pending, $id, $deferred, $question, $timeout, $invalidPacketsReceived) {
             private readonly string $callbackId;
 

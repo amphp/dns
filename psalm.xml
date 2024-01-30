@@ -40,6 +40,12 @@
             </errorLevel>
         </MissingClosureReturnType>
 
+        <RiskyTruthyFalsyComparison>
+            <errorLevel type="suppress">
+                <directory name="src" />
+            </errorLevel>
+        </RiskyTruthyFalsyComparison>
+
         <UnsupportedPropertyReferenceUsage>
             <errorLevel type="suppress">
                 <directory name="src" />
