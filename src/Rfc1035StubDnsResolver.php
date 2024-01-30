@@ -374,7 +374,7 @@ final class Rfc1035StubDnsResolver implements DnsResolver
                 }
 
                 throw new DnsTimeoutException(\sprintf(
-                    "No response for '%s' (%s) from any nameserver within %d ms after %d attempts, tried %s",
+                    "No response for '%s' (%s) from any nameserver within %d seconds after %d attempts, tried %s",
                     $name,
                     DnsRecord::getName($type),
                     $this->config->getTimeout(),

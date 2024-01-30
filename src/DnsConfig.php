@@ -8,7 +8,7 @@ final class DnsConfig
 
     private array $knownHosts;
 
-    private float $timeout = 3;
+    private float $timeout = 3; // seconds.
 
     private int $attempts = 2;
 
