@@ -6,6 +6,7 @@ use Amp\ForbidCloning;
 use Amp\ForbidSerialization;
 use Amp\Process\Process;
 use function Amp\ByteStream\buffer;
+use function Amp\ByteStream\splitLines;
 
 final class WindowsDnsConfigLoader implements DnsConfigLoader
 {
@@ -19,15 +20,20 @@ final class WindowsDnsConfigLoader implements DnsConfigLoader
 
     public function loadConfig(): DnsConfig
     {
-        $wmic = Process::start(['wmic', 'NICCONFIG', 'GET', 'DNSServerSearchOrder']);
+        $powershell = Process::start([
+            'powershell',
+            '-Command',
+            'Get-WmiObject -Class Win32_NetworkAdapterConfiguration |
+                Select-Object -ExpandProperty DNSServerSearchOrder',
+        ]);
 
-        if ($wmic->join() !== 0) {
-            throw new DnsConfigException("Could not fetch DNS servers from WMI: " . buffer($wmic->getStderr()));
+        if ($powershell->join() !== 0) {
+            throw new DnsConfigException("Could not fetch DNS servers from WMI: " . buffer($powershell->getStderr()));
         }
 
-        $ips = self::parseWmicOutput(buffer($wmic->getStdout()));
+        $output = \iterator_to_array(splitLines($powershell->getStdout()));
 
-        $nameservers = \array_reduce($ips, static function (array $nameservers, string $address): array {
+        $nameservers = \array_reduce($output, static function (array $nameservers, string $address): array {
             $ip = \inet_pton($address);
 
             if (isset($ip[15])) { // IPv6
@@ -42,29 +48,5 @@ final class WindowsDnsConfigLoader implements DnsConfigLoader
         $hosts = $this->hostLoader->loadHosts();
 
         return new DnsConfig($nameservers, $hosts);
-    }
-
-    private static function parseWmicOutput(string $output): array
-    {
-        // Massage WMIC output into JSON format.
-        $json = \preg_replace(
-            [
-                // Convert header line into opening bracket.
-                '[^\V*\v+]',
-                // Convert closing braces into commas.
-                '[}]',
-                // Remove final comma.
-                '[,(?=[^,]*+$)]',
-                // Removing opening braces.
-                '[{]',
-            ],
-            [
-                '[',
-                ',',
-            ],
-            $output,
-        );
-
-        return \json_decode("$json]", true, flags: \JSON_THROW_ON_ERROR);
     }
 }
