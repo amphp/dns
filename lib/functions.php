@@ -14,7 +14,7 @@ const LOOP_STATE_IDENTIFIER = Resolver::class;
  *
  * @return \Amp\Dns\Resolver Returns the application-wide dns resolver instance
  */
-function resolver(Resolver $resolver = null): Resolver
+function resolver(?Resolver $resolver = null): Resolver
 {
     if ($resolver === null) {
         $resolver = Loop::getState(LOOP_STATE_IDENTIFIER);
@@ -44,7 +44,7 @@ function createDefaultResolver(): Resolver
 /**
  * @see Resolver::resolve()
  */
-function resolve(string $name, int $typeRestriction = null): Promise
+function resolve(string $name, ?int $typeRestriction = null): Promise
 {
     return resolver()->resolve($name, $typeRestriction);
 }

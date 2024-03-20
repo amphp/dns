@@ -29,7 +29,7 @@ class UnixConfigLoader implements ConfigLoader
     private $path;
     private $hostLoader;
 
-    public function __construct(string $path = "/etc/resolv.conf", HostLoader $hostLoader = null)
+    public function __construct(string $path = "/etc/resolv.conf", ?HostLoader $hostLoader = null)
     {
         $this->path = $path;
         $this->hostLoader = $hostLoader ?? new HostLoader;

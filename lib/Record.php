@@ -60,7 +60,7 @@ final class Record
     private $type;
     private $ttl;
 
-    public function __construct(string $value, int $type, int $ttl = null)
+    public function __construct(string $value, int $type, ?int $ttl = null)
     {
         $this->value = $value;
         $this->type = $type;
