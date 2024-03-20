@@ -18,7 +18,7 @@ interface Resolver
      *
      * @return Promise
      */
-    public function resolve(string $name, int $typeRestriction = null): Promise;
+    public function resolve(string $name, ?int $typeRestriction = null): Promise;
 
     /**
      * Query specific DNS records.

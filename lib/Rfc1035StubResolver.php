@@ -58,7 +58,7 @@ final class Rfc1035StubResolver implements Resolver
     /** @var int */
     private $nextNameserver = 0;
 
-    public function __construct(Cache $cache = null, ConfigLoader $configLoader = null)
+    public function __construct(?Cache $cache = null, ?ConfigLoader $configLoader = null)
     {
         $this->cache = $cache ?? new ArrayCache(5000 /* default gc interval */, 256 /* size */);
         $this->configLoader = $configLoader ?? (\stripos(PHP_OS, "win") === 0
@@ -93,7 +93,7 @@ final class Rfc1035StubResolver implements Resolver
     }
 
     /** @inheritdoc */
-    public function resolve(string $name, int $typeRestriction = null): Promise
+    public function resolve(string $name, ?int $typeRestriction = null): Promise
     {
         if ($typeRestriction !== null && $typeRestriction !== Record::A && $typeRestriction !== Record::AAAA) {
             throw new \Error("Invalid value for parameter 2: null|Record::A|Record::AAAA expected");
@@ -414,7 +414,7 @@ final class Rfc1035StubResolver implements Resolver
         return $promise;
     }
 
-    private function queryHosts(string $name, int $typeRestriction = null): array
+    private function queryHosts(string $name, ?int $typeRestriction = null): array
     {
         $hosts = $this->config->getKnownHosts();
         $records = [];

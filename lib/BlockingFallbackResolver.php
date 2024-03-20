@@ -8,7 +8,7 @@ use Amp\Success;
 
 class BlockingFallbackResolver implements Resolver
 {
-    public function resolve(string $name, int $typeRestriction = null): Promise
+    public function resolve(string $name, ?int $typeRestriction = null): Promise
     {
         if (!\in_array($typeRestriction, [Record::A, null], true)) {
             return new Failure(new DnsException("Query for '{$name}' failed, because loading the system's DNS configuration failed and querying records other than A records isn't supported in blocking fallback mode."));

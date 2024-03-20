@@ -81,7 +81,7 @@ abstract class Socket
         $this->messageFactory = new MessageFactory;
         $this->lastActivity = \time();
 
-        $this->onResolve = function (\Throwable $exception = null, Message $message = null) {
+        $this->onResolve = function (?\Throwable $exception = null, ?Message $message = null) {
             $this->lastActivity = \time();
             $this->receiving = false;
 
