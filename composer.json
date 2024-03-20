@@ -34,7 +34,7 @@
         }
     ],
     "require": {
-        "php": ">=7.0",
+        "php": ">=7.1",
         "ext-json": "*",
         "amphp/amp": "^2",
         "amphp/byte-stream": "^1.1",
