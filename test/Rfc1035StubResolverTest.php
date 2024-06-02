@@ -23,7 +23,6 @@ class Rfc1035StubResolverTest extends AsyncTestCase
         $this->cacheTrainer = new DnsCacheTrainer($this);
     }
 
-
     public function testResolveSecondParameterAcceptedValues(): void
     {
         $this->expectException(\Error::class);
