@@ -148,11 +148,12 @@ final class Rfc1035StubDnsResolver implements DnsResolver
 
         foreach ($searchList as $searchIndex => $search) {
             for ($redirects = 0; $redirects < 5; $redirects++) {
-                $searchName = $name;
 
-                if ($search !== null) {
-                    $searchName = $name . "." . $search;
-                }
+                $searchName = match ($search) {
+                    null => $name,
+                    "." => $name . ".",
+                    default => $name . "." . $search,
+                };
 
                 try {
                     /** @var non-empty-list<non-empty-list<DnsRecord>> $records */
