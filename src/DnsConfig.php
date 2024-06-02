@@ -49,7 +49,9 @@ final class DnsConfig
     public function withSearchList(array $searchList): self
     {
         $self = clone $this;
-        $self->searchList = $searchList;
+
+        // Replace null with '.' for backward compatibility
+        $self->searchList = \array_map(fn ($search) => $search ?? '.', $searchList);
 
         return $self;
     }

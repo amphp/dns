@@ -139,20 +139,23 @@ final class Rfc1035StubDnsResolver implements DnsResolver
 
         \assert($this->config !== null);
 
-        $searchList = [null];
+        $searchList = ['.'];
         if (!$trailingDot && $dots < $this->config->getNdots()) {
-            $searchList = \array_merge($this->config->getSearchList(), $searchList);
+            $configuredSearchList = $this->config->getSearchList();
+            if (\in_array('.', $configuredSearchList, true)) {
+                $searchList = $configuredSearchList;
+            } else {
+                $searchList = \array_merge($configuredSearchList, $searchList);
+            }
         }
 
         $sendQuery = $this->query(...);
 
         foreach ($searchList as $searchIndex => $search) {
             for ($redirects = 0; $redirects < 5; $redirects++) {
-
                 $searchName = match ($search) {
-                    null => $name,
-                    "." => $name . ".",
-                    default => $name . "." . $search,
+                    '.' => \rtrim($name, '.') . '.',
+                    default => $name . '.' . $search,
                 };
 
                 try {
