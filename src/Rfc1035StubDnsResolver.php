@@ -154,7 +154,7 @@ final class Rfc1035StubDnsResolver implements DnsResolver
         foreach ($searchList as $searchIndex => $search) {
             for ($redirects = 0; $redirects < 5; $redirects++) {
                 $searchName = match ($search) {
-                    '.' => \rtrim($name, '.') . '.',
+                    '.' => $name,
                     default => $name . '.' . $search,
                 };
 
