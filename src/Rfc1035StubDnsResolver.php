@@ -190,13 +190,15 @@ final class Rfc1035StubDnsResolver implements DnsResolver
                     }
 
                     return \array_merge(...$records);
-                } catch (MissingDnsRecordException) {
-                    $alias = $this->searchForAliasRecord($searchName, $cancellation);
-                    if ($alias !== null) {
-                        $name = $alias;
-                    }
-                    continue;
                 } catch (DnsException $e) {
+                    if ($e instanceof MissingDnsRecordException) {
+                        $alias = $this->searchForAliasRecord($searchName, $cancellation);
+                        if ($alias !== null) {
+                            $name = $alias;
+                            continue;
+                        }
+                    }
+
                     if ($searchIndex < \count($searchList) - 1 && $this->shouldRetry($e->getCode())) {
                         continue 2;
                     }
