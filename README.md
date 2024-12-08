@@ -1,6 +1,5 @@
 # dns
 
-[![Build Status](https://img.shields.io/github/workflow/status/amphp/dns/Continuous%20Integration?style=flat-square)](https://github.com/amphp/dns/actions)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](./LICENSE)
 
 `amphp/dns` provides asynchronous DNS resolution for PHP based on [Amp](https://github.com/amphp/amp).
