@@ -7,6 +7,7 @@ use Amp\Dns\DnsConfig;
 use Amp\Dns\DnsException;
 use Amp\Dns\DnsRecord;
 use Amp\Dns\InvalidNameException;
+use Amp\Dns\MissingDnsRecordException;
 use Amp\Dns\Rfc1035StubDnsResolver;
 use Amp\Dns\StaticDnsConfigLoader;
 use Amp\PHPUnit\AsyncTestCase;
@@ -93,6 +94,16 @@ class Rfc1035StubResolverTest extends AsyncTestCase
             ['get', 'amphp.dns.foo.bar#1'],
             ['get', 'amphp.dns.foo.bar#28'],
         ], $this->cacheTrainer->getOperations());
+    }
+
+    public function testNonExistingDomain(): void
+    {
+        $this->dnsConfig = new DnsConfig(['8.8.8.8:53']);
+
+        $this->expectException(MissingDnsRecordException::class);
+        $this->expectExceptionMessage('No records returned for');
+
+        $this->whenResolve('not.existing.domain.com');
     }
 
     private function whenResolve(string $name, ?int $typeRestriction = null, ?Cancellation $cancellation = null): void
