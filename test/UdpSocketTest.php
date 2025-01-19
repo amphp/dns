@@ -28,7 +28,7 @@ class UdpSocketTest extends SocketTest
         $socket = Dns\Internal\UdpSocket::connect('udp://' . \stream_socket_get_name($server, false));
 
         $this->expectException(Dns\DnsTimeoutException::class);
-        $this->expectErrorMessage("Didn't receive a response within 1 seconds, but received 1 invalid packets on this socket");
+        $this->expectExceptionMessage("Didn't receive a response within 1 seconds, but received 1 invalid packets on this socket");
 
         $socket->ask($question, 1);
     }

@@ -12,7 +12,7 @@ use Revolt\EventLoop;
  *
  * @return DnsResolver Returns the application-wide DNS resolver instance
  */
-function dnsResolver(DnsResolver $dnsResolver = null): DnsResolver
+function dnsResolver(?DnsResolver $dnsResolver = null): DnsResolver
 {
     static $map;
     $map ??= new \WeakMap();
@@ -38,7 +38,7 @@ function createDefaultResolver(): DnsResolver
  *@see DnsResolver::resolve()
  *
  */
-function resolve(string $name, int $typeRestriction = null, ?Cancellation $cancellation = null): array
+function resolve(string $name, ?int $typeRestriction = null, ?Cancellation $cancellation = null): array
 {
     return dnsResolver()->resolve($name, $typeRestriction, $cancellation);
 }
