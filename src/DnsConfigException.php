@@ -4,6 +4,8 @@ namespace Amp\Dns;
 
 /**
  * MUST be thrown in case the config can't be read and no fallback is available.
+ *
+ * @psalm-suppress ClassMustBeFinal
  */
 class DnsConfigException extends DnsException
 {

@@ -7,19 +7,24 @@ use Amp\Dns;
 print "Downloading top 500 domains..." . PHP_EOL;
 
 $domains = file_get_contents("https://moz.com/top-500/download?table=top500Domains");
-$domains = array_map(function ($line) {
-    return trim(explode(",", $line)[1], '"/');
-}, array_filter(explode("\n", $domains)));
+if ($domains === false) {
+    throw new \RuntimeException("Failed to download top 500 domains");
+}
+
+$domains = array_map(
+    fn (string $line) => trim(explode(",", $line)[1], '"/'),
+    array_filter(explode("\n", $domains)),
+);
 
 // Remove "URL" header
 array_shift($domains);
 
-print "Starting sequential queries...\r\n\r\n";
+print "Starting sequential queries..." . PHP_EOL . PHP_EOL;
 
 $timings = [];
 
 for ($i = 0; $i < 10; $i++) {
-    $start = microtime(1);
+    $start = microtime(true);
     $domain = $domains[random_int(0, count($domains) - 1)];
 
     try {
@@ -28,12 +33,10 @@ for ($i = 0; $i < 10; $i++) {
         pretty_print_error($domain, $e);
     }
 
-    $time = round(microtime(1) - $start, 2);
+    $time = microtime(true) - $start;
     $timings[] = $time;
 
-    printf("%'-74s\r\n\r\n", " in " . $time . " ms");
+    printf("in %.5f ms" . PHP_EOL . PHP_EOL, $time);
 }
 
-$averageTime = array_sum($timings) / count($timings);
-
-print "{$averageTime} ms for an average query." . PHP_EOL;
+printf("%.5f ms for an average query.", array_sum($timings) / (float) count($timings)) . PHP_EOL;

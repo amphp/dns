@@ -59,6 +59,7 @@ final class UnixDnsConfigLoader implements DnsConfigLoader
 
         foreach ($lines as $line) {
             $line = \preg_split('#\s+#', $line, 2);
+            \assert(\is_array($line)); // For Psalm.
 
             if (\count($line) !== 2) {
                 continue;
@@ -98,6 +99,10 @@ final class UnixDnsConfigLoader implements DnsConfigLoader
 
         if (\count($searchList) === 0) {
             $hostname = \gethostname();
+            if ($hostname === false) {
+                throw new DnsConfigException("Could not determine hostname");
+            }
+
             $dot = \strpos($hostname, ".");
             if ($dot !== false && $dot < \strlen($hostname)) {
                 $searchList = [
@@ -141,15 +146,22 @@ final class UnixDnsConfigLoader implements DnsConfigLoader
 
         try {
             // Blocking file access, but this file should be local and usually loaded only once.
-            return \file_get_contents($path);
+            $contents = \file_get_contents($path);
         } finally {
             \restore_error_handler();
         }
+
+        \assert(\is_string($contents)); // For Psalm, the error handler will throw for a false return case.
+
+        return $contents;
     }
 
     private function splitOnWhitespace(string $names): array
     {
-        return \preg_split("#\s+#", \trim($names));
+        $result = \preg_split("#\s+#", \trim($names));
+        \assert(\is_array($result)); // For Psalm.
+
+        return $result;
     }
 
     private function parseOption(string $option): array

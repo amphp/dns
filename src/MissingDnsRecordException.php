@@ -2,6 +2,9 @@
 
 namespace Amp\Dns;
 
+/**
+ * @psalm-suppress ClassMustBeFinal
+ */
 class MissingDnsRecordException extends DnsException
 {
 }

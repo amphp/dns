@@ -5,6 +5,7 @@ require __DIR__ . "/_bootstrap.php";
 use Amp\Dns;
 
 $customConfigLoader = new class implements Dns\DnsConfigLoader {
+    #[\Override]
     public function loadConfig(): Dns\DnsConfig
     {
         $hosts = (new Dns\HostLoader)->loadHosts();
@@ -12,7 +13,7 @@ $customConfigLoader = new class implements Dns\DnsConfigLoader {
         return new Dns\DnsConfig([
             "8.8.8.8:53",
             "[2001:4860:4860::8888]:53",
-        ], $hosts, 5, 3);
+        ], $hosts);
     }
 };
 

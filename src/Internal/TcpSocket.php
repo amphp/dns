@@ -52,6 +52,7 @@ final class TcpSocket extends Socket
         while (true) {
             /** @var string $length */
             $length = yield 2;
+            /** @psalm-suppress PossiblyInvalidArrayAccess */
             $length = \unpack("n", $length)[1];
 
             $rawData = yield $length;

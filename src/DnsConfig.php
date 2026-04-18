@@ -145,6 +145,7 @@ final class DnsConfig
     {
         if ($nameserver[0] === "[") { // IPv6
             $addr = \strstr(\substr($nameserver, 1), "]", true);
+            \assert($addr !== false); // For Psalm.
             $addrEnd = \strrpos($nameserver, "]");
             if ($addrEnd === false) {
                 throw new DnsConfigException("Invalid nameserver: $nameserver");

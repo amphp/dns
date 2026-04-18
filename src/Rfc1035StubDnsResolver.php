@@ -77,7 +77,7 @@ final class Rfc1035StubDnsResolver implements DnsResolver
 
             $now = now();
             foreach ($sockets as $key => $server) {
-                if ($server->getLastActivity() < $now - 60) {
+                if ($server->getLastActivity() < $now - 60.0) {
                     $server->close();
                     unset($sockets[$key]);
                 }
@@ -160,7 +160,6 @@ final class Rfc1035StubDnsResolver implements DnsResolver
                 };
 
                 try {
-                    /** @var non-empty-list<non-empty-list<DnsRecord>> $records */
                     [$exceptions, $records] = Future\awaitAll(\array_map(
                         static fn (int $recordType) => async($sendQuery, $searchName, $recordType, $cancellation),
                         $recordTypes,
@@ -190,6 +189,7 @@ final class Rfc1035StubDnsResolver implements DnsResolver
                         );
                     }
 
+                    /** @var non-empty-list<non-empty-list<DnsRecord>> $records */
                     return \array_merge(...$records);
                 } catch (DnsException $e) {
                     if ($e instanceof MissingDnsRecordException) {
@@ -437,6 +437,7 @@ final class Rfc1035StubDnsResolver implements DnsResolver
                 if (isset($packedIp[4])) { // IPv6
                     $name = \wordwrap(\strrev(\bin2hex($packedIp)), 1, ".", true) . ".ip6.arpa";
                 } else { // IPv4
+                    /** @psalm-suppress PossiblyFalseOperand */
                     $name = \inet_ntop(\strrev($packedIp)) . ".in-addr.arpa";
                 }
             }

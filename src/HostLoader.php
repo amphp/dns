@@ -35,6 +35,7 @@ final class HostLoader
             }
 
             $parts = \preg_split('/\s+/', $line);
+            \assert(\is_array($parts)); // For Psalm.
 
             if (!($ip = \inet_pton($parts[0]))) {
                 continue;
@@ -67,10 +68,14 @@ final class HostLoader
 
         try {
             // Blocking file access, but this file should be local and usually loaded only once.
-            return \file_get_contents($path);
+            $contents = \file_get_contents($path);
         } finally {
             \restore_error_handler();
         }
+
+        \assert(\is_string($contents)); // For Psalm, the error handler will throw for a false return case.
+
+        return $contents;
     }
 
     private function getDefaultPath(): string

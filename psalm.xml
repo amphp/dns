@@ -6,39 +6,25 @@
         xsi:schemaLocation="https://getpsalm.org/schema/config https://getpsalm.org/schema/config"
 >
     <projectFiles>
-        <directory name="src" />
+        <directory name="examples"/>
+        <directory name="src"/>
+        <ignoreFiles>
+            <directory name="vendor"/>
+        </ignoreFiles>
     </projectFiles>
 
     <issueHandlers>
-        <StringIncrement>
+        <PossiblyUnusedMethod>
             <errorLevel type="suppress">
                 <directory name="src" />
             </errorLevel>
-        </StringIncrement>
+        </PossiblyUnusedMethod>
 
-        <RedundantConditionGivenDocblockType>
+        <PossiblyUnusedReturnValue>
             <errorLevel type="suppress">
                 <directory name="src" />
             </errorLevel>
-        </RedundantConditionGivenDocblockType>
-
-        <DocblockTypeContradiction>
-            <errorLevel type="suppress">
-                <directory name="src" />
-            </errorLevel>
-        </DocblockTypeContradiction>
-
-        <MissingClosureParamType>
-            <errorLevel type="suppress">
-                <directory name="src" />
-            </errorLevel>
-        </MissingClosureParamType>
-
-        <MissingClosureReturnType>
-            <errorLevel type="suppress">
-                <directory name="src" />
-            </errorLevel>
-        </MissingClosureReturnType>
+        </PossiblyUnusedReturnValue>
 
         <RiskyTruthyFalsyComparison>
             <errorLevel type="suppress">
@@ -51,5 +37,11 @@
                 <directory name="src" />
             </errorLevel>
         </UnsupportedPropertyReferenceUsage>
+
+        <UnusedClass>
+            <errorLevel type="suppress">
+                <directory name="src" />
+            </errorLevel>
+        </UnusedClass>
     </issueHandlers>
 </psalm>
