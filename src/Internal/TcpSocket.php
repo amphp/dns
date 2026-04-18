@@ -21,6 +21,7 @@ final class TcpSocket extends Socket
      * @throws DnsTimeoutException
      * @throws DnsException
      */
+    #[\Override]
     public static function connect(string $uri, float $timeout = 5): self
     {
         $socket = self::openSocket($uri);
@@ -75,11 +76,13 @@ final class TcpSocket extends Socket
         $this->parser = new Parser(self::parser([$this->queue, 'push']));
     }
 
+    #[\Override]
     public function isAlive(): bool
     {
         return $this->isAlive;
     }
 
+    #[\Override]
     protected function send(Message $message): void
     {
         $data = $this->encoder->encode($message);
@@ -91,6 +94,7 @@ final class TcpSocket extends Socket
         }
     }
 
+    #[\Override]
     protected function receive(): Message
     {
         while ($this->queue->isEmpty()) {

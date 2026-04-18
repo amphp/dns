@@ -34,6 +34,7 @@ final class UnixDnsConfigLoader implements DnsConfigLoader
     ) {
     }
 
+    #[\Override]
     public function loadConfig(): DnsConfig
     {
         $nameservers = [];

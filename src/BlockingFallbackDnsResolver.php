@@ -11,6 +11,7 @@ final class BlockingFallbackDnsResolver implements DnsResolver
     use ForbidCloning;
     use ForbidSerialization;
 
+    #[\Override]
     public function resolve(string $name, ?int $typeRestriction = null, ?Cancellation $cancellation = null): array
     {
         if (!\in_array($typeRestriction, [DnsRecord::A, null], true)) {
@@ -20,6 +21,7 @@ final class BlockingFallbackDnsResolver implements DnsResolver
         return $this->query($name, DnsRecord::A);
     }
 
+    #[\Override]
     public function query(string $name, int $type, ?Cancellation $cancellation = null): array
     {
         if ($type !== DnsRecord::A) {

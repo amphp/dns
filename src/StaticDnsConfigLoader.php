@@ -15,6 +15,7 @@ final class StaticDnsConfigLoader implements DnsConfigLoader
     ) {
     }
 
+    #[\Override]
     public function loadConfig(): DnsConfig
     {
         return $this->config;

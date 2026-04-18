@@ -92,6 +92,7 @@ final class Rfc1035StubDnsResolver implements DnsResolver
         EventLoop::cancel($this->gcCallbackId);
     }
 
+    #[\Override]
     public function resolve(string $name, ?int $typeRestriction = null, ?Cancellation $cancellation = null): array
     {
         $recordTypes = match ($typeRestriction) {
@@ -256,6 +257,7 @@ final class Rfc1035StubDnsResolver implements DnsResolver
         return $this->pendingConfig->await();
     }
 
+    #[\Override]
     public function query(string $name, int $type, ?Cancellation $cancellation = null): array
     {
         $pendingQueryKey = $type . " " . $name;

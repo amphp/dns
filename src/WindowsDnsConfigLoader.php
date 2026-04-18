@@ -18,6 +18,7 @@ final class WindowsDnsConfigLoader implements DnsConfigLoader
     ) {
     }
 
+    #[\Override]
     public function loadConfig(): DnsConfig
     {
         $powershell = Process::start([

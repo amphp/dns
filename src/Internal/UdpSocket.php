@@ -15,6 +15,7 @@ final class UdpSocket extends Socket
     /**
      * @throws DnsException
      */
+    #[\Override]
     public static function connect(string $uri): self
     {
         return new self(self::openSocket($uri));
@@ -34,17 +35,20 @@ final class UdpSocket extends Socket
         $this->decoder = (new DecoderFactory)->create();
     }
 
+    #[\Override]
     public function isAlive(): bool
     {
         return true;
     }
 
+    #[\Override]
     protected function send(Message $message): void
     {
         $data = $this->encoder->encode($message);
         $this->write($data);
     }
 
+    #[\Override]
     protected function receive(): Message
     {
         while (true) {
