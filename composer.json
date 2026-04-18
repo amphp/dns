@@ -49,7 +49,7 @@
         "amphp/phpunit-util": "^3",
         "phpunit/phpunit": "^9",
         "amphp/php-cs-fixer-config": "^2",
-        "psalm/phar": "5.20"
+        "psalm/phar": "6.16.1"
     },
     "autoload": {
         "psr-4": {
