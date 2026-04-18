@@ -353,7 +353,7 @@ final class Rfc1035StubDnsResolver implements DnsResolver
                     /** @var \LibDNS\Records\Resource $record */
                     foreach ($answers as $record) {
                         $recordType = $record->getType();
-                        $result[$recordType][] = (string)$record->getData();
+                        $result[$recordType][] = (string) $record->getData();
 
                         // Cache for max one day
                         $ttls[$recordType] = \min($ttls[$recordType] ?? 86400, $record->getTTL());
@@ -363,7 +363,7 @@ final class Rfc1035StubDnsResolver implements DnsResolver
                         // We don't care here whether storing in the cache fails
                         $this->cache->set(
                             $this->getCacheKey($name, $recordType),
-                            \array_map(static fn(string $record) => [
+                            \array_map(static fn (string $record) => [
                                 $record,
                                 $recordType,
                             ], $records),
