@@ -24,6 +24,17 @@ class HostLoaderTest extends AsyncTestCase
         self::assertSame([], $loader->loadHosts());
     }
 
+    public function testStripsInlineComments(): void
+    {
+        $loader = new HostLoader(__DIR__ . "/data/hosts.inline.comment");
+        self::assertSame([
+            DnsRecord::A => [
+                "localhost" => "127.0.0.1",
+                "realhost" => "192.168.1.1",
+            ],
+        ], $loader->loadHosts());
+    }
+
     public function testIgnoresInvalidNames(): void
     {
         $loader = new HostLoader(__DIR__ . "/data/hosts.invalid.name");
