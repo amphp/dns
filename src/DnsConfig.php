@@ -143,6 +143,10 @@ final class DnsConfig
      */
     private function validateNameserver(string $nameserver): void
     {
+        if ($nameserver === "") {
+            throw new DnsConfigException("Invalid nameserver: empty string");
+        }
+
         if ($nameserver[0] === "[") { // IPv6
             $addrEnd = \strrpos($nameserver, "]");
             if ($addrEnd === false) {

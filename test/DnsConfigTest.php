@@ -43,6 +43,7 @@ class DnsConfigTest extends AsyncTestCase
     {
         return [
             [[]],
+            [[""]],
             [["foobar"]],
             [["foobar.com"]],
             [["127.1.1"]],
