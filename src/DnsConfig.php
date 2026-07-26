@@ -144,13 +144,12 @@ final class DnsConfig
     private function validateNameserver(string $nameserver): void
     {
         if ($nameserver[0] === "[") { // IPv6
-            $addr = \strstr(\substr($nameserver, 1), "]", true);
-            \assert($addr !== false); // For Psalm.
             $addrEnd = \strrpos($nameserver, "]");
             if ($addrEnd === false) {
                 throw new DnsConfigException("Invalid nameserver: $nameserver");
             }
 
+            $addr = \substr($nameserver, 1, $addrEnd - 1);
             $port = \substr($nameserver, $addrEnd + 1);
 
             if ($port !== "" && !\preg_match("(^:(\\d+)$)", $port)) {
