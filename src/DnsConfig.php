@@ -27,8 +27,8 @@ final class DnsConfig
             throw new DnsConfigException("At least one nameserver is required for a valid config");
         }
 
-        foreach ($nameservers as $nameserver) {
-            $this->validateNameserver($nameserver);
+        foreach ($nameservers as $key => $nameserver) {
+            $nameservers[$key] = $this->normalizeNameserver($nameserver);
         }
 
         // Windows does not include localhost in its host file. Fetch it from the system instead
@@ -141,13 +141,15 @@ final class DnsConfig
     /**
      * @throws DnsConfigException
      */
-    private function validateNameserver(string $nameserver): void
+    private function normalizeNameserver(string $nameserver): string
     {
         if ($nameserver === "") {
             throw new DnsConfigException("Invalid nameserver: empty string");
         }
 
-        if ($nameserver[0] === "[") { // IPv6
+        $isIpv6 = $nameserver[0] === "[";
+
+        if ($isIpv6) {
             $addrEnd = \strrpos($nameserver, "]");
             if ($addrEnd === false) {
                 throw new DnsConfigException("Invalid nameserver: $nameserver");
@@ -161,11 +163,15 @@ final class DnsConfig
             }
 
             $port = $port === "" ? 53 : \substr($port, 1);
-        } else { // IPv4
+        } else {
             $arr = \explode(":", $nameserver, 2);
 
             if (\count($arr) === 2) {
                 [$addr, $port] = $arr;
+
+                if (!\preg_match("(^\\d+$)", $port)) {
+                    throw new DnsConfigException("Invalid nameserver: $nameserver");
+                }
             } else {
                 $addr = $arr[0];
                 $port = 53;
@@ -182,5 +188,7 @@ final class DnsConfig
         if ($port < 1 || $port > 65535) {
             throw new DnsConfigException("Invalid server port: $port");
         }
+
+        return $isIpv6 ? "[$addr]:$port" : "$addr:$port";
     }
 }
