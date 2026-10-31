@@ -4,7 +4,7 @@ namespace Amp\Dns\Internal;
 
 use Amp;
 use Amp\Deferred;
-use Amp\Dns\DnsException;
+use Amp\Dns\SocketException;
 use Amp\Dns\TimeoutException;
 use Amp\Loop;
 use Amp\Parser\Parser;
@@ -33,7 +33,7 @@ final class TcpSocket extends Socket
     public static function connect(string $uri, int $timeout = 5000): Promise
     {
         if (!$socket = @\stream_socket_client($uri, $errno, $errstr, 0, STREAM_CLIENT_ASYNC_CONNECT)) {
-            throw new DnsException(\sprintf(
+            throw new SocketException(\sprintf(
                 "Connection to %s failed: [Error #%d] %s",
                 $uri,
                 $errno,
@@ -104,7 +104,7 @@ final class TcpSocket extends Socket
 
                     if ($chunk === null) {
                         $this->isAlive = false;
-                        throw new DnsException("Reading from the server failed");
+                        throw new SocketException("Reading from the server failed");
                     }
 
                     $this->parser->push($chunk);
