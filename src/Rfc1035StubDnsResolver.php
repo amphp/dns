@@ -381,7 +381,7 @@ final class Rfc1035StubDnsResolver implements DnsResolver
                 return \array_map(static function ($data) use ($type, $ttls) {
                     return new DnsRecord($data, $type, $ttls[$type]);
                 }, $result[$type]);
-            } catch (DnsTimeoutException) {
+            } catch (DnsSocketException) {
                 unset($this->sockets[$uri]);
                 $socket->close();
 

@@ -2,13 +2,13 @@
 
 namespace Amp\Dns\Internal;
 
-use Amp\ByteStream\ClosedException;
 use Amp\ByteStream\ReadableResourceStream;
 use Amp\ByteStream\StreamException;
 use Amp\ByteStream\WritableResourceStream;
 use Amp\Cancellation;
 use Amp\DeferredFuture;
 use Amp\Dns\DnsException;
+use Amp\Dns\DnsSocketException;
 use Amp\Dns\DnsTimeoutException;
 use Amp\ForbidCloning;
 use Amp\ForbidSerialization;
@@ -67,7 +67,7 @@ abstract class Socket
         }
 
         if (!$socket) {
-            throw new DnsException(\sprintf(
+            throw new DnsSocketException(\sprintf(
                 'Connection to %s failed: (Error #%d) %s',
                 $uri,
                 $errno,
@@ -210,7 +210,7 @@ abstract class Socket
         try {
             $this->send($message);
         } catch (StreamException $exception) {
-            $exception = new DnsException("Sending the request failed", 0, $exception);
+            $exception = new DnsSocketException("Sending the request failed", 0, $exception);
             $this->handleError($exception);
             throw $exception;
         }
@@ -241,7 +241,7 @@ abstract class Socket
 
     final public function close(): void
     {
-        $this->handleError(new ClosedException('Socket has been closed'));
+        $this->handleError(new DnsSocketException('Socket has been closed'));
     }
 
     /**
@@ -250,7 +250,7 @@ abstract class Socket
     abstract protected function send(Message $message): void;
 
     /**
-     * @throws DnsException
+     * @throws DnsSocketException
      */
     abstract protected function receive(): Message;
 
@@ -260,7 +260,7 @@ abstract class Socket
     }
 
     /**
-     * @throws ClosedException
+     * @throws StreamException
      */
     final protected function write(string $data): void
     {
@@ -284,7 +284,7 @@ abstract class Socket
 
         if (!$exception instanceof DnsException) {
             $message = "Unexpected error during resolution: " . $exception->getMessage();
-            $exception = new DnsException($message, 0, $exception);
+            $exception = new DnsSocketException($message, 0, $exception);
         }
 
         foreach ($this->pending as $id => $pendingQuestion) {

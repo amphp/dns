@@ -5,6 +5,6 @@ namespace Amp\Dns;
 /**
  * @psalm-suppress ClassMustBeFinal
  */
-class DnsTimeoutException extends DnsException
+class DnsTimeoutException extends DnsSocketException
 {
 }

@@ -2,7 +2,7 @@
 
 namespace Amp\Dns\Internal;
 
-use Amp\Dns\DnsException;
+use Amp\Dns\DnsSocketException;
 use LibDNS\Decoder\Decoder;
 use LibDNS\Decoder\DecoderFactory;
 use LibDNS\Encoder\Encoder;
@@ -13,7 +13,7 @@ use LibDNS\Messages\Message;
 final class UdpSocket extends Socket
 {
     /**
-     * @throws DnsException
+     * @throws DnsSocketException
      */
     #[\Override]
     public static function connect(string $uri): self
@@ -55,7 +55,7 @@ final class UdpSocket extends Socket
             $data = $this->read();
 
             if ($data === null) {
-                throw new DnsException("Reading from the server failed");
+                throw new DnsSocketException("Reading from the server failed");
             }
 
             try {

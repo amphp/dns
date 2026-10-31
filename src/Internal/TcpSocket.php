@@ -5,6 +5,7 @@ namespace Amp\Dns\Internal;
 use Amp\CancelledException;
 use Amp\DeferredFuture;
 use Amp\Dns\DnsException;
+use Amp\Dns\DnsSocketException;
 use Amp\Dns\DnsTimeoutException;
 use Amp\Parser\Parser;
 use Amp\TimeoutCancellation;
@@ -103,7 +104,7 @@ final class TcpSocket extends Socket
 
             if ($chunk === null) {
                 $this->isAlive = false;
-                throw new DnsException("Reading from the server failed");
+                throw new DnsSocketException("Reading from the server failed");
             }
 
             $this->parser->push($chunk);
