@@ -126,7 +126,7 @@ class IntegrationTest extends AsyncTestCase
     public function testResolveWithSearchListAndNDots(): void
     {
         $config = $this->loadConfig();
-        $config = $config->withSearchList(['k8s.svc.cluster.local', 'docker.internal']);
+        $config = $config->withSearchList(['k8s.svc.cluster.unknown', 'docker.internal']);
         $config = $config->withNdots(5);
 
         $configLoader = $this->createMockConfigLoader($config);
