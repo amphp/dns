@@ -190,17 +190,13 @@ abstract class Socket
 
     final public function close()
     {
-        $this->input->close();
-        $this->output->close();
+        $this->error(new SocketException('Socket has been closed'));
     }
 
     private function error(\Throwable $exception)
     {
-        $this->close();
-
-        if (empty($this->pending)) {
-            return;
-        }
+        $this->input->close();
+        $this->output->close();
 
         if (!$exception instanceof DnsException) {
             $message = "Unexpected error during resolution: " . $exception->getMessage();
@@ -213,6 +209,14 @@ abstract class Socket
         foreach ($pending as $pendingQuestion) {
             /** @var Deferred $deferred */
             $deferred = $pendingQuestion->deferred;
+            $deferred->fail($exception);
+        }
+
+        $queue = $this->queue;
+        $this->queue = [];
+
+        /** @var Deferred $deferred */
+        foreach ($queue as $deferred) {
             $deferred->fail($exception);
         }
     }
