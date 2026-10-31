@@ -48,6 +48,7 @@ class DnsConfigTest extends AsyncTestCase
             [["foobar.com"]],
             [["127.1.1"]],
             [["127.1.1.1.1"]],
+            [["127.1.1.1:invalid"]],
             [["126.0.0.5", "foobar"]],
             [["42"]],
             [["::1"]],
@@ -107,5 +108,22 @@ class DnsConfigTest extends AsyncTestCase
     {
         $config = new DnsConfig(["127.0.0.1"]);
         self::assertFalse($config->isRotationEnabled());
+    }
+
+    public function testNormalizesServers(): void
+    {
+        $config = new DnsConfig([
+            "127.0.0.1",
+            "127.0.0.1:5353",
+            "[::1]",
+            "[::1]:5353",
+        ]);
+
+        self::assertSame([
+            "127.0.0.1:53",
+            "127.0.0.1:5353",
+            "[::1]:53",
+            "[::1]:5353",
+        ], $config->getNameservers());
     }
 }
