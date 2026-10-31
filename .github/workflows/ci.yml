@@ -55,7 +55,7 @@ jobs:
           git config --global core.eol lf
 
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -67,7 +67,7 @@ jobs:
         run: echo "::set-output name=dir::$(composer config cache-dir)"
 
       - name: Cache dependencies
-        uses: actions/cache@v2
+        uses: actions/cache@v6
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
           key: composer-${{ runner.os }}-${{ matrix.php-version }}-${{ hashFiles('**/composer.*') }}-${{ matrix.composer-flags }}
@@ -78,14 +78,9 @@ jobs:
             composer-
 
       - name: Install dependencies
-        uses: nick-invision/retry@v2
-        with:
-          timeout_minutes: 5
-          max_attempts: 5
-          retry_wait_seconds: 30
-          command: |
-            composer update --optimize-autoloader --no-interaction --no-progress ${{ matrix.composer-flags }}
-            composer info -D
+        run: |
+          composer update --optimize-autoloader --no-interaction --no-progress ${{ matrix.composer-flags }}
+          composer info -D
 
       - name: Run tests
         run: vendor/bin/phpunit ${{ matrix.phpunit-flags }}
