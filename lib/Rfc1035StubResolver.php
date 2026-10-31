@@ -382,7 +382,7 @@ final class Rfc1035StubResolver implements Resolver
                     return \array_map(static function ($data) use ($type, $ttls) {
                         return new Record($data, $type, $ttls[$type]);
                     }, $result[$type]);
-                } catch (TimeoutException $e) {
+                } catch (SocketException $e) {
                     // Defer call, because it might interfere with the unreference() call in Internal\Socket otherwise
                     Loop::defer(function () use ($socket, $uri) {
                         unset($this->sockets[$uri]);
